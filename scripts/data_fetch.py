@@ -105,6 +105,7 @@ def update_wget_command(cmd):
     reject_list = "\"index.html*,fetch-all.sh,SHA1SUMS\"" 
 
     #set download location
+    #switch to wget2 for >bigger files, leave for now to cause it to break 
     back_of_cmd = cmd[cmd.index("wget")+4:] 
     fixed_cmd = "wget" + " -P " + download_location + back_of_cmd
     #add fetch-all.sh and SHA1SUMS to reject list
@@ -121,6 +122,7 @@ def download_archive(cmd):
     #add location to wget command
     cmd = update_wget_command(cmd)
     # Execute the wget command
+    print("Starting archive download. This will take a moment...")
     result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
     print("Download completed successfully.")
       #print(result.stderr) // output!

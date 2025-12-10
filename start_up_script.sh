@@ -3,12 +3,15 @@ set -euo pipefail
 
 PYTHON_CMD="python3.10"
 VENV_NAME=".hvla_env"
+SCRIPT="HVLA_image_machine.py"
 
-# If venv exists, activate and exit
+# If venv exists, activate and run the HVLA script
 if [ -d "$VENV_NAME" ]; then
   echo "Virtual environment '$VENV_NAME' already exists. Activating..."
   # shellcheck disable=SC1091
   source "$VENV_NAME/bin/activate"
+  echo "Running $SCRIPT..."
+  "$VENV_NAME/bin/python" "$SCRIPT"
   exit 0
 fi
 
@@ -25,7 +28,7 @@ echo "Activating virtual environment..."
 # shellcheck disable=SC1091
 source "$VENV_NAME/bin/activate"
 
-echo "Virtual environment '$VENV_NAME' created and activated."
 
-#activate script script!
-command 
+echo "Virtual environment '$VENV_NAME' created and activated."
+echo "Running $SCRIPT..."
+"$VENV_NAME/bin/python" "$SCRIPT"
