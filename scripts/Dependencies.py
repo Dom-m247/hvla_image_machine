@@ -1,18 +1,20 @@
-#a script to automate installation of dependencies on new instances
-def install_dependencies():
-    """Install required Google API client libraries."""
-    import subprocess
-    import sys
-
-    print("Checking and installing dependencies...")
-    print("checking CASA dependencies...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install","--quiet", "--upgrade"
-                           ,"casatools","casatasks","casaviewer","casaplotms","casashell"])
-    print("checking  Google API client libraries...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install","--quiet", "--upgrade"
-                           ,"google-api-python-client", "google-auth-httplib2", "google-auth-oauthlib",
-                           ])
-    print("Installation verified/complete.")
+##a script to automate installation of dependencies on new instances
+"""Dependencies.py: A script to manage and install required Python dependencies for the HVLA Image Machine application."""
+def install_from_requirements():
+  """Install all modules from requirements.txt file."""
+  import subprocess
+  import sys
+  
+  #requirments.txt *Should* be in the same directory as this script
+  #if it's not then
+  print(f"Installing all modules from requirments.txt...")
+  try:
+      subprocess.check_call([sys.executable, "-m", "pip", "install","--quiet", "-r", "requirements.txt"])
+      print("All modules from requirements.txt installed successfully.")
+      return True
+  except subprocess.CalledProcessError as e:
+      print(f"Error installing modules: {e}")
+      return False
 
 
 def install_dep_call():
@@ -23,16 +25,11 @@ def install_dep_call():
     print("Virtual environment detected.")
   else:
     print("No virtual environment detected. Please run start_up_script.sh")
-    return
+    sys.exit()
   #Installing dependencies to venv!
-  install_dependencies()
+  if not install_from_requirements():
+    print("Error installing dependencies from requirements.txt, script not proceding.")
+    sys.exit()
 
 if __name__ == "__main__":
-  import sys
-  #check may not be working :shrug:p
-  if sys.prefix != sys.base_prefix:
-    print("Virtual environment detected.")
-  else:
-    print("No virtual environment detected. creating a venv...")
-  #Installing dependencies to venv!
-  install_dependencies()
+  install_dep_call()
