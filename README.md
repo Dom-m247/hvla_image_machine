@@ -3,28 +3,30 @@ currently it's as simply as running strart_up_script.sh,
 also ask for credentials.json!
 
 # TODO
-- Gui?? 
- - Source Input
+### Gui?? 
+#### Source Input
   - validate Bands 
   - simbad source validation logic
-  - allow for multiple observation import
+  - allow for multiple observation import, -> dict?
   - implement NRAO archive interaction
     - pools NRAO servers and returns list of observations
       - get selection from user.
- - Breakpoints 
+
+  -set existing file preference if a source is selcted -> disable source info fill from start, populate from MS? -> have "get observations" button run routine similar to "radio_search" which auto populates the selected file with the downloaded archive.
+#### Breakpoints 
   - actually mark sensible breakpoints!
-  
-  - use it as an "options" menu to insert manual break points like flagging data in plotms
-    - to fill out while downloading
-- gmail grabber - Maybe not necessary
+
+### gmail grabber - Maybe not necessary
   - Note: vlaArchive does have credential
   - automate login with browser nav for dedicated archive email?
   - add sha verification
-- logger
+### logger
   - currently passing through any loging to casalog, may need to spin off??
 - browser navigation
-- casa PipeLine
-- Archival
+### HVLA_data_cal
+  - paramaterize vla_import for multiple arcives
+### Archival
+  - use XML data to populate?
 
 ### maintainability steps
  - Excessive commenting!
