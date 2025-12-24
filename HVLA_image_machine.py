@@ -1,15 +1,5 @@
-from scripts import Dependencies, gmail_data_fetch, hvla_gui
-from casatasks import casalog
-#import sys
-class data:
-  """contains all the parameters, and options"""
-  def __init__(self):
-    pass #creates empty object, so they can be added dynamically for multiple data sets
-  def add_dict(self,dict_in):
-    for key, value in dict_in.items():
-      #add logger output
-      setattr(self, key, value)
-      casalog.post(f"Data obj key: {key} to {value}")
+from scripts import Dependencies, gmail_data_fetch, hvla_gui,hvla_data_cal
+from scripts.data_class import data
 
 def main(argv=None):
   """ Main function to run the HVLA Image Machine application."""
@@ -25,12 +15,15 @@ def main(argv=None):
 
   #get source Data from user
   source = data()
-  source.add_dict(hvla_gui.run_hvla_app())
-  #log options dict for tracking
+  source.add_dict(hvla_gui.run_hvla_app()) #opens GUI and gets user input
+
+  #TODO:archive download here/in GUI app/other module
+
+  #Start data calibration  
+  hvla_data_cal.data_cal(source)
+
+
+
   
-  #get archive from email
-  #gmail_data_fetch.get_archive(token)
-
-
 if __name__ == "__main__":
   main()
