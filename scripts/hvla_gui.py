@@ -239,12 +239,6 @@ class BreakpointsWindow:
             cb.pack(anchor="w", pady=8)
             self.checkbuttons.append(cb)
         
-        # Info label
-        info_frame = ttk.LabelFrame(master, text="Breakpoint Info", padding=10)
-        info_frame.pack(fill="x", padx=15, pady=10)
-        
-        self.info_text = tk.Text(info_frame, height=5, width=50, state="disabled")
-        self.info_text.pack(fill="both", expand=True)
         
         # Navigation buttons
         button_frame = ttk.Frame(master)
@@ -292,7 +286,7 @@ class BreakpointsWindow:
         
         # Create summary dictionary
         summary_dict = {
-            "source": source_info['source'] or source_info['file'],
+            "archive_file": source_info['source'] or source_info['file'],
             "band": source_info['band'],
             "breakpoints": selected_breakpoints
         }
