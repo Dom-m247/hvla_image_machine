@@ -158,7 +158,7 @@ class SourceInputWindow:
         """Open file dialog to select a source file"""
         file_path = filedialog.askopenfilename(
             title="Select Source File",
-            filetypes=[("All Files", "*.*"), ("Text Files", "*.txt"), ("Data Files", "*.dat")]
+            filetypes=[("All Files", "*.*"), ("Text Files", "*.txt"), ("Data Files", "*.dat"),("exp Files", "*.exp")]
         )
         if file_path:
             # Check if file has correct extension
@@ -220,13 +220,13 @@ class BreakpointsWindow:
         self.breakpoint_vars = {
             "manual_flagging": tk.BooleanVar(value=False),
             "calibration": tk.BooleanVar(value=False),
-            "image_generation": tk.BooleanVar(value=False)
+            "image_generation": tk.BooleanVar(value=False),
         }
         
         breakpoints = [
             ("Manual Data Flagging", "manual_flagging"),
             ("Calibration", "calibration"),
-            ("Image Generation", "image_generation")
+            ("Image Generation", "image_generation"),
         ]
         
         self.checkbuttons = []
@@ -272,9 +272,9 @@ class BreakpointsWindow:
         selected_breakpoints = [name for name, var in self.breakpoint_vars.items() if var.get()]
         source_info = self.app.source_data
         
-        if not selected_breakpoints:
-            messagebox.showwarning("No Selection", "Please select at least one breakpoint")
-            return
+        #if not selected_breakpoints:
+        #    messagebox.showwarning("No Selection", "Please select at least one breakpoint")
+        #    return
         
         # Format breakpoint names for display
         breakpoint_names = {
@@ -294,7 +294,6 @@ class BreakpointsWindow:
         self.app.summary_dict = summary_dict
         self.master.quit()
         self.master.destroy()
-
 
 
 class HVLAApp:
@@ -319,3 +318,6 @@ class HVLAApp:
 def run_hvla_app():
     app = HVLAApp()
     return app.summary_dict
+
+#if __name__ == "__main__":
+#  run_hvla_app()
