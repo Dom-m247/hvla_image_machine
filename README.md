@@ -18,6 +18,7 @@ also ask for credentials.json!
   - ~~de-absolute-path import.json ~~
     - check if archive in import exists,
       - if no archive, pull the intended archive!?
+  - add "populate" with imported settings etc.
 #### Breakpoints 
   - actually mark sensible breakpoints!
   - synconize Breakpoint list (pulls from 3 different list and dicts oops)
