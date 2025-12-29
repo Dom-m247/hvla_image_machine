@@ -2,17 +2,17 @@ FULLMS = 'fullSet' #+".ms"
 import casatasks as ct
 import sys,os
 import re
-from data_class import data
+from .data_class import data
 import pprint as pp
 import math 
 
-def parseListObs(listObsFile,options:data):
+def parseListObs(listObsFile,options):
   """parses the List_obs File for infomration, which is added to options
     Note: line # are hard coded, see parsing examples if I break
   """
-  antenna_dict = {'antennas',parse_antennas(listObsFile)}
+  antenna_dict = {'antennas':parse_antennas(listObsFile)}
   options.add_dict(antenna_dict)
-  fields_dict = {'fields',parse_fields(listObsFile)}
+  fields_dict = {'fields':parse_fields(listObsFile)}
   options.add_dict(fields_dict)
 
 
@@ -128,19 +128,20 @@ def convert_to_ms(archive):
     sys.exit() # add call to a cleanup script?
     
 
-def data_cal(options:data):
+def data_cal(options):
   """
   main in for data calibration of HVLA data archive
   Creates MS files from raw data, applies calibration
   """
-  list_obs = convert_to_ms(options.archive_file)
-  parseListObs(list_obs,options)
+  list_obs = convert_to_ms(options['archive_file']) 
+  parseListObs(list_obs,options) 
 
 
 
 if __name__ == "__main__":
   #test run
+  import scripts.import_settings as import_settings
   options = data()
-  testinput = {'archive_file': "/home/dominic/hvla_script_proj/data_archive/AL727/observation.54757.0577199/AL727_1_54757.05772_54757.55622.exp"}
-  options.add_dict(testinput)
+  imported_setting = import_settings.import_options()
+  options.add_dict(imported_setting)
   data_cal(options)
