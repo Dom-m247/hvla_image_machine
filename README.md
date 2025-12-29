@@ -7,26 +7,36 @@ also ask for credentials.json!
 #### Source Input
   - validate Bands 
   - simbad source validation logic
-  - allow for multiple observation import, -> dict?
+  - allow for multiple observation imports 
   - implement NRAO archive interaction
     - pools NRAO servers and returns list of observations
       - get selection from user.
-
-  -set existing file preference if a source is selcted -> disable source info fill from start, populate from MS? -> have "get observations" button run routine similar to "radio_search" which auto populates the selected file with the downloaded archive.
+  - set existing file preference if a source is selcted -> disable source info fill from start, populate from MS? -> have "get observations" button run routine similar to "radio_search" which auto populates the selected file with the downloaded archive.
+  - listify bands -> add band options
+###### import support 
+  - add frame for using imported setting (supports ms/exp (test MS support))
+  - ~~de-absolute-path import.json ~~
+    - check if archive in import exists,
+      - if no archive, pull the intended archive!?
 #### Breakpoints 
   - actually mark sensible breakpoints!
+  - synconize Breakpoint list (pulls from 3 different list and dicts oops)
 
 ### gmail grabber - Maybe not necessary
   - Note: vlaArchive does have credential
   - automate login with browser nav for dedicated archive email?
   - add sha verification
 ### logger
+  - auto-delete existing logs? (in 1.99)
   - currently passing through any loging to casalog, may need to spin off??
 - browser navigation
 ### HVLA_data_cal
   - paramaterize vla_import for multiple arcives
 ### Archival
   - use XML data to populate?
+### Planning/Orginization
+ - figure out the "proper" way to have "global" constants? I,E project name for Import_set.py
+ - Unit Testing???
 
 ### maintainability steps
  - Excessive commenting!
@@ -34,4 +44,5 @@ also ask for credentials.json!
   - I.e Email formats, web page layouts, casa log formatting
 
 ### Bugs 
-- in Breakpoint gui, submit requires it being pressed twice.
+- in ~~Breakpoint~~ source selection gui, ~~submit~~ close requires it being pressed twice.
+- fix error "2025-12-29 20:47:31     SEVERE  ::casa  measures_update: the measures data at /home/user/.casa/data is not maintained by casaconfig and so it can not be updated unless force is True"
