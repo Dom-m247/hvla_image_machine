@@ -21,5 +21,7 @@ class data:
     except ValueError as e:
       print(f"an error occured adding an option: {e}")
       sys.exit()
+
   def get_dict(self):
+    """returns options dictrionary"""
     return self.options

@@ -10,6 +10,7 @@ from . import hvla_data_cal
 from . import import_settings
 from . import web_scraper
 from .data_class import data
+from .data_calibration import *
 
 __all__ = [
     'Dependencies',
