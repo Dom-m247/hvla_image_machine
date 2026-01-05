@@ -42,7 +42,6 @@ class SourceInputWindow:
             command=self.get_observations,
             state="disabled"
         )
-      
         
         # Radio Band selection
         ttk.Label(source_frame, text="Select Radio Band:", font=("Arial", 20)).pack(anchor="w", pady=(0, 5))
@@ -73,13 +72,19 @@ class SourceInputWindow:
         self.file_path_label.pack(anchor="w", pady=(0, 10), fill="both", expand=True)
         
         # Browse button
-        self.browse_button = ttk.Button(
+        self.browse_archive_button = ttk.Button(
             file_frame,
-            text="Browse for Source File",
-            command=self.browse_file
+            text="Browse for archive File",
+            command=self.browse_archive_file
         )
-        self.browse_button.pack(anchor="w", pady=(0, 10))
-        
+        self.browse_archive_button.pack(anchor="w", pady=(0, 10))
+
+        self.browse_ms_button = ttk.Button(
+            file_frame,
+            text="Browse for measrument set",
+            command=self.browse_ms_file
+        )
+        self.browse_ms_button.pack(anchor="w", pady=(0, 10))
         
         file_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
@@ -154,10 +159,10 @@ class SourceInputWindow:
         self.info_text.insert("1.0", info_content)
         self.info_text.config(state="disabled")
     
-    def browse_file(self):
+    def browse_archive_file(self):
         """Open file dialog to select a source file"""
         file_path = filedialog.askopenfilename(
-            title="Select Source File",
+            title="Select Archive File",
             filetypes=[("All Files", "*.*"), ("Text Files", "*.txt"), ("Data Files", "*.dat"),("exp Files", "*.exp")]
         )
         if file_path:
@@ -168,7 +173,21 @@ class SourceInputWindow:
             else:
                 messagebox.showerror("Invalid File Type", "Please select a file ending in .ms or .exp")
                 self.file_path_var.set("No file selected")
-    
+
+    def browse_ms_file(self):
+        """Open file dialog to select a source file"""
+        file_path = filedialog.askdirectory(
+            title="Select measurment Set directory"
+        )
+        if file_path:
+            # Check if file has correct extension
+            if file_path.endswith(('.ms', '.exp')):
+                self.selected_file = file_path
+                self.file_path_var.set(file_path)
+            else:
+                messagebox.showerror("Invalid File Type", "Please select a file ending in .ms or .exp")
+                self.file_path_var.set("No file selected")
+                
     def use_file(self):
         """Use the selected file as source"""
         if self.selected_file:
@@ -215,7 +234,50 @@ class BreakpointsWindow:
         # Breakpoints frame
         breakpoints_frame = ttk.LabelFrame(master, text="Processing Stages", padding=15)
         breakpoints_frame.pack(fill="both", expand=True, padx=15, pady=10)
+        # Calibration Options Frame
+        calibration_frame = ttk.LabelFrame(master, text="Calibration Options", padding=15)
+        calibration_frame.pack(fill="both", expand=True, padx=15, pady=10)
         
+        # Solution Interval (solint) dropdown
+        ttk.Label(calibration_frame, text="Solution Interval (solint):", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
+        self.solint_var = tk.StringVar(value="int")
+        solint_options = ["int", "inf", "1h", "5min", "30s"]
+        self.solint_menu = ttk.Combobox(
+            calibration_frame,
+            textvariable=self.solint_var,
+            values=solint_options,
+            state="readonly",
+            width=30
+        )
+        self.solint_menu.pack(anchor="w", pady=(0, 15))
+        
+        #PLACEHOLDER
+        # Additional calibration options #PLACEHOLDER
+        ttk.Label(calibration_frame, text="Pick amp Cal", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
+        self.amp_cal_mode = tk.StringVar(value="Default")
+        amp_cal_options = ["Default(Auto)","Yes", "Advanced", "Custom", "None"]
+        self.calib_model_menu = ttk.Combobox(
+            calibration_frame,
+            textvariable=self.amp_cal_mode,
+            values=amp_cal_options,
+            state="readonly",
+            width=30
+        )
+        self.calib_model_menu.pack(anchor="w", pady=(0, 15))
+        
+        ttk.Label(calibration_frame, text="Reference Antenna:", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
+        self.ref_antenna_var = tk.StringVar(value="Auto")
+        ref_antenna_options = ["Default","Auto", "EA01", "EA02", "EA03"]
+        self.ref_antenna_menu = ttk.Combobox(
+            calibration_frame,
+            textvariable=self.ref_antenna_var,
+            values=ref_antenna_options,
+            state="readonly",
+            width=30
+        )
+        self.ref_antenna_menu.pack(anchor="w", pady=(0, 15))
+        #PLACEHOLDER
+
         # Checkboxes for breakpoints (allow multiple selections)
         self.breakpoint_vars = {
             "manual_flagging": tk.BooleanVar(value=False),
@@ -239,7 +301,7 @@ class BreakpointsWindow:
             cb.pack(anchor="w", pady=8)
             self.checkbuttons.append(cb)
         
-        
+
         # Navigation buttons
         button_frame = ttk.Frame(master)
         button_frame.pack(fill="x", padx=15, pady=10)
@@ -265,16 +327,12 @@ class BreakpointsWindow:
     def go_back(self):
         """Return to the source input window"""
         self.master.destroy()
-        self.app.create_source_window()
+        self.app.create_source_window() #add options, to autopop?
     
     def submit(self):
         """Submit the selected breakpoints"""
         selected_breakpoints = [name for name, var in self.breakpoint_vars.items() if var.get()]
         source_info = self.app.source_data
-        
-        #if not selected_breakpoints:
-        #    messagebox.showwarning("No Selection", "Please select at least one breakpoint")
-        #    return
         
         # Format breakpoint names for display
         breakpoint_names = {
@@ -288,7 +346,10 @@ class BreakpointsWindow:
         summary_dict = {
             "archive_file": source_info['source'] or source_info['file'],
             "band": source_info['band'],
-            "breakpoints": selected_breakpoints
+            "breakpoints": selected_breakpoints,
+            "solint": self.solint_var.get(),
+            "custom_amp_cal": self.amp_cal_mode.get(),
+            "reference_antenna": self.ref_antenna_var.get(),
         }
         # Store in app
         self.app.summary_dict = summary_dict
@@ -314,10 +375,7 @@ class HVLAApp:
         self.root = tk.Tk()
         self.breakpoints_window = BreakpointsWindow(self.root, self)
         self.root.mainloop()
-
+    
 def run_hvla_app():
     app = HVLAApp()
     return app.summary_dict
-
-#if __name__ == "__main__":
-#  run_hvla_app()
