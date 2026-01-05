@@ -18,7 +18,7 @@ def revmove_path(archivePath):
   return archivePath
 
 def import_options():
-  """imports the otpions stored in import.json"""
+  """imports the options stored in import.json"""
   try:
     file_path = "import.json"
     # Open the file in read mode ('r')
@@ -40,7 +40,7 @@ def import_options():
     #sys.exit()
 
 def genereate_import(data_obj):
-  """generates an importable data set file"""
+  """generates an importable options data class file"""
   if data_obj is None: 
     #checks for empty data?
     raise ValueError("Empty Data for generating Import file.")
@@ -48,12 +48,13 @@ def genereate_import(data_obj):
     #de-pathify archive.file
     dataToSerialize = data_obj.get_dict()
     dataToSerialize['archive_file'] = revmove_path(dataToSerialize['archive_file'])
-    with open("import.json","w") as json_file:
+    with open("export_for_testing.json","w") as json_file: # MODIFIED FOR TESTING
        json.dump(dataToSerialize,json_file,indent=4)
   except RuntimeError as e:
     print("error exporting to json") 
 
 if __name__ == "__main__":
+  '''Testing'''
   data_obj = data()
   testDict = {
     "archive_file" : "/hvla_script_proj/data_archive/AL727/observation.54757.0577199/AL727_1_54757.05772_54757.55622.exp",

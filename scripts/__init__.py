@@ -4,11 +4,11 @@ import sys
 
 # Import main modules for convenient access
 from . import Dependencies
-from . import gmail_data_fetch
+from .archive_fetch import gmail_data_fetch
 from . import hvla_gui
 from . import hvla_data_cal
 from . import import_settings
-from . import web_scraper
+from .archive_fetch import web_scraper
 from .data_class import data
 from .data_calibration import *
 
@@ -22,3 +22,5 @@ __all__ = [
     'data',
     'casalog'
 ]
+
+#constatns?
