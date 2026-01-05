@@ -16,7 +16,7 @@ class data:
       return False
     try:
       self.options.update(dict_in)
-      casalog.post(f"Options added: {self.get_dict()}") #logging values added to data_set object
+      casalog.post(f"Information added to obj: {dict_in}") #logging values added to data_set object
       return True
     except ValueError as e:
       print(f"an error occured adding an option: {e}")
@@ -25,3 +25,16 @@ class data:
   def get_dict(self):
     """returns options dictrionary"""
     return self.options
+  def get_dict_sp(self,key):
+    '''return a specific dictionary/list based on passed key'''
+    return self.options[key]
+
+
+#Dicts stored in Class
+#archive_file
+#band
+#breakpoints
+#antennas
+#fields
+#sources
+#observations
