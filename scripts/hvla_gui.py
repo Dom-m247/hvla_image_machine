@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-from .constants import BAND_GHZ_RANGES
+
 
 class SourceInputWindow:
     def __init__(self, master, app):
