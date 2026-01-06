@@ -6,7 +6,6 @@ from .data_class import data
 from .data_calibration import *
 import pprint as pp
 
-
 def convert_to_ms(archive):
   """
   Converts raw HVLA data archive to Measurement Set (MS) format
@@ -20,6 +19,7 @@ def convert_to_ms(archive):
   print(f"Converting archive {archive} to Measurement Set format...")
   try:
     if not os.path.exists(FULLMS+'.ms'):
+      print("This may take a moment...")
       ct.importvla(archivefiles={archive},vis=FULLMS+'.ms')
     return parse.log_listobs(FULLMS)
 
@@ -37,17 +37,7 @@ def data_cal(options):
   
   #extract info from listobs -> more complete than returned data
   parse.parseListObs(list_obs,options) 
+  
 
-  #find calibrators TODO: add phase call!
+  #find calibrators TODO: add phase calibration
   find_cal.find_amp_cal(options)
-
-
-
-
-if __name__ == "__main__":
-  #test run
-  import scripts.import_settings as import_settings
-  options = data()
-  imported_setting = import_settings.import_options()
-  options.add_dict(imported_setting)
-  data_cal(options)

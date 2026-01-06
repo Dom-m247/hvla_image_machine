@@ -45,8 +45,8 @@ class SourceInputWindow:
         
         # Radio Band selection
         ttk.Label(source_frame, text="Select Radio Band:", font=("Arial", 20)).pack(anchor="w", pady=(0, 5))
-        self.band_var = tk.StringVar(value="All-Bands")
-        bands = ["All-Bands","L", "S", "C", "X", "Ku", "K", "Ka", "Q", "W"]
+        self.band_var = tk.StringVar(value="auto")
+        bands = ["auto","L", "S", "C", "X", "Ku", "K", "Ka", "Q", "W"]
         self.band_menu = ttk.Combobox(
             source_frame, 
             textvariable=self.band_var, 
@@ -149,6 +149,9 @@ class SourceInputWindow:
         """Get observations for the selected source"""
         source = self.source_var.get()
         messagebox.showinfo("Get Observations", f"Fetching observations for source: {source}")
+        #send to other part, return with archive file download destination
+        #self.selected_file = dowloadArchive()
+        
     
     def display_source_info(self, source):
         """Display validated source information"""
@@ -206,12 +209,14 @@ class SourceInputWindow:
             return
         
         # Store the data for the next window
+        if source == "":
+            source = None
+        
         self.app.source_data = {
             "source": source,
             "band": band,
             "file": self.selected_file
         }
-        
         # Close this window and open breakpoints window
         self.master.destroy()
         self.app.create_breakpoints_window()
@@ -253,9 +258,9 @@ class BreakpointsWindow:
         
         #PLACEHOLDER
         # Additional calibration options #PLACEHOLDER
-        ttk.Label(calibration_frame, text="Pick amp Cal", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
+        ttk.Label(calibration_frame, text="Pick amp Calibration Method", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
         self.amp_cal_mode = tk.StringVar(value="Default")
-        amp_cal_options = ["Default(Auto)","Yes", "Advanced", "Custom", "None"]
+        amp_cal_options = ["Default(auto)","Yes", "Advanced", "Custom", "None"]
         self.calib_model_menu = ttk.Combobox(
             calibration_frame,
             textvariable=self.amp_cal_mode,
@@ -266,8 +271,8 @@ class BreakpointsWindow:
         self.calib_model_menu.pack(anchor="w", pady=(0, 15))
         
         ttk.Label(calibration_frame, text="Reference Antenna:", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
-        self.ref_antenna_var = tk.StringVar(value="Auto")
-        ref_antenna_options = ["Default","Auto", "EA01", "EA02", "EA03"]
+        self.ref_antenna_var = tk.StringVar(value="auto")
+        ref_antenna_options = ["Default","auto", "EA01", "EA02", "EA03"]
         self.ref_antenna_menu = ttk.Combobox(
             calibration_frame,
             textvariable=self.ref_antenna_var,
@@ -344,7 +349,8 @@ class BreakpointsWindow:
         
         # Create summary dictionary
         summary_dict = {
-            "archive_file": source_info['source'] or source_info['file'],
+            "source": source_info['source'],
+            "archive_file": source_info['file'],
             "band": source_info['band'],
             "breakpoints": selected_breakpoints,
             "solint": self.solint_var.get(),
