@@ -1,7 +1,7 @@
 import sys
 from scripts import *
 from scripts.data_class import data
-
+from pprint import *
 def main(argv):
   """ Main function to run the HVLA Image Machine application."""
   print("Welcome to the HVLA Image Machine!")
@@ -33,12 +33,26 @@ def main(argv):
 
   #TODO:archive download here/in GUI app/other module 
   #if sourceID = somthing, run scraper routine
-  
+  #try:
   #Start data calibration  
+  
   hvla_data_cal.data_cal(source)
 
-  #output data obj as json!
-  import_settings.genereate_import(source)
+  #output data obj as json! #CHANGE TO IMPORT
+  #import_settings.generate_import(source)
+  import_settings.generate_debug_export(source,filename="export_for_testing")
+  print("Completed Successfuly. Exiting...")
+  #except ValueError as e:
+  #  export_obj(source,e)
+  #except RuntimeError as e:
+  #  export_obj(source,e)
+  #except Exception as e:
+  #  export_obj(source,e)
+    
+
+def export_obj(data,error):
+  print(f"Generating a debug export becuase of error : {error}")
+  import_settings.generate_debug_export(data,filename="error_export")
 
 def delete_logs():
   """ Deleting casa logs that aren't the most recent one
