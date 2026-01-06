@@ -28,6 +28,8 @@ class data:
   def get_dict_sp(self,key):
     '''return a specific dictionary/list based on passed key'''
     return self.options[key]
+  
+  
 
 
 #Dicts stored in Class

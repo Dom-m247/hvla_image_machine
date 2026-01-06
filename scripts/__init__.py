@@ -11,6 +11,7 @@ from . import import_settings
 from .archive_fetch import web_scraper
 from .data_class import data
 from .data_calibration import *
+from . import constants as CONST
 
 __all__ = [
     'Dependencies',
