@@ -1,4 +1,3 @@
-FULLMS = 'fullSet' #+".ms"
 import casatasks as ct
 import re
 from ..data_class import data
