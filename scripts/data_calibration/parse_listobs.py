@@ -5,28 +5,81 @@ from ..data_class import data
 import pprint as pp
 import math 
 #sections to "parse" : observervation data, spectral Windows, Sources
-#DEFUNCT
-
+'''
+Why are we parsing listobs? the Returned value doesn't contain everything (i belive) 
+also, I already had it mostly done before I had the though to utilize the
+return value for listobs()
+'''
 
 def parseListObs(listObsFile,options):
-  """parses the List_obs File for infomration, which is added to options
+  """
+  parses the List_obs File for infomration, which is added to options
     Note: line # are hard coded, see parsing examples if I break
   """
-  antenna_dict = {'antennas':parse_antennas(listObsFile)}
-  options.add_dict(antenna_dict)
-  fields_dict = {'fields':parse_fields(listObsFile)}
-  options.add_dict(fields_dict)
-  sources_dict = {'sources':parse_sources(listObsFile)}
-  options.add_dict(sources_dict)
-  observations_dict = {'observations':parse_observations(listObsFile)}
-  options.add_dict(observations_dict)
+  #prime realestate to parrallelize in the future
+  try:
+    antenna_dict = {'antennas':parse_antennas(listObsFile)}
+    options.add_dict(antenna_dict)
+    fields_dict = {'fields':parse_fields(listObsFile)}
+    options.add_dict(fields_dict)
+    sources_dict = {'sources':parse_sources(listObsFile)}
+    options.add_dict(sources_dict)
+    observations_dict = {'observations':parse_observations(listObsFile)}
+    options.add_dict(observations_dict)
+    spw_dict = {'spectral_windows':parse_spw(listObsFile)}
+    options.add_dict(spw_dict)
+  except ValueError as e:
+    print(f"An error occured parsing the list_obs {e} section. ")
+
+def parse_spw(listobs_text):
+  """Parse spectral windows section"""
+  # Match from "Spectral Windows:" through the header line, then capture data until "Sources:"
+  spw_section = re.search(r'Spectral Windows:.*?\n\s*SpwID.*?\n(.*?)(?=Sources:)', listobs_text, re.DOTALL)
+
+  if not spw_section:
+    raise ValueError("Spectral Windows")
   
+  spws = []
+  lines = spw_section.group(1).strip().split('\n')
+
+  for line in lines:
+    # Skip empty lines
+    if not line.strip():
+      continue
+    
+    # Parse spectral window line - use search instead of match to handle leading whitespace
+    match = re.search(
+      r'(\d+)\s+(.*?)\s{2,}(\d+)\s+(\w+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([A-Z]{2}(?:\s+[A-Z]{2})*)',
+      line
+    )
+    
+    if match:
+      # Parse correlations (RR RL LR LL format)
+      corrs_str = match.group(9).strip()
+      corrs = corrs_str.split()
+      
+      spw = {
+        'id': int(match.group(1)),
+        'name': match.group(2).strip(),
+        'num_channels': int(match.group(3)),
+        'frame': match.group(4),
+        'ch0_mhz': float(match.group(5)),
+        'chanwid_khz': float(match.group(6)),
+        'totbw_khz': float(match.group(7)),
+        'ctrfreq_mhz': float(match.group(8)),
+        'correlations': corrs
+      }
+      spws.append(spw)
+  
+  return spws
+
+
 def parse_observations(listobs_text):
   """Parse observations section with scan data"""
   # Find observations data between the header and Fields section
   obs_section = re.search(r'Date\s+Timerange.*?\n(.*?)(?=\(nRows|\n\s*Fields:)', listobs_text, re.DOTALL)
   if not obs_section:
-    return []
+    raise ValueError("Observations")
   
   observations = []
   lines = obs_section.group(1).strip().split('\n')
@@ -56,11 +109,12 @@ def parse_observations(listobs_text):
       observations.append(observation)
 
   return observations
+
 def parse_sources(listobs_text):
   """Parse sources section"""
   sources_section = re.search(r'Sources: \d+(.*?)(?=\n\n|Antennas|\Z)', listobs_text, re.DOTALL)
   if not sources_section:
-    return []
+    raise ValueError("Sources")
   
   sources = []
   lines = sources_section.group(1).strip().split('\n')
@@ -87,7 +141,7 @@ def parse_fields(listobs_text):
   """Parse fields section, handling empty Code field"""
   fields_section = re.search(r'Fields: \d+(.*?)(?=\n\n|Spectral|\Z)', listobs_text, re.DOTALL)
   if not fields_section:
-    return []
+    raise ValueError("fields")
   
   fields = []
   lines = fields_section.group(1).strip().split('\n')
@@ -118,7 +172,7 @@ def parse_antennas(listobs_text):
   # Find the Antennas section
   antenna_section = re.search(r'Antennas: \d+:(.*?)(?=\n\n|\Z)', listobs_text, re.DOTALL)
   if not antenna_section:
-    return []
+    raise ValueError("Antennas")
   
   antennas = []
   lines = antenna_section.group(1).strip().split('\n')
@@ -171,8 +225,10 @@ def log_listobs_ms(ms):
   return read_listobs
 
 def log_listobs(ms):
-  """generates a listobs and post to log
-      give name of ms w/out .ms"""
+  """
+  generates a listobs and post to log
+    give name of ms w/out .ms
+  """
   import pprint as pp
   ### Listobs
   listobs_file = ms + "-list-file.txt"
