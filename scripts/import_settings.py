@@ -2,16 +2,14 @@
 from .data_class import data
 from casatasks import casalog
 import json,sys
-FOLDER_NAME = "hvla_script_proj"
+from .constants import FOLDER_NAME, EXPORT_KEYS
 
 def add_path(archivePath):
   """localize path to archive name"""
   sysPath = sys.path[0]
   archivePath = sysPath[:sys.path[0].find(FOLDER_NAME)] + archivePath
-  print(f"{archivePath}")
   return archivePath
   
-
 def revmove_path(archivePath):
   """delocalize archive file"""
   archivePath = archivePath[archivePath.find(FOLDER_NAME):]
@@ -39,28 +37,43 @@ def import_options():
     #print("An error occured trying to Import settings.")
     #sys.exit()
 
-def genereate_import(data_obj):
-  """generates an importable options data class file"""
+def prepare_dict_export(data):
+  """
+  extract and compile pertinante info from object for export
+  """
+  export_dict = {}
+  for key in EXPORT_KEYS:
+    newDict = {key : data.get_dict_sp(key)}
+    export_dict.update(newDict)
+  return export_dict
+
+def generate_import(data_obj,filename="import"):
+  """
+  generate the import.json file for another user.
+  """
   if data_obj is None: 
     #checks for empty data?
-    raise ValueError("Empty Data for generating Import file.")
+    raise ValueError("Empty Data for generating debug export file.")
   try:
     #de-pathify archive.file
-    dataToSerialize = data_obj.get_dict()
+    dataToSerialize = prepare_dict_export(data_obj)
+  
     dataToSerialize['archive_file'] = revmove_path(dataToSerialize['archive_file'])
-    with open("export_for_testing.json","w") as json_file: # MODIFIED FOR TESTING
+    with open(filename+".json","w") as json_file: 
        json.dump(dataToSerialize,json_file,indent=4)
   except RuntimeError as e:
     print("error exporting to json") 
 
-if __name__ == "__main__":
-  '''Testing'''
-  data_obj = data()
-  testDict = {
-    "archive_file" : "/hvla_script_proj/data_archive/AL727/observation.54757.0577199/AL727_1_54757.05772_54757.55622.exp",
-    "bands" : "All_Bands",
-    "breakPoints" : ["Manual Flagging", "image Gen"]
-  }
-  data_obj.add_dict(testDict)
-  genereate_import(data_obj)
-  data_test = import_options()
+def generate_debug_export(data_obj,filename="debug_export"):
+  """generates an importable options data class file"""
+  if data_obj is None: 
+    #checks for empty data?
+    raise ValueError("Empty Data for generating debug export file.")
+  try:
+    #de-pathify archive.file
+    dataToSerialize = data_obj.get_dict()
+    dataToSerialize['archive_file'] = revmove_path(dataToSerialize['archive_file'])
+    with open(filename+".json","w") as json_file: 
+       json.dump(dataToSerialize,json_file,indent=4)
+  except RuntimeError as e:
+    print("error exporting to json") 
