@@ -1,11 +1,12 @@
-import sys
+import sys,os
 from scripts import *
 from scripts.data_class import data
 from pprint import *
+
 def main(argv):
   """ Main function to run the HVLA Image Machine application."""
   print("Welcome to the HVLA Image Machine!")
-
+  os.environ['PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION'] = 'python'
   #check for dependencies and install if needed, including venv setup
   #Dependencies.install_dep_call() 
   #sign in to gmail and get token
@@ -36,7 +37,7 @@ def main(argv):
   #try:
   #Start data calibration  
   
-  hvla_data_cal.data_cal(source)
+  hvla_data_cal.data_calibration(source)
 
   #output data obj as json! #CHANGE TO IMPORT
   #import_settings.generate_import(source)

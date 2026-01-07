@@ -46,7 +46,7 @@ def set_Models(data):
   '''generates model names based of found amp calibrators'''
   #TODO:add support for bands as a list
   ampCal = (data.get_dict())["amp_cal_source"]
-  ampCalModel = ampCal + "_" + data.get_dict()["band"]
+  ampCalModel = ampCal + '_' + data.get_dict()["band"]
   newDict = {"model": ampCalModel}
   data.add_dict(newDict)
 
@@ -81,7 +81,7 @@ def check_source_manual(data,sourceID):
   for source in data.get_dict()["sources"]:
     if source["name"] == sourceID:
       ct.casalog.post("Amp Cal found, ID:{sourceID}")
-      data.add_dict({"amp_cal_source":"{sourceID}"})
+      data.add_dict({"amp_cal_source":'{sourceID}'})
       return True
     else:
       return None
@@ -91,16 +91,17 @@ def check_source(data):
   for source in data.get_dict()["sources"]:
     for key in COMMON_AMPCALS_DICT:
       if source["name"] == key:
-        ct.casalog.post("Amp Cal found, ID:{key}, {COMMON_AMPCALS_DICT[key]}")
+        ct.casalog.post('Amp Cal found, ID:{key}, {COMMON_AMPCALS_DICT[key]}')
         newDict = {"amp_cal_source":COMMON_AMPCALS_DICT[key]}
         data.add_dict(newDict)
+        data.add_dict({"amp_cal_source_id":source['id']})
         return True
   return False    
       
 def find_amp_cal(data):
+  #TODO: upgrade to utilize other "better" claibrators
   '''Checks that a useable amp calibrator is present'''
   if data.get_dict()["custom_amp_cal"] == "Yes":
-    print("here")
     sourceID = get_source_ID(data)
     check_source_manual(data,sourceID)
     return
@@ -108,5 +109,6 @@ def find_amp_cal(data):
   asses_spw(data)
   set_Models(data)
   verify_model(data)
+  
   #returns to hvla_data_cal.py
   

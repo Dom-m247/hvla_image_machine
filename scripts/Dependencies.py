@@ -1,13 +1,13 @@
 ##a script to automate installation of dependencies on new instances
 """Dependencies.py: A script to manage and install required Python dependencies for the HVLA Image Machine application."""
+import subprocess
+import sys
+
 def install_from_requirements():
   """Install all modules from requirements.txt file."""
-  import subprocess
-  import sys
-  
   #requirments.txt *Should* be in the same directory as this script
   #if it's not then
-  print(f"Installing all modules from requirments.txt...")
+  print(f"verifying all modules from requirments.txt...")
   try:
       subprocess.check_call([sys.executable, "-m", "pip", "install","--quiet", "-r", "requirements.txt"])
       print("All modules from requirements.txt installed successfully.")
@@ -19,7 +19,6 @@ def install_from_requirements():
 
 def install_dep_call():
   '''Wrapper to check for venv and install dependencies, use in main scripts'''
-  import sys
   #check may not be working :shrug:p
   if sys.prefix != sys.base_prefix:
     print("Virtual environment detected.")

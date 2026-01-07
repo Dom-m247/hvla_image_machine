@@ -3,4 +3,8 @@
 from . import find_calibrators as find_cal
 from . import parse_listobs as parse
 from . import cal_split
+from . import target_aquisition as TA
 from .. import constants
+
+
+

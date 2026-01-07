@@ -35,6 +35,7 @@ also ask for credentials.json!
   - actually mark sensible breakpoints!
   - synconize Breakpoint list (pulls from 3 different list and dicts oops)
   - add phase/~~amp~~/phase-amp cal options!
+  - Data-Flagging
 
 ### gmail grabber - Maybe not necessary
   - Note: vlaArchive does have credential
@@ -54,6 +55,10 @@ also ask for credentials.json!
   - **phase Calibration**
   - parrallelize validation?(spw, )
   - Multiple bands with multple models?
+  #### Target_acuisition /verification
+   - utilize Ra and Declination to verify the target is close to source (stuff radio_search) for incendental obs
+   -  closest field to target or longest field from observations?
+   - add amp_cal_source_id as a dict!
 ###### Parse_list_obs
   - turn scan data into time data types
 
@@ -69,7 +74,7 @@ also ask for credentials.json!
  - Fix variable/function nameing conventions, Incositinet is ***BAD***
  - adjust try,exept and Raise handling to fail up to main
  - fix imports to actually follow modularity.
-
+ - add subclass for MS parsed data?
 ### maintainability steps
  - Excessive commenting!
  - maintin example copies of parsed external data 
@@ -78,6 +83,7 @@ also ask for credentials.json!
 ### Bugs 
 - in ~~Breakpoint~~ source selection gui, ~~submit~~ close requires it being pressed twice.
 - fix error "2025-12-29 20:47:31     SEVERE  ::casa  measures_update: the measures data at /home/user/.casa/data is not maintained by casaconfig and so it can not be updated unless force is True"
+- plotms broken? just wsl?
 # Possible issues
 - Any instances of path access messed up by calling script from outside active dir?
   - (at runtime, set path to correct folder)
@@ -85,3 +91,4 @@ also ask for credentials.json!
 # Tech - Exploration
 EC2 instance for web-server to Open an endpoint \
 accept request, w/ pysocket, pass ssh from nrao to user as request response 
+ - import nrao calibrator list to automatically find and fill many more calibrators

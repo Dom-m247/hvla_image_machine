@@ -11,7 +11,7 @@ from . import import_settings
 from .archive_fetch import web_scraper
 from .data_class import data
 from .data_calibration import *
-from . import constants as CONST
+from . import constants 
 
 __all__ = [
     'Dependencies',
@@ -21,7 +21,8 @@ __all__ = [
     'import_settings',
     'web_scraper',
     'data',
-    'casalog'
+    'casalog',
+    'constants'
 ]
 
 #constatns?

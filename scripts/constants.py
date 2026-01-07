@@ -30,7 +30,7 @@ COMMON_AMPCALS_DICT = {'1331+305': '3C286',
                       '0137+3309': '3C48', 
                       '0134+329': '3C48', 
                       '0137+331': '3C48', 
-                      '0521+1638': '3C138'}
+                      '0521+1638': '3C138'} #upgrade with calibrator list, and pull flux data for "custom" callibrators
 
 EXPORT_KEYS = ["source","archive_file", "band", "breakpoints", 
                "solint","custom_amp_cal", "reference_antenna", 

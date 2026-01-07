@@ -3,7 +3,7 @@ import re
 from ..data_class import data
 import pprint as pp
 import math 
-#sections to "parse" : observervation data, spectral Windows, Sources
+#sections to 'parse' : observervation data, spectral Windows, Sources
 '''
 Why are we parsing listobs? the Returned value doesn't contain everything (i belive) 
 also, I already had it mostly done before I had the though to utilize the
@@ -11,10 +11,10 @@ return value for listobs()
 '''
 
 def parseListObs(listObsFile,options):
-  """
+  '''
   parses the List_obs File for infomration, which is added to options
     Note: line # are hard coded, see parsing examples if I break
-  """
+  '''
   #prime realestate to parrallelize in the future
   try:
     antenna_dict = {'antennas':parse_antennas(listObsFile)}
@@ -28,15 +28,15 @@ def parseListObs(listObsFile,options):
     spw_dict = {'spectral_windows':parse_spw(listObsFile)}
     options.add_dict(spw_dict)
   except ValueError as e:
-    print(f"An error occured parsing the list_obs {e} section. ")
+    print(f'An error occured parsing the list_obs {e} section. ')
 
 def parse_spw(listobs_text):
-  """Parse spectral windows section"""
-  # Match from "Spectral Windows:" through the header line, then capture data until "Sources:"
+  '''Parse spectral windows section'''
+  # Match from 'Spectral Windows:' through the header line, then capture data until 'Sources:'
   spw_section = re.search(r'Spectral Windows:.*?\n\s*SpwID.*?\n(.*?)(?=Sources:)', listobs_text, re.DOTALL)
 
   if not spw_section:
-    raise ValueError("Spectral Windows")
+    raise ValueError('Spectral Windows')
   
   spws = []
   lines = spw_section.group(1).strip().split('\n')
@@ -74,11 +74,11 @@ def parse_spw(listobs_text):
 
 
 def parse_observations(listobs_text):
-  """Parse observations section with scan data"""
+  '''Parse observations section with scan data'''
   # Find observations data between the header and Fields section
   obs_section = re.search(r'Date\s+Timerange.*?\n(.*?)(?=\(nRows|\n\s*Fields:)', listobs_text, re.DOTALL)
   if not obs_section:
-    raise ValueError("Observations")
+    raise ValueError('Observations')
   
   observations = []
   lines = obs_section.group(1).strip().split('\n')
@@ -102,18 +102,18 @@ def parse_observations(listobs_text):
         'field_id': int(match.group(5)),
         'field_name': match.group(6),
         'nrows': int(match.group(7)),
-        'spw_ids': match.group(8),  # Keep as string "[0,1]"
-        'average_intervals': match.group(9)  # Keep as string "[10, 10]"
+        'spw_ids': match.group(8),  # Keep as string '[0,1]'
+        'average_intervals': match.group(9)  # Keep as string '[10, 10]'
       }
       observations.append(observation)
 
   return observations
 
 def parse_sources(listobs_text):
-  """Parse sources section"""
+  '''Parse sources section'''
   sources_section = re.search(r'Sources: \d+(.*?)(?=\n\n|Antennas|\Z)', listobs_text, re.DOTALL)
   if not sources_section:
-    raise ValueError("Sources")
+    raise ValueError('Sources')
   
   sources = []
   lines = sources_section.group(1).strip().split('\n')
@@ -137,10 +137,10 @@ def parse_sources(listobs_text):
   return sources
 
 def parse_fields(listobs_text):
-  """Parse fields section, handling empty Code field"""
+  '''Parse fields section, handling empty Code field'''
   fields_section = re.search(r'Fields: \d+(.*?)(?=\n\n|Spectral|\Z)', listobs_text, re.DOTALL)
   if not fields_section:
-    raise ValueError("fields")
+    raise ValueError('fields')
   
   fields = []
   lines = fields_section.group(1).strip().split('\n')
@@ -167,11 +167,11 @@ def parse_fields(listobs_text):
   return fields
 
 def parse_antennas(listobs_text):
-  """Parse antenna data from listobs output"""
+  '''Parse antenna data from listobs output'''
   # Find the Antennas section
   antenna_section = re.search(r'Antennas: \d+:(.*?)(?=\n\n|\Z)', listobs_text, re.DOTALL)
   if not antenna_section:
-    raise ValueError("Antennas")
+    raise ValueError('Antennas')
   
   antennas = []
   lines = antenna_section.group(1).strip().split('\n')
@@ -217,21 +217,21 @@ def antennas_distance(antennas):
 
 def log_listobs_ms(ms):
   '''make and log a listobs for a given .ms file'''
-  listobs_file = ms + "-list-file.txt"
+  listobs_file = ms + '-listobs.txt'
   ct.listobs(vis = ms, listfile = listobs_file, overwrite = True)
   read_listobs = open(listobs_file, 'r').read()
   ct.casalog.post(read_listobs)
   return read_listobs
 
 def log_listobs(ms):
-  """
+  '''
   generates a listobs and post to log
     give name of ms w/out .ms
-  """
+  '''
   import pprint as pp
   ### Listobs
-  listobs_file = ms + "-list-file.txt"
-  ct.listobs(vis = ms+".ms", listfile = listobs_file, overwrite = True)
+  listobs_file = ms + '-listobs.txt'
+  ct.listobs(vis = ms+'.ms', listfile = listobs_file, overwrite = True)
   read_listobs = open(listobs_file, 'r').read()
   ct.casalog.post(read_listobs)
   return read_listobs
