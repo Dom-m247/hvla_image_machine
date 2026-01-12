@@ -2,8 +2,8 @@ import casatasks as ct
 import casaplotms
 from . import parse_listobs as parse
 from . import target_aquisition as TA
-from ..data_class import data
-from ..constants import *
+#from ..data_class import data
+from pre_calibration.constants import *
 import sys,pprint
 from pathlib import Path
 

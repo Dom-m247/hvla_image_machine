@@ -1,8 +1,8 @@
 #Replace "sources" with fields to allow for broader searching!
 import casatasks as ct
 
-from ..data_class import data
-from ..constants import *
+from pre_calibration.options_class import Options
+from pre_calibration.constants import *
 from pprint import pprint as pp
 
 def in_spw(listobs_spw,test_band):
@@ -86,29 +86,29 @@ def check_source_manual(data,sourceID):
     else:
       return None
 
-def check_source(data):
+def check_source(options:Options):
   '''checks for any common amp calibrators are in sources TODO: change to fields?'''
-  for source in data.get_dict()["sources"]:
-    for key in COMMON_AMPCALS_DICT:
-      if source["name"] == key:
-        ct.casalog.post('Amp Cal found, ID:{key}, {COMMON_AMPCALS_DICT[key]}')
-        newDict = {"amp_cal_source":COMMON_AMPCALS_DICT[key]}
-        data.add_dict(newDict)
-        data.add_dict({"amp_cal_source_id":source['id']})
+  sources = options.observation_data.sources
+  for i in range(len(sources)):
+    for amp_cal in COMMON_AMPCALS_DICT:
+      if sources[i].name == amp_cal:
+        ct.casalog.post('Amp Cal found, ID:{amp_cal}, {COMMON_AMPCALS_DICT[amp_cal]}')
+        options.amp_cal_source = {'amp_cal_3c':COMMON_AMPCALS_DICT[amp_cal],
+                                  'amp_cal':amp_cal}
         return True
   return False    
       
-def find_amp_cal(data):
+def find_amp_cal(options:Options):
   #TODO: upgrade to utilize other "better" claibrators
   '''Checks that a useable amp calibrator is present'''
-  if data.get_dict()["custom_amp_cal"] == "Yes":
-    sourceID = get_source_ID(data)
-    check_source_manual(data,sourceID)
+  if options.custom_amp_cal == "Yes":
+    sourceID = get_source_ID(options)
+    check_source_manual(options,sourceID)
     return
-  check_source(data)
-  asses_spw(data)
-  set_Models(data)
-  verify_model(data)
+  check_source(options)
+  asses_spw(options)
+  set_Models(options)
+  verify_model(options)
   
   #returns to hvla_data_cal.py
   

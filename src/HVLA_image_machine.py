@@ -1,47 +1,56 @@
 import sys,os
-from scripts import *
-from scripts.data_class import data
+from pre_calibration.options_class import Options
+from pre_calibration import *
+#from data_calibration import *
+#from archive_dowload import *
+#from pre_calibration.options_class import Options
 from pprint import *
 
 def main(argv):
   """ Main function to run the HVLA Image Machine application."""
   print("Welcome to the HVLA Image Machine!")
-  os.environ['PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION'] = 'python'
+  #os.environ['PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION'] = 'python'
   #check for dependencies and install if needed, including venv setup
   #Dependencies.install_dep_call() 
   #sign in to gmail and get token
-  #token = gmail_data_fetch.generateToken()
-  source = data()
+  #token = gmail_options_fetch.generateToken()
+  
   delete_logs()
 
   if len(argv) > 1 and argv[1] == "import":
     # Import mode - skip GUI
     try:
       imported_setting = import_settings.import_options()
-      source.add_dict(imported_setting)
+      source = Options()
+      source.process_input_dict(imported_setting)
     except FileNotFoundError as error:
       print(f"The import does not exist.{error}")
   else:
     # Normal GUI mode
     try:
-      #get source Data from user
-      if not source.add_dict(hvla_gui.run_hvla_app()): #opens GUI and gets user input
+      #get source options from user
+      options = hvla_gui.run_hvla_app()
+      if options is None: #opens GUI and gets user input
         raise RuntimeError("No options were selected, Exiting")
+      source = Options()
+      source.process_input_dict(options)
       #For checking obj with all options 
       #import_settings.genereate_import(source)
     except RuntimeError as e:
       print(f"{e}")
+      sys.exit()
 
   #TODO:archive download here/in GUI app/other module 
   #if sourceID = somthing, run scraper routine
   #try:
-  #Start data calibration  
+  #Start options calibration  
   
   hvla_data_cal.data_calibration(source)
 
-  #output data obj as json! #CHANGE TO IMPORT
+  #output options obj as json! #CHANGE TO IMPORT
   #import_settings.generate_import(source)
   import_settings.generate_debug_export(source,filename="export_for_testing")
+
   print("Completed Successfuly. Exiting...")
   #except ValueError as e:
   #  export_obj(source,e)
@@ -51,9 +60,9 @@ def main(argv):
   #  export_obj(source,e)
     
 
-def export_obj(data,error):
+def export_obj(options,error):
   print(f"Generating a debug export becuase of error : {error}")
-  import_settings.generate_debug_export(data,filename="error_export")
+  import_settings.generate_debug_export(options,filename="error_export")
 
 def delete_logs():
   """ Deleting casa logs that aren't the most recent one

@@ -1,7 +1,7 @@
 import casatasks as ct
 
-from ..data_class import data
-from ..constants import *
+#from ..pre_calibration import options
+from pre_calibration.constants import *
 
 '''
 detect a target field

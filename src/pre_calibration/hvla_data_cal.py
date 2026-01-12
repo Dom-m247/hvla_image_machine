@@ -1,11 +1,14 @@
 FULLMS = 'fullSet' #+".ms"
 import casatasks as ct
 import sys,os
-from .data_class import data
+#from .options_class import Options
 #from .data_calibration import parse_list_obs as parse
-from .data_calibration import *
+from data_calibration import *
+from classes.source_class import source_info
 import pprint as pp
 from .constants import *
+from classes import *
+from .options_class import Options
 
 def build_setjy(options):
   #pp.pp(options.get_dict())
@@ -37,29 +40,31 @@ def convert_to_ms(archive):
       ct.importvla(archivefiles={archive},vis=FULLMS+'.ms')
       print("Done")
     return parse.log_listobs(FULLMS)
-
+  
   except RuntimeError as file_exists:
     print(f"MS file already exists, delete it and re-run")
     sys.exit() # add call to a cleanup script?
 
-def pre_data_calibration(options):
+def pre_data_calibration(options:Options):
   """extract and clean necessary info for data calibration"""
-  list_obs = convert_to_ms(options.get_dict()['archive_file']) 
+  list_obs = convert_to_ms(options.archive_file) 
   
   #extract info from listobs -> more complete than returned data
-  parse.parseListObs(list_obs,options) 
+  parse.populate_Obs_data(list_obs,options) 
 
   #find calibrators TODO: add phase calibration option
-  find_cal.find_amp_cal(options)
-  print("running Amp Calibration...")
-  cal_split.amp_cal_split(options)
+  options.amp_cal  = source_info(options,"amp_calibrator")
+  
+  #find_cal.find_amp_cal(options)
+  #print("running Amp Calibration...")
+  #cal_split.amp_cal_split(options)
 
-def data_calibration(options):
+def data_calibration(options:Options):
   """
   main in for data calibration of HVLA data archive
   Creates MS files from raw data, applies calibration
   """
   pre_data_calibration(options)
-  build_setjy(options)
+  #build_setjy(options)
   
   

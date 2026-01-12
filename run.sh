@@ -3,15 +3,25 @@ set -euo pipefail
 
 PYTHON_CMD="python3.10"
 VENV_NAME=".hvla_env"
-SCRIPT="HVLA_image_machine.py"
+DEPENDENCY_SCRIPT="src/Dependencies.py"
+MAIN_SCRIPT="src/HVLA_image_machine.py"
+SYS_ARG=""
+
+#check if args exist
+
+if [ "$#" -ge 1 ]; then
+  SYS_ARG="$1"
+fi
 
 # If venv exists, activate and run the HVLA script
 if [ -d "$VENV_NAME" ]; then
-  echo "Virtual environment '$VENV_NAME' already exists. Activating..."
+  #echo "Virtual environment '$VENV_NAME' already exists. Activating..."
   # shellcheck disable=SC1091
   source "$VENV_NAME/bin/activate"
-  echo "Running $SCRIPT..."
-  "$VENV_NAME/bin/python" "$SCRIPT"
+  echo "Running $DEPENDENCY_SCRIPT..."
+  "$VENV_NAME/bin/python" "$DEPENDENCY_SCRIPT"
+  echo "Running $MAIN_SCRIPT..."
+  "$VENV_NAME/bin/python" "$MAIN_SCRIPT" "$SYS_ARG"
   exit 0
 fi
 
@@ -30,5 +40,8 @@ source "$VENV_NAME/bin/activate"
 
 
 echo "Virtual environment '$VENV_NAME' created and activated."
-echo "Running $SCRIPT..."
-"$VENV_NAME/bin/python" "$SCRIPT"
+echo "Running $DEPENDENCY_SCRIPT..."
+"$VENV_NAME/bin/python" "$DEPENDENCY_SCRIPT"
+echo "Running $MAIN_SCRIPT..."
+  "$VENV_NAME/bin/python" "$MAIN_SCRIPT" "$SYS_ARG"
+

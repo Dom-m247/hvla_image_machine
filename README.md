@@ -17,6 +17,7 @@ also ask for credentials.json!
     - seperate detected bands and selected bands?
   - support back button autopopulate
   - Specify Target
+  - specify model with drop down?
 
 ###### import/export support 
   - add frame for using imported setting (supports ms/exp (test MS support))
@@ -61,6 +62,7 @@ also ask for credentials.json!
    - add amp_cal_source_id as a dict!
 ###### Parse_list_obs
   - turn scan data into time data types
+  - lmao observations are broke. Missing cuz of leading whitespace
 
 ### Archival
   - use XML data to populate?

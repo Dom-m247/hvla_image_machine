@@ -1,10 +1,16 @@
 #parent directory name, edit if different!
 FOLDER_NAME = "hvla_script_proj"
-
+IMPORT_JSON = 'import.json'
 #Measurment set Names
 FULLMS = 'fullSet' # for the full MS before splitting
 AMP_CAL_MS = 'init' #'amp_cal_set'
 
+#class BandRange:
+#  def __init__(self, lower, upper, identifer):
+#    self.identifer = identifer
+#    self.lower = lower
+#    self.upper = upper
+  
 #Constants that may be integrated, but are being placed here for reference!
 BAND_GHZ_RANGES = {'L': [0.985, 2.025], 
                    'S': [2.026, 4.013], 

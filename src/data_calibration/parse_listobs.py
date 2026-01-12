@@ -1,34 +1,55 @@
 import casatasks as ct
 import re
-from ..data_class import data
+#from ..pre_calibration import options
 import pprint as pp
-import math 
+import math
+
+from pre_calibration.options_class import Options 
+from classes.observations_class import Obs_data 
+#from ..pre_calibration.options_class import Options 
+#from ..pre_calibration.observations_class import Obs_data
 #sections to 'parse' : observervation data, spectral Windows, Sources
 '''
 Why are we parsing listobs? the Returned value doesn't contain everything (i belive) 
 also, I already had it mostly done before I had the though to utilize the
 return value for listobs()
 '''
-
-def parseListObs(listObsFile,options):
-  '''
-  parses the List_obs File for infomration, which is added to options
-    Note: line # are hard coded, see parsing examples if I break
-  '''
-  #prime realestate to parrallelize in the future
-  try:
-    antenna_dict = {'antennas':parse_antennas(listObsFile)}
-    options.add_dict(antenna_dict)
-    fields_dict = {'fields':parse_fields(listObsFile)}
-    options.add_dict(fields_dict)
-    sources_dict = {'sources':parse_sources(listObsFile)}
-    options.add_dict(sources_dict)
-    observations_dict = {'observations':parse_observations(listObsFile)}
-    options.add_dict(observations_dict)
-    spw_dict = {'spectral_windows':parse_spw(listObsFile)}
-    options.add_dict(spw_dict)
-  except ValueError as e:
-    print(f'An error occured parsing the list_obs {e} section. ')
+class parseListObs:
+  def populate_Obs_data(listObsFile,options:Options):
+    '''
+    parses the List_obs File for infomration, which is added to options
+      Note: line # are hard coded, see parsing examples if I break
+    '''
+    #prime realestate to parrallelize in the future
+    try:
+      options.observation_data = Obs_data(
+        parse_antennas(listObsFile),
+        parse_fields(listObsFile),
+        parse_sources(listObsFile),
+        parse_observations(listObsFile),
+        parse_spw(listObsFile),
+      )
+    except ValueError as e:
+      print(f'An error occured parsing the list_obs {e} section. ')
+  def log_listobs(ms):
+    '''
+    generates a listobs and post to log
+      give name of ms w/out .ms
+    '''
+    import pprint as pp
+    ### Listobs
+    listobs_file = ms + '-listobs.txt'
+    ct.listobs(vis = ms+'.ms', listfile = listobs_file, overwrite = True)
+    read_listobs = open(listobs_file, 'r').read()
+    ct.casalog.post(read_listobs)
+    return read_listobs
+  def log_listobs_ms(ms):
+    '''make and log a listobs for a given .ms file'''
+    listobs_file = ms + '-listobs.txt'
+    ct.listobs(vis = ms, listfile = listobs_file, overwrite = True)
+    read_listobs = open(listobs_file, 'r').read()
+    ct.casalog.post(read_listobs)
+    return read_listobs
 
 def parse_spw(listobs_text):
   '''Parse spectral windows section'''
@@ -71,7 +92,6 @@ def parse_spw(listobs_text):
       spws.append(spw)
   
   return spws
-
 
 def parse_observations(listobs_text):
   '''Parse observations section with scan data'''
@@ -215,23 +235,23 @@ def antennas_distance(antennas):
   distance_list_sorted = sorted(distance_list, key=lambda x: x['distance'])
   #stuff?
 
-def log_listobs_ms(ms):
-  '''make and log a listobs for a given .ms file'''
-  listobs_file = ms + '-listobs.txt'
-  ct.listobs(vis = ms, listfile = listobs_file, overwrite = True)
-  read_listobs = open(listobs_file, 'r').read()
-  ct.casalog.post(read_listobs)
-  return read_listobs
-
-def log_listobs(ms):
-  '''
-  generates a listobs and post to log
-    give name of ms w/out .ms
-  '''
-  import pprint as pp
-  ### Listobs
-  listobs_file = ms + '-listobs.txt'
-  ct.listobs(vis = ms+'.ms', listfile = listobs_file, overwrite = True)
-  read_listobs = open(listobs_file, 'r').read()
-  ct.casalog.post(read_listobs)
-  return read_listobs
+#def log_listobs_ms(ms):
+#  '''make and log a listobs for a given .ms file'''
+#  listobs_file = ms + '-listobs.txt'
+#  ct.listobs(vis = ms, listfile = listobs_file, overwrite = True)
+#  read_listobs = open(listobs_file, 'r').read()
+#  ct.casalog.post(read_listobs)
+#  return read_listobs
+#
+#def log_listobs(ms):
+#  '''
+#  generates a listobs and post to log
+#    give name of ms w/out .ms
+#  '''
+#  import pprint as pp
+#  ### Listobs
+#  listobs_file = ms + '-listobs.txt'
+#  ct.listobs(vis = ms+'.ms', listfile = listobs_file, overwrite = True)
+#  read_listobs = open(listobs_file, 'r').read()
+#  ct.casalog.post(read_listobs)
+#  return read_listobs
