@@ -18,6 +18,7 @@ also ask for credentials.json!
   - support back button autopopulate
   - Specify Target
   - specify model with drop down?
+  - custum flux value for amp cal?
 
 ###### import/export support 
   - add frame for using imported setting (supports ms/exp (test MS support))

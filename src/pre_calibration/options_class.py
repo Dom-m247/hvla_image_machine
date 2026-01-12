@@ -4,6 +4,7 @@ from classes.observations_class import Obs_data
 #from classes.source_class import source_info
 from pre_calibration.constants import *
 
+import pprint as pp
 
 class Options:
   """contains all the parameters, and options"""
@@ -26,9 +27,13 @@ class Options:
     self.reference_antenna = reference_antenna
   
     #other members 
-    self.amp_cal = None
+    
     self.observation_data = Obs_data() 
+    #source_classe objects
+    self.source_ids = None
+    self.amp_cal = None
 
+    #extra members added during processing
     # validate inputs below; else throw err 
        
   def process_input_dict(self,dict_in):
@@ -48,10 +53,12 @@ class Options:
     except ValueError as e:
       print(f"an error occured importing an option: {e}")
       sys.exit()
+
   def to_dict(self):
     summary_dict = {}
     summary_dict.update(self.__dict__)
     summary_dict.update({'amp_cal':self.amp_cal.to_dict()})
+    summary_dict.update({'source_ids':self.source_ids.to_dict()})  
     summary_dict.update({'observation_data':self.observation_data.to_dict()})
     return summary_dict
   

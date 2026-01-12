@@ -54,10 +54,8 @@ def pre_data_calibration(options:Options):
 
   #find calibrators TODO: add phase calibration option
   options.amp_cal  = source_info(options,"amp_calibrator")
-  
-  #find_cal.find_amp_cal(options)
-  #print("running Amp Calibration...")
-  #cal_split.amp_cal_split(options)
+  print("running Amp Calibration...")
+  cal_split.amp_cal_split(options)
 
 def data_calibration(options:Options):
   """

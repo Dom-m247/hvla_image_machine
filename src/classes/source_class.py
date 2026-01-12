@@ -10,26 +10,43 @@ AUTO = 'auto'
 
 class source_info:
   #TODO: upgrade to utilize other "better" claibrators
-  def __init__(self,options,type=""):
+  def __init__(self,options,type="",name=""):
     self.type = type
     self.name3c = ''
-    self.name = ''
-    self.model = ''
+    self.name = name
+    self.sourceID = ''
+    
     if self.type == TYPE_AMP_CAL and options.custom_amp_cal == AUTO:
       if not self.detect_amp_cal(options):
         raise Exception("No amp Calibrator was detected")
       self.bands = self.asses_spw(options)
       #set Model name
-      self.model = self.name3c + self.bands + ".im"
-    else:
+      self.model = self.name3c + self.bands # +".im" not included here for c-string cast later
+    elif self.type == TYPE_AMP_CAL and options.custom_amp_cal != AUTO:
       self.manual_amp_cal(options)
-
+    elif self.type == TYPE_TARGET:
+      self.name = options.source
+      self.sourceID = self.find_sourceID(options)
+    self.fieldID = self.find_fieldID(options)
+  
+  def find_fieldID(self, options):
+    for field in options.observation_data.fields:
+      if field.name == self.name: 
+        return field.id
+      
+  def find_sourceID(self, options):
+    """find sourceID from source name"""
+    for source in options.observation_data.sources:
+      if source.name == options.source:
+        return source.id
+    raise Exception(f"Source {options.source} not found in observation")
+  
   def find_bands(self,options):
     detected_bands = []
-    if options.band != AUTO:
+    if options.band == AUTO:
       for each_spw in options.observation_data.spectral_windows:
         for test_band,value in BAND_MHZ_RANGES.items():
-          if self.in_spw(each_spw["ch0_mhz"],value):
+          if self.in_spw(each_spw.ch0_mhz,value):
             if test_band not in detected_bands:
               detected_bands.append(test_band)
     else: 
@@ -60,6 +77,7 @@ class source_info:
           ct.casalog.post('Amp Cal found, ID:{amp_cal}, {COMMON_AMPCALS_DICT[amp_cal]}')
           self.name3c = COMMON_AMPCALS_DICT[amp_cal]
           self.name = amp_cal
+          self.sourceID = sources[i].id
           return True
     return False
   

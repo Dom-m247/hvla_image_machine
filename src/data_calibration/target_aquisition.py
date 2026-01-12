@@ -2,6 +2,10 @@ import casatasks as ct
 
 #from ..pre_calibration import options
 from pre_calibration.constants import *
+from pre_calibration.options_class import Options
+from classes.source_class import source_info
+from classes.observations_class import Obs_data
+
 
 '''
 detect a target field
@@ -12,10 +16,10 @@ def build_spwID(options):
   TODO: ADD BREAKPOINT CUSTOM SPW?
   """
   spwIDs = ''
-  for spw in options.get_dict_sp('spectral_windows'):
-    spwIDs = spwIDs + str(spw['id'])
+  for spw in options.observation_data.spectral_windows:
+    spwIDs = spwIDs + str(spw.id)
     spwIDs+= ","
-  options.add_dict({"spwIDs":spwIDs[:len(spwIDs)-1]})
+  return spwIDs[:-1] #remove last comma
   
 
 def find_field(options):
@@ -26,35 +30,29 @@ def find_field(options):
   print("Not implemented Good luck")
   pass
 
-def define_split_fields(options):
+def define_split_fields(options:Options):
   split_fields = ''
-  source = options.get_dict_sp('source')
-  amp_cal = options.get_dict_sp('amp_cal_source_id')
-  for field in options.get_dict_sp('fields'):
-    if field["name"] == source:
-      split_fields = split_fields + str(field['id'])
-      split_fields += ", "
-    if field["src_id"] == amp_cal:
-      split_fields = split_fields + str(field['id'])
-      split_fields += ", "
-  #splitfields = 1,2, 
-  options.add_dict({"split1_fields":split_fields[:len(split_fields)-2]}) 
-
-
+  split_fields += str(options.source_ids.fieldID) + ','
+  split_fields += str(options.amp_cal.fieldID)
+  return split_fields
+  
 def find_longest_field(obs_fields,options):
   longest_field = 0
   for field in obs_fields:
-    if field['nrows'] > obs_fields[longest_field]['nrows']:
-      longest_field = field['id']
+    if field.nrows > obs_fields[longest_field].nrows:
+      longest_field = field.id
       
-  return obs_fields[longest_field]["name"]
+  return obs_fields[longest_field]
 
-def find_target(options):
+def find_target(options:Options):
   """
   Idendtify the field with our target
   based on longest observation time
   """
-  options.add_dict({'source': find_longest_field(options.get_dict_sp("fields"),options)})
+  source_field = find_longest_field(options.observation_data.fields,options)
+  options.source = source_field.name
+  options.source_ids = source_info(options,"target",source_field.name)
+  options.source_ids.sourceID = source_field.src_id
 
 
 def check_target(options):
@@ -65,3 +63,8 @@ def check_target(options):
     return  
   #find which field target is in
   find_field(options)
+
+def make_sourceID(options:Options):
+  """create source_info object for target source"""
+  options.source_ids = source_info(options,"target",options.source)
+
