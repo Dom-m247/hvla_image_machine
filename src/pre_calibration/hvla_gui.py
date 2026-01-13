@@ -259,8 +259,8 @@ class BreakpointsWindow:
         #PLACEHOLDER
         # Additional calibration options #PLACEHOLDER
         ttk.Label(calibration_frame, text="Pick amp Calibration Method", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
-        self.amp_cal_mode = tk.StringVar(value="Default")
-        amp_cal_options = ["Default(auto)","Yes", "Advanced", "Custom", "None"]
+        self.amp_cal_mode = tk.StringVar(value="auto")
+        amp_cal_options = ["auto","Yes", "Advanced", "Custom", "None"]
         self.calib_model_menu = ttk.Combobox(
             calibration_frame,
             textvariable=self.amp_cal_mode,

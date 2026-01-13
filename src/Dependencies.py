@@ -9,7 +9,7 @@ def install_from_requirements():
   #if it's not then
   print(f"verifying all modules from requirments.txt...")
   try:
-      subprocess.check_call([sys.executable, "-m", "pip", "install","--quiet", "-r", "requirements.txt"])
+      subprocess.check_call([sys.executable, "-m", "pip", "install",'--quiet', "-r", "requirements.txt"])
       print("All modules from requirements.txt installed successfully.")
       return True
   except subprocess.CalledProcessError as e:

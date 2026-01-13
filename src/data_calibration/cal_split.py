@@ -24,15 +24,15 @@ def amp_cal_split(options):
   else:
     TA.make_sourceID(options)
   fields,spwID = get_command(options)
-  if Path(sys.path[0]+("/"+AMP_CAL_MS+".ms")).is_dir():
+  if Path(AMP_CAL_MS+".ms").is_dir():
     #raise Exception(f"{AMP_CAL_MS}.ms already exists, please move,delete, or rename it")
-    pass #temp pass for development
+    ct.casalog.post(f"{FULLMS+'.ms'} -> {AMP_CAL_MS+'.ms'} | fields: {fields} | spw: {spwID}")
   else:
     ct.casalog.post(f"{FULLMS+'.ms'} -> {AMP_CAL_MS+'.ms'} | fields: {fields} | spw: {spwID}")
     ct.split(vis=FULLMS+'.ms',outputvis=AMP_CAL_MS+'.ms',datacolumn = 'data', field=fields, spw=spwID)
   #if options.get_dict_sp('breakpoints')['verify_scans']:
     #pause, show listobs(vis='init.ms') and continue if correct, else END
-  parse.parseListObs.log_listobs(AMP_CAL_MS)
+  parse.parseListObs.log_listobs(AMP_CAL_MS,options)
 
   if "manual_flagging" in options.breakpoints:
     print("Manual Data Flagging!")

@@ -1,4 +1,4 @@
-from casatasks import casalog
+from casatasks import casalog # type: ignore
 
 class Spectral_Windows:
     def __init__(self,spectral_windows=[]):

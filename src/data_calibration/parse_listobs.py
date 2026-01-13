@@ -1,4 +1,4 @@
-import casatasks as ct
+import casatasks as ct # type: ignore
 import re
 #from ..pre_calibration import options
 import pprint as pp
@@ -31,7 +31,7 @@ class parseListObs:
       )
     except ValueError as e:
       print(f'An error occured parsing the list_obs {e} section. ')
-  def log_listobs(ms):
+  def log_listobs(ms,options):
     '''
     generates a listobs and post to log
       give name of ms w/out .ms
@@ -39,7 +39,7 @@ class parseListObs:
     import pprint as pp
     ### Listobs
     listobs_file = ms + '-listobs.txt'
-    ct.listobs(vis = ms+'.ms', listfile = listobs_file, overwrite = True)
+    options.split_observations = ct.listobs(vis = ms+'.ms', listfile = listobs_file, overwrite = True)
     read_listobs = open(listobs_file, 'r').read()
     ct.casalog.post(read_listobs)
     return read_listobs

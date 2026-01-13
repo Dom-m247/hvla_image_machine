@@ -1,4 +1,4 @@
-import casatasks as ct
+import casatasks as ct # type: ignore
 
 #from pre_calibration.options_class import Options 
 from classes.observations_class import Obs_data 
@@ -21,7 +21,7 @@ class source_info:
         raise Exception("No amp Calibrator was detected")
       self.bands = self.asses_spw(options)
       #set Model name
-      self.model = self.name3c + self.bands # +".im" not included here for c-string cast later
+      self.model = self.name3c + "_" + self.bands  +".im" #not included here for c-string cast later
     elif self.type == TYPE_AMP_CAL and options.custom_amp_cal != AUTO:
       self.manual_amp_cal(options)
     elif self.type == TYPE_TARGET:

@@ -1,4 +1,4 @@
-from casatasks import casalog
+from casatasks import casalog  # type: ignore
 import sys
 from classes.observations_class import Obs_data
 #from classes.source_class import source_info
@@ -32,7 +32,7 @@ class Options:
     #source_classe objects
     self.source_ids = None
     self.amp_cal = None
-
+    self.split_observations = {}
     #extra members added during processing
     # validate inputs below; else throw err 
        
@@ -60,6 +60,8 @@ class Options:
     summary_dict.update({'amp_cal':self.amp_cal.to_dict()})
     summary_dict.update({'source_ids':self.source_ids.to_dict()})  
     summary_dict.update({'observation_data':self.observation_data.to_dict()})
+    #summary_dict.update({'split_observations':self.split_observations})
+    summary_dict.pop('split_observations',None)
     return summary_dict
   
   def generate_dict(self):

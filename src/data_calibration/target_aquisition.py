@@ -1,4 +1,4 @@
-import casatasks as ct
+import casatasks as ct # type: ignore
 
 #from ..pre_calibration import options
 from pre_calibration.constants import *
