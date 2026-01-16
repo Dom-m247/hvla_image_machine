@@ -8,6 +8,7 @@ from pre_calibration.constants import *
 import sys,pprint
 from pathlib import Path
 
+
 def get_command(options):
   fields = TA.define_split_fields(options)
   spwID = TA.build_spwID(options)
@@ -29,12 +30,21 @@ def amp_cal_split(options):
     ct.casalog.post(f"{FULLMS+'.ms'} -> {AMP_CAL_MS+'.ms'} | fields: {fields} | spw: {spwID}")
   else:
     ct.casalog.post(f"{FULLMS+'.ms'} -> {AMP_CAL_MS+'.ms'} | fields: {fields} | spw: {spwID}")
+    print(f"\rSplitting off Amp Calibrator data to {AMP_CAL_MS+'.ms'}")
     ct.split(vis=FULLMS+'.ms',outputvis=AMP_CAL_MS+'.ms',datacolumn = 'data', field=fields, spw=spwID)
   #if options.get_dict_sp('breakpoints')['verify_scans']:
     #pause, show listobs(vis='init.ms') and continue if correct, else END
-  parse.parseListObs.log_listobs(AMP_CAL_MS,options)
+
 
   if "manual_flagging" in options.breakpoints:
-    print("Manual Data Flagging!")
-    casaplotms.plotms(vis=(AMP_CAL_MS+".ms")) #doesn't work with wsl?
+    print("Manual Data Flagging! ### NOT YET IMPLEMENTED")
+    #open_plotms_thread(AMP_CAL_MS+".ms")
+    print("Resuming Calibration Process...")
+ 
+
+def open_plotms_thread(visfile):
+  """
+  call Plotms, find a way to cause a break :/
+  """
+
   

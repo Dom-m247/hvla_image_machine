@@ -17,7 +17,8 @@ class Options:
                band='auto',
                breakpoints=[],
                custom_amp_cal='auto',
-               reference_antenna='auto'):
+               reference_antenna='auto',
+               min_snr=3.0,):
     #default members
     self.source = source
     self.archive_file = archive_file
@@ -25,6 +26,7 @@ class Options:
     self.breakpoints = breakpoints
     self.custom_amp_cal = custom_amp_cal
     self.reference_antenna = reference_antenna
+    self.min_snr = min_snr
   
     #other members 
     
@@ -32,14 +34,16 @@ class Options:
     #source_classe objects
     self.source_ids = None
     self.amp_cal = None
-    self.split_observations = {}
-    #extra members added during processing
+    self.init_data = Obs_data()
+    #extra members added during processing for tracking 
+    self.ref_ant = None
+    self.split_observations = None
     # validate inputs below; else throw err 
        
   def process_input_dict(self,dict_in):
     #add logger output
     if dict_in is None:
-      print("Warning: dict_in is None, skipping update")
+      print("Warning: input options is None, skipping update")
       return False
     try:
       self.source = dict_in['source']
@@ -48,10 +52,14 @@ class Options:
       self.breakpoints = dict_in['breakpoints']
       self.custom_amp_cal = dict_in['custom_amp_cal']
       self.reference_antenna = dict_in['reference_antenna']
+      self.min_snr = dict_in['min_snr']
       casalog.post(f"Information added to obj: {dict_in}") #logging values added to data_set object
       return True
     except ValueError as e:
-      print(f"an error occured importing an option: {e}")
+      print(f"an error occured processing an option: {e}")
+      sys.exit()
+    except KeyError as ke:
+      print(f"Key Error processing options: {ke}")
       sys.exit()
 
   def to_dict(self):
@@ -60,7 +68,7 @@ class Options:
     summary_dict.update({'amp_cal':self.amp_cal.to_dict()})
     summary_dict.update({'source_ids':self.source_ids.to_dict()})  
     summary_dict.update({'observation_data':self.observation_data.to_dict()})
-    #summary_dict.update({'split_observations':self.split_observations})
+    summary_dict.update({'init_data':self.init_data.to_dict()})
     summary_dict.pop('split_observations',None)
     return summary_dict
   
@@ -73,6 +81,7 @@ class Options:
     summary_dict.update({'breakpoints':self.breakpoints})
     summary_dict.update({'custom_amp_cal':self.custom_amp_cal})
     summary_dict.update({'reference_antenna':self.reference_antenna})
+    summary_dict.update({'min_snr':self.min_snr})
     return summary_dict
   
   def generate_debug_dict(self):
@@ -80,4 +89,6 @@ class Options:
     summary_dict = self.generate_dict() 
     summary_dict.update({'amp_cal_source':self.amp_cal_source.to_dict()})
     summary_dict.update({'observation_data':self.observation_data}) 
+    summary_dict.update({'init_data':self.init_data})
+
 

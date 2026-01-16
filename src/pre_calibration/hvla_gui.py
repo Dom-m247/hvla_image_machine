@@ -258,9 +258,9 @@ class BreakpointsWindow:
         
         #PLACEHOLDER
         # Additional calibration options #PLACEHOLDER
-        ttk.Label(calibration_frame, text="Pick amp Calibration Method", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
+        ttk.Label(calibration_frame, text="Pick Calibration Method", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
         self.amp_cal_mode = tk.StringVar(value="auto")
-        amp_cal_options = ["auto","Yes", "Advanced", "Custom", "None"]
+        amp_cal_options = ["auto","gain", "phase", "gain/phase", "None"]
         self.calib_model_menu = ttk.Combobox(
             calibration_frame,
             textvariable=self.amp_cal_mode,
@@ -281,7 +281,19 @@ class BreakpointsWindow:
             width=30
         )
         self.ref_antenna_menu.pack(anchor="w", pady=(0, 15))
+        
+        ttk.Label(calibration_frame, text="Minimum SNR Ratio:", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
+        self.snr_var = tk.DoubleVar(value=3.0)
+        self.snr_spinbox = ttk.Spinbox(
+            calibration_frame,
+            from_=0,
+            to=10,
+            textvariable=self.snr_var,
+            width=30
+        )
+        self.snr_spinbox.pack(anchor="w", pady=(0, 15))
         #PLACEHOLDER
+        
 
         # Checkboxes for breakpoints (allow multiple selections)
         self.breakpoint_vars = {
@@ -356,6 +368,7 @@ class BreakpointsWindow:
             "solint": self.solint_var.get(),
             "custom_amp_cal": self.amp_cal_mode.get(),
             "reference_antenna": self.ref_antenna_var.get(),
+            "min_snr": self.snr_var.get(),
         }
         # Store in app
         self.app.summary_dict = summary_dict

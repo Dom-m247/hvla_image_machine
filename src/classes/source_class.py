@@ -27,10 +27,13 @@ class source_info:
     elif self.type == TYPE_TARGET:
       self.name = options.source
       self.sourceID = self.find_sourceID(options)
-    self.fieldID = self.find_fieldID(options)
+    self.fieldID = self.find_fieldID(options.observation_data)
+
+    #extra members defined by initial ms split
+    self.initial_ms_fieldID = ''
   
-  def find_fieldID(self, options):
-    for field in options.observation_data.fields:
+  def find_fieldID(self,data_source):
+    for field in data_source.fields:
       if field.name == self.name: 
         return field.id
       

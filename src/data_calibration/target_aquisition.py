@@ -58,7 +58,7 @@ def find_target(options:Options):
 def check_target(options):
   """
   check that a source exists, and matches a field(?)"""
-  if options.get_dict_sp('source') is None:
+  if options.source is None:
     find_target(options)
     return  
   #find which field target is in

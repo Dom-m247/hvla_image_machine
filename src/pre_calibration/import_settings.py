@@ -59,7 +59,7 @@ def generate_import(data_obj:Options,filename="import"):
     raise ValueError("Empty Data for generating debug export file.")
   try:
     #de-pathify archive.file
-    dataToSerialize = prepare_dict_export(data_obj)
+    dataToSerialize = data_obj.generate_dict()
   
     dataToSerialize['archive_file'] = revmove_path(dataToSerialize['archive_file'])
     with open(filename+".json","w") as json_file: 

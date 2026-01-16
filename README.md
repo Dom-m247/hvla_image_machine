@@ -1,6 +1,10 @@
 # Welcome! this is still underconstruction, 
-currently it's as simply as running strart_up_script.sh, 
+currently it's as simply as running run.sh,
+any successful run through will create an import.json, which can be used as an arugment
+ `bash run.sh import`
+ 
 also ask for credentials.json!
+
 
 # TODO
 ### Gui?? 
@@ -38,6 +42,7 @@ also ask for credentials.json!
   - synconize Breakpoint list (pulls from 3 different list and dicts oops)
   - add phase/~~amp~~/phase-amp cal options!
   - Data-Flagging
+   - async issue, plotms doesn't GIL on launch
 
 ### gmail grabber - Maybe not necessary
   - Note: vlaArchive does have credential
@@ -54,6 +59,7 @@ also ask for credentials.json!
     - change sources to fields
     - double verify with 2nd mode: observation time (2nd most observed?)
   - add support for multiple bands!
+  - store .ms and calibration sets with "intelligent" names -> based on observationn names?
   - **phase Calibration**
   - parrallelize validation?(spw, )
   - Multiple bands with multple models?
@@ -64,6 +70,9 @@ also ask for credentials.json!
 ###### Parse_list_obs
   - turn scan data into time data types
   - lmao observations are broke. Missing cuz of leading whitespace
+
+### Gain calibration
+
 
 ### Archival
   - use XML data to populate?

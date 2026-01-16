@@ -5,6 +5,7 @@ from pre_calibration import *
 #from archive_dowload import *
 #from pre_calibration.options_class import Options
 from pprint import *
+import time
 
 def main(argv):
   """ Main function to run the HVLA Image Machine application."""
@@ -44,19 +45,19 @@ def main(argv):
   #if sourceID = somthing, run scraper routine
   #try:
   #Start options calibration  
-  
+  start_time = time.perf_counter()
   hvla_data_cal.data_calibration(source)
-
+  end_time = time.perf_counter()
+  elapsed_time = end_time - start_time
+  print(f"Time taken: {elapsed_time:.4f} seconds")
   #output options obj as json! #CHANGE TO IMPORT
   #import_settings.generate_import(source)
   import_settings.generate_debug_export(source,filename="export_for_testing")
 
   print("Completed Successfuly. Exiting...")
-  #except ValueError as e:
-  #  export_obj(source,e)
-  #except RuntimeError as e:
-  #  export_obj(source,e)
+  
   #except Exception as e:
+    #generate debug export, then exit
   #  export_obj(source,e)
     
 
@@ -77,6 +78,7 @@ def delete_logs():
   for i in range(len(timestamp_integers) - 1):
     item = 'casa-' + str(timestamp_integers[i])[:8] + '-' + str(timestamp_integers[i])[8:14] + '.log'
     os.remove(os.path.join(item)) # deleting casa logs
+
 
 if __name__ == "__main__":
   main(sys.argv)

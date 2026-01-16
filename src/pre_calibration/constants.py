@@ -1,15 +1,18 @@
 #parent directory name, edit if different!
-FOLDER_NAME = "hvla_script_proj"
+FOLDER_NAME = "hvla_image_machine"
 IMPORT_JSON = 'import.json'
 #Measurment set Names
 FULLMS = 'fullSet' # for the full MS before splitting
 AMP_CAL_MS = 'init' #'amp_cal_set'
+GAINCAL_G0ALL = AMP_CAL_MS + '.G0all'
+BANDPASS_B0 = AMP_CAL_MS + '.B0'
+GAINCAL_G1 = AMP_CAL_MS + '.G1'
+FLUXSCALE_X = AMP_CAL_MS + '.fluxscale' # + '1','2' ..etc
+CALIBRATED_MS = 'src' #final calibrated ms for imaging
+MIN_SNR = 2.0 #minimum SNR for gaincal
 
-#class BandRange:
-#  def __init__(self, lower, upper, identifer):
-#    self.identifer = identifer
-#    self.lower = lower
-#    self.upper = upper
+
+
   
 #Constants that may be integrated, but are being placed here for reference!
 BAND_GHZ_RANGES = {'L': [0.985, 2.025], 

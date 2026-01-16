@@ -15,22 +15,24 @@ also, I already had it mostly done before I had the though to utilize the
 return value for listobs()
 '''
 class parseListObs:
-  def populate_Obs_data(listObsFile,options:Options):
+  def populate_Obs_data(listObsFile):
     '''
     parses the List_obs File for infomration, which is added to options
       Note: line # are hard coded, see parsing examples if I break
     '''
     #prime realestate to parrallelize in the future
     try:
-      options.observation_data = Obs_data(
+      return Obs_data(
         parse_antennas(listObsFile),
         parse_fields(listObsFile),
         parse_sources(listObsFile),
         parse_observations(listObsFile),
         parse_spw(listObsFile),
       )
+      
     except ValueError as e:
       print(f'An error occured parsing the list_obs {e} section. ')
+  
   def log_listobs(ms,options):
     '''
     generates a listobs and post to log
@@ -43,6 +45,7 @@ class parseListObs:
     read_listobs = open(listobs_file, 'r').read()
     ct.casalog.post(read_listobs)
     return read_listobs
+  
   def log_listobs_ms(ms):
     '''make and log a listobs for a given .ms file'''
     listobs_file = ms + '-listobs.txt'
@@ -221,18 +224,18 @@ def parse_antennas(listobs_text):
       antennas.append(antenna)
   return antennas
 
-def antennas_distance(antennas):
-  #calculate and sort antenna_distances, Proably not necessy
+def antennas_distance(options:Options):
+  """calculate and sort antenna distances"""
+  antennas:list = options.observation_data.antennas
   bestdistance = 1000000
   distance_list = []
   for antenna in antennas:
-    distance = math.sqrt(pow(antenna['east_offset'],2)+pow(antenna['north_offset'],2))
-    pair = {'id': antenna['id'], 'distance': distance}
+    distance = math.sqrt(pow(antenna.east_offset,2)+pow(antenna.north_offset,2))
+    pair = {'id': antenna.name, 'distance': distance}
     distance_list.append(pair)
     if distance < bestdistance:
       bestdistance = distance
-      print(f"New Best Distance! antenna {antenna['id']} at {bestdistance}")
-  distance_list_sorted = sorted(distance_list, key=lambda x: x['distance'])
+  return sorted(distance_list, key=lambda x: x['distance'])
   #stuff?
 
 #def log_listobs_ms(ms):
