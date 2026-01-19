@@ -1,4 +1,5 @@
 import sys,os
+import casaviewer
 from pre_calibration.options_class import Options
 from pre_calibration import *
 from image_generation.image_maker import Cleaner
@@ -50,17 +51,23 @@ def main(argv):
   hvla_data_cal.data_calibration(source)
   end_time = time.perf_counter()
   elapsed_time = end_time - start_time
-  print(f"Time taken: {elapsed_time:.4f} seconds")
+  print(f"Calibration Time taken: {elapsed_time:.4f} seconds")
 
   #tcleaning!
   print(f"Starting Clean")
+  start_time = time.perf_counter()
+ 
   cleaner = Cleaner()
   image = Cleaner.tclean_cycle(options=source)
+  
+  end_time = time.perf_counter()
+  elapsed_time = end_time - start_time
+  print(f"Imaging Time taken: {elapsed_time:.4f} seconds")
   
   #output options obj as json! #CHANGE TO IMPORT
   #import_settings.generate_import(source)
   import_settings.generate_debug_export(source,filename="export_for_testing")
-
+  casaviewer.imview(vis=options.image_filename+'.image.tt0')   
   print("Completed Successfuly. Exiting...")
   
   #except Exception as e:

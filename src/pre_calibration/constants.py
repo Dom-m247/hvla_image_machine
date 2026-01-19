@@ -1,15 +1,16 @@
 #parent directory name, edit if different!
 FOLDER_NAME = 'hvla_image_machine'
 IMPORT_JSON = 'import.json'
-#Measurment set Names
-FULLMS = 'fullSet' # for the full MS before splitting
-AMP_CAL_MS = 'init' #'amp_cal_set'
+#Measurment set Name Defaults
+FULLMS = 'fullSet2' # for the full MS before splitting
+AMP_CAL_MS = 'init2' #'amp_cal_set'
 GAINCAL_G0ALL = AMP_CAL_MS + '.G0all'
 BANDPASS_B0 = AMP_CAL_MS + '.B0'
 GAINCAL_G1 = AMP_CAL_MS + '.G1'
 FLUXSCALE_X = AMP_CAL_MS + '.fluxscale' # + '1','2' ..etc
-CALIBRATED_MS = 'src' #final calibrated ms for imaging
-MIN_SNR = 2.0 #minimum SNR for gaincal
+CALIBRATED_MS = 'src2' #final calibrated ms for imaging
+MIN_SNR = 3.0 #minimum SNR for gaincal
+FIRST_IMAGE = 'im2'
 
 #class Band:
   #band name, GHZ range, MHZ range, Angular res, Solint?
@@ -32,7 +33,7 @@ BAND_MHZ_RANGES = {'L': [985.0, 2025.0],
                    'K': [20000.0, 26412.0], 
                    'Ka': [28258.0, 37011.0], 
                    'Q': [43148.0, 48873.0],}
-#note: configurations A=1,B=2,C=3,D=4
+#note: configurations A=0,B=1,C=2,D=3
 BAND_ANGULAR_RESOLUTION = {'4': [800,2200,20000,20000],
                            'P': [155,515,4150,4150],
                            'L': [36,120,970,970],

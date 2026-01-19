@@ -74,7 +74,7 @@ also ask for credentials.json!
 ### Gain calibration
 
 ### image Generation
-  - 
+  - add parrellelization to tclean(if possible)
 ### Archival
   - use XML data to populate?
 

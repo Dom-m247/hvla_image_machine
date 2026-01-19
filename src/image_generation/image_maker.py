@@ -3,6 +3,7 @@ from pre_calibration.options_class import Options
 from pre_calibration.constants import *
 import casatasks as ct
 
+
 class Cleaner:
   def tclean_cycle(options:Options,
                    imagename='first_im',
@@ -19,26 +20,28 @@ class Cleaner:
                    imsize=[1080,1080]
     ):
     cellsize = Cleaner.find_cell_size(options)
-    ct.tclean(imagename=imagename,
+    ct.tclean(imagename=options.image_filename,
                   vis=vis,
-                  deconvolver=deconvolver,
+                  deconvolver=options.deconvolver,
                   smallscalebias=small_scale_bias,
-                  weighting=weighting,
+                  weighting=options.weighting,
                   robust=robust,
-                  interactive=interactive,
+                  interactive=options.interactive_image,
                   niter=niter,
                   savemodel=savemodel,
                   nterms=nterms,
                   scales=scales,
-                  cell=(0.33/10),
-                  imsize=imsize
+                  cell=cellsize,
+                  imsize=options.image_size
                   )
+     
   def gain_cycle(options:Options,solint):
     ct.gaincal()
-    pass
   def find_cell_size(options:Options):
     '''returns 1/10th of the corresponding band's max angular freq'''
-    temp = BAND_ANGULAR_RESOLUTION[options.band][ARRAY_CONFIGURATION]
-    print(f"{temp/10}")
-    return (BAND_ANGULAR_RESOLUTION[options.band][ARRAY_CONFIGURATION])/10
+    if options.use_custom_cell_size:
+      #options selected as True, 
+      return options.cellsize
+    angular_res = BAND_ANGULAR_RESOLUTION[options.band][ARRAY_CONFIGURATION]
+    return (angular_res)/10
 

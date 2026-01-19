@@ -227,26 +227,31 @@ class BreakpointsWindow:
         self.master = master
         self.app = app
         master.title("Breakpoints Selection")
-        master.geometry("650x550")
+        master.geometry("650x650")
         master.minsize(650, 550)
         
         ttk.Label(
             master, 
-            text="Select Processing Breakpoints",
+            text="Select Processing Options",
             font=("Arial", 24, "bold")
         ).pack(pady=15)
         
         # Breakpoints frame
         breakpoints_frame = ttk.LabelFrame(master, text="Processing Stages", padding=15)
         breakpoints_frame.pack(fill="both", expand=True, padx=15, pady=10)
+        
+        # Options container (calibration and image generation side by side)
+        options_container = ttk.Frame(master)
+        options_container.pack(fill="both", expand=True, padx=15, pady=10)
+        
         # Calibration Options Frame
-        calibration_frame = ttk.LabelFrame(master, text="Calibration Options", padding=15)
-        calibration_frame.pack(fill="both", expand=True, padx=15, pady=10)
+        calibration_frame = ttk.LabelFrame(options_container, text="Calibration Options", padding=15)
+        calibration_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
         
         # Solution Interval (solint) dropdown
         ttk.Label(calibration_frame, text="Solution Interval (solint):", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
         self.solint_var = tk.StringVar(value="int")
-        solint_options = ["int", "inf", "1h", "5min", "30s"]
+        solint_options = ["int", "inf", "120s", "60s", "30s"]
         self.solint_menu = ttk.Combobox(
             calibration_frame,
             textvariable=self.solint_var,
@@ -293,6 +298,87 @@ class BreakpointsWindow:
         )
         self.snr_spinbox.pack(anchor="w", pady=(0, 15))
         #PLACEHOLDER
+        
+        # Image Generation Options Frame
+        image_frame = ttk.LabelFrame(options_container, text="Image Generation Options", padding=15)
+        image_frame.pack(side="right", fill="both", expand=True, padx=(5, 0))
+        
+        # Image filename
+        ttk.Label(image_frame, text="Image Filename(ExampleName_XX):", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
+        self.image_filename_var = tk.StringVar(value="im")
+        self.image_filename_entry = ttk.Entry(
+            image_frame,
+            textvariable=self.image_filename_var,
+            width=30
+        )
+        self.image_filename_entry.pack(anchor="w", pady=(0, 5))
+        
+        # Image size
+        ttk.Label(image_frame, text="Image Size (pixels):", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
+        self.image_size_var = tk.IntVar(value=1080)
+        self.image_size_spinbox = ttk.Spinbox(
+            image_frame,
+            from_=256,
+            to=4096,
+            textvariable=self.image_size_var,
+            width=30
+        )
+        self.image_size_spinbox.pack(anchor="w", pady=(0, 5))
+        
+        # Interactive mode
+        ttk.Label(image_frame, text="Interactive Mode:", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
+        self.interactive_var = tk.BooleanVar(value=False)
+        self.interactive_check = ttk.Checkbutton(
+            image_frame,
+            text="set interactive cleaning",
+            variable=self.interactive_var
+        )
+        self.interactive_check.pack(anchor="w", pady=(0, 5))
+
+        ttk.Label(image_frame, text="Deconvolver", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
+        self.deconvolver = tk.StringVar(value="mtmfs")
+        self.deconvolver_options = ["mtmfs","hogbom", "clark", "multisclae","mem","clarkstokes","asp"]
+        self.deconvolver_choice = ttk.Combobox(
+            image_frame,
+            textvariable=self.deconvolver,
+            values=self.deconvolver_options,
+            state="readonly",
+            width=30
+        )
+        self.deconvolver_choice.pack(anchor="w", pady=(0, 5))
+
+        ttk.Label(image_frame, text="weighting", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
+        self.weighting = tk.StringVar(value="briggs")
+        weighting_choice = ["briggs","natural", "uniform", "superuniform","radial","briggs","briggsabs","briggsbwtaper"]
+        self.weighting_choice_menu = ttk.Combobox(
+            image_frame,
+            textvariable=self.weighting,
+            values=weighting_choice,
+            state="readonly",
+            width=30
+        )
+        self.deconvolver_choice.pack(anchor="w", pady=(0, 15))
+        
+        
+        # Cell size with manual override
+        ttk.Label(image_frame, text="Cell Size Override:", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
+        self.use_custom_cell_var = tk.BooleanVar(value=False)
+        self.use_custom_cell_check = ttk.Checkbutton(
+            image_frame,
+            text="Set a cell size(default=1/10 Band resolution)",
+            variable=self.use_custom_cell_var,
+            command=self.toggle_cell_size_entry
+        )
+        self.use_custom_cell_check.pack(anchor="w", pady=(0, 5))
+        
+        self.cell_size_var = tk.DoubleVar(value=0.0)
+        self.cell_size_entry = ttk.Entry(
+            image_frame,
+            textvariable=self.cell_size_var,
+            width=30,
+            state="disabled"
+        )
+        self.cell_size_entry.pack(anchor="w", pady=(0, 5))
         
 
         # Checkboxes for breakpoints (allow multiple selections)
@@ -346,6 +432,13 @@ class BreakpointsWindow:
         self.master.destroy()
         self.app.create_source_window() #add options, to autopop?
     
+    def toggle_cell_size_entry(self):
+        """Enable/disable cell size entry based on checkbox state"""
+        if self.use_custom_cell_var.get():
+            self.cell_size_entry.config(state="normal")
+        else:
+            self.cell_size_entry.config(state="disabled")
+    
     def submit(self):
         """Submit the selected breakpoints"""
         selected_breakpoints = [name for name, var in self.breakpoint_vars.items() if var.get()]
@@ -369,6 +462,13 @@ class BreakpointsWindow:
             "custom_amp_cal": self.amp_cal_mode.get(),
             "reference_antenna": self.ref_antenna_var.get(),
             "min_snr": self.snr_var.get(),
+            "image_filename": self.image_filename_var.get(),
+            "image_size": [self.image_size_var.get(),self.image_size_var.get()],
+            "interactive_image": self.interactive_var.get(),
+            "use_custom_cell_size": self.use_custom_cell_var.get(),
+            "cell_size": self.cell_size_var.get() if self.use_custom_cell_var.get() else None,
+            "deconvolver":self.deconvolver.get(),
+            "weighting":self.weighting.get()
         }
         # Store in app
         self.app.summary_dict = summary_dict

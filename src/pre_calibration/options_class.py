@@ -41,7 +41,7 @@ class Options:
     # validate inputs below; else throw err 
        
   def process_input_dict(self,dict_in):
-    #add logger output
+    """import options from dict's (from import.json/GUI/Terminal)"""
     if dict_in is None:
       print("Warning: input options is None, skipping update")
       return False
@@ -53,6 +53,14 @@ class Options:
       self.custom_amp_cal = dict_in['custom_amp_cal']
       self.reference_antenna = dict_in['reference_antenna']
       self.min_snr = dict_in['min_snr']
+      self.image_filename = dict_in['image_filename']
+      self.image_size = dict_in['image_size']
+      self.interactive_image = dict_in['interactive_image']
+      self.use_custom_cell_size = dict_in['use_custom_cell_size']
+      if self.use_custom_cell_size:
+        self.cell_size = dict_in['cell_size']
+      self.deconvolver = dict_in['deconvolver']
+      self.weighting = dict_in['weighting']
       casalog.post(f"Information added to obj: {dict_in}") #logging values added to data_set object
       return True
     except ValueError as e:
@@ -82,6 +90,14 @@ class Options:
     summary_dict.update({'custom_amp_cal':self.custom_amp_cal})
     summary_dict.update({'reference_antenna':self.reference_antenna})
     summary_dict.update({'min_snr':self.min_snr})
+    summary_dict.update({'image_filename':self.image_filename})
+    summary_dict.update({'image_size':self.image_size})
+    summary_dict.update({'interactive_image':self.interactive_image})
+    summary_dict.update({'use_custom_cell_size':self.use_custom_cell_size})
+    if self.use_custom_cell_size:
+      summary_dict.update({'cell_size':self.cell_size})
+    summary_dict.update({'deconvolver':self.deconvolver})
+    summary_dict.update({'weighting':self.weighting})
     return summary_dict
   
   def generate_debug_dict(self):
