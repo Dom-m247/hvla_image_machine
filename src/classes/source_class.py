@@ -63,6 +63,7 @@ class source_info:
     if len(detected_bands) > 1:
       raise Exception("More than one band detected, Not yet implemented.")
     if band_option == "auto":
+      options.band = detected_bands[0] 
       return detected_bands[0]
     if band_option != detected_bands[0]:
       ct.casalog.post(f"The selected band: \"{band_option}\" doesn't match detected bands: {detected_bands}")

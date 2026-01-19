@@ -1,6 +1,7 @@
 import sys,os
 from pre_calibration.options_class import Options
 from pre_calibration import *
+from image_generation.image_maker import Cleaner
 #from data_calibration import *
 #from archive_dowload import *
 #from pre_calibration.options_class import Options
@@ -50,6 +51,12 @@ def main(argv):
   end_time = time.perf_counter()
   elapsed_time = end_time - start_time
   print(f"Time taken: {elapsed_time:.4f} seconds")
+
+  #tcleaning!
+  print(f"Starting Clean")
+  cleaner = Cleaner()
+  image = Cleaner.tclean_cycle(options=source)
+  
   #output options obj as json! #CHANGE TO IMPORT
   #import_settings.generate_import(source)
   import_settings.generate_debug_export(source,filename="export_for_testing")

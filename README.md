@@ -73,7 +73,8 @@ also ask for credentials.json!
 
 ### Gain calibration
 
-
+### image Generation
+  - 
 ### Archival
   - use XML data to populate?
 
@@ -87,6 +88,7 @@ also ask for credentials.json!
  - adjust try,exept and Raise handling to fail up to main
  - fix imports to actually follow modularity.
  - add subclass for MS parsed data?
+ - add arg to skip to cleaning?
 ### maintainability steps
  - Excessive commenting!
  - maintin example copies of parsed external data 

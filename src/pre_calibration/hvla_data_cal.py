@@ -69,21 +69,20 @@ def data_calibration(options:Options):
   pre_data_calibration(options)
   build_setjy(options)
   print("Performing Data Calibration...")
-  main_calibrations.gain_cal(options)
-  #split of calibrated data for imaging
-  LoadingAnimation.performing_action(" calibrated data split", target=calibrated_split, args=(options,))
+  if not Path(CALIBRATED_MS+'.ms').is_dir():
+    main_calibrations.gain_cal(options)
+    #split of calibrated data for imaging
+    LoadingAnimation.performing_action(" calibrated data split", target=calibrated_split, args=(options,))
 
 def calibrated_split(options:Options):
   """
   split off calibrated data for imaging
   """
-  if not Path(CALIBRATED_MS).is_dir():
-    ct.casalog.post(f"{AMP_CAL_MS+'.ms'} -> {CALIBRATED_MS}")
-    ct.split(vis=AMP_CAL_MS+'.ms',outputvis=CALIBRATED_MS+'.ms',datacolumn = 'corrected', field=options.source_ids.fieldID)
+  if Path(CALIBRATED_MS+'.ms').is_dir():
     print(f"The calibrated data exists, not splitting")
     ct.casalog.post(f"{AMP_CAL_MS+'.ms'} -> {CALIBRATED_MS}")
   else:
-    print(f"The calibrated data exists, not splitting")
+    ct.split(vis=AMP_CAL_MS+'.ms',outputvis=CALIBRATED_MS+'.ms',datacolumn = 'corrected', field=options.source_ids.initial_ms_fieldID)
     ct.casalog.post(f"{AMP_CAL_MS+'.ms'} -> {CALIBRATED_MS}")
   parse.log_listobs(CALIBRATED_MS,options)
 
