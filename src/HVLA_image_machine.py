@@ -1,5 +1,6 @@
 import sys,os
 import casaviewer
+import casatasks
 from pre_calibration.options_class import Options
 from pre_calibration import *
 from image_generation.image_maker import Cleaner
@@ -63,11 +64,12 @@ def main(argv):
   end_time = time.perf_counter()
   elapsed_time = end_time - start_time
   print(f"Imaging Time taken: {elapsed_time:.4f} seconds")
-  
+  casatasks.casalog.post(f"Imaging Time taken: {elapsed_time:.4f} seconds")
   #output options obj as json! #CHANGE TO IMPORT
   #import_settings.generate_import(source)
   import_settings.generate_debug_export(source,filename="export_for_testing")
-  casaviewer.imview(vis=options.image_filename+'.image.tt0')   
+
+  #casaviewer.imview(vis=(source.image_filename+'.image.tt0'))   
   print("Completed Successfuly. Exiting...")
   
   #except Exception as e:

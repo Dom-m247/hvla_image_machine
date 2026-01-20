@@ -27,7 +27,7 @@ def gain_cal(options:options_class.Options):
                                 spw='',      #leave blank for all spws option
                                 solint='int', 
                                 refant=options.ref_ant,
-                                calmode='ap',
+                                calmode='p',
                                 gaintype='G',
                                 minsnr=options.min_snr,
                                 append=False,
@@ -43,6 +43,7 @@ def gain_cal(options:options_class.Options):
                                   refant=options.ref_ant,
                                   solint='inf',
                                   bandtype='B',
+                                  combine='scan',
                                   gaintable=[GAINCAL_G0ALL],
     )
   #possible flagging_breakpoint here
@@ -79,16 +80,17 @@ def gain_cal(options:options_class.Options):
     fluxScale_out = ct.fluxscale(vis=AMP_CAL_MS+'.ms',
                             caltable=GAINCAL_G1,
                             fluxtable=FLUXSCALE_X + '1',
-                            reference=str(options.amp_cal.initial_ms_fieldID),
-                            transfer=str(options.source_ids.initial_ms_fieldID), #phase cal ?,
+                            reference=[str(options.amp_cal.initial_ms_fieldID)],
+                            transfer=[str(options.source_ids.initial_ms_fieldID)], #phase cal ?,
                             incremental=False
    )
   print(f"Applying Calibrations to science source...")
+  print(f"applying calibration to field ID: {options.source_ids.initial_ms_fieldID}")
   apply_cal_out = ct.applycal(vis=AMP_CAL_MS+'.ms',
            field=str(options.source_ids.initial_ms_fieldID),
-           gaintable=[FLUXSCALE_X + '1',BANDPASS_B0],
+           gaintable=[FLUXSCALE_X+'1',BANDPASS_B0],
            interp=['nearest',''], #['nearest','linear']?
-           calwt=False, #true?
+           calwt=[False], #true?
            parang=False
   )
 

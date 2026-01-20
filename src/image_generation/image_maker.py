@@ -41,7 +41,7 @@ class Cleaner:
     '''returns 1/10th of the corresponding band's max angular freq'''
     if options.use_custom_cell_size:
       #options selected as True, 
-      return options.cellsize
+      return options.cell_size
     angular_res = BAND_ANGULAR_RESOLUTION[options.band][ARRAY_CONFIGURATION]
     return (angular_res)/10
 

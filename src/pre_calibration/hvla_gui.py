@@ -386,12 +386,15 @@ class BreakpointsWindow:
             "manual_flagging": tk.BooleanVar(value=False),
             "calibration": tk.BooleanVar(value=False),
             "image_generation": tk.BooleanVar(value=False),
+            "display_image":tk.BooleanVar(value=True)
+            
         }
         
         breakpoints = [
             ("Manual Data Flagging", "manual_flagging"),
             ("Calibration", "calibration"),
             ("Image Generation", "image_generation"),
+            ("Display Image After Generation","display_image" )
         ]
         
         self.checkbuttons = []
@@ -448,7 +451,8 @@ class BreakpointsWindow:
         breakpoint_names = {
             "manual_flagging": "Manual Data Flagging",
             "calibration": "Calibration",
-            "image_generation": "Image Generation"
+            "image_generation": "Image Generation",
+            "display_image":"Display Image After"
         }
         breakpoint_display = ", ".join([breakpoint_names[bp] for bp in selected_breakpoints])
         

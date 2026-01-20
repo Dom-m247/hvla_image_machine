@@ -23,6 +23,7 @@ also ask for credentials.json!
   - Specify Target
   - specify model with drop down?
   - custum flux value for amp cal?
+  - custom flux calibrator
 
 ###### import/export support 
   - add frame for using imported setting (supports ms/exp (test MS support))
@@ -33,7 +34,7 @@ also ask for credentials.json!
   - add "populate" with imported settings etc.
   - "export" modified for testing
   - add timestamp to failed exports?
-  - if using imported settings, use included dicts to skip to a point?
+  - if using imported settings, use included dicts to skip to a point? :check:
     - problems: 
       - missing archive/ms 
       - incorrect archive/ms?
@@ -49,8 +50,6 @@ also ask for credentials.json!
   - automate login with browser nav for dedicated archive email?
   - add sha verification
 ### logger
-  - auto-delete existing logs? (in 1.99)
-  - currently passing through any loging to casalog, may need to spin off??
 - browser navigation
 
 ### HVLA_data_cal
