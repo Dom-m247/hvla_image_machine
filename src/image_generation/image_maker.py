@@ -2,6 +2,8 @@ from classes import *
 from pre_calibration.options_class import Options
 from pre_calibration.constants import *
 import casatasks as ct
+import casashell
+
 
 
 class Cleaner:
@@ -31,12 +33,19 @@ class Cleaner:
                   savemodel=savemodel,
                   nterms=nterms,
                   scales=scales,
-                  cell=cellsize,
+                  cell=str(cellsize)+'arcsec',
                   imsize=options.image_size
                   )
-     
+
+  def manual_clean(options:Options):
+    print(f"Starting casa shell")
+    casalogFile = ct.casalog.logfile()
+    print(f"{casalogFile}")
+    print(f"----------------")
+    casashell.start_casa('--logfile logfile.txt')  
+
   def gain_cycle(options:Options,solint):
-    ct.gaincal()
+    pass
   def find_cell_size(options:Options):
     '''returns 1/10th of the corresponding band's max angular freq'''
     if options.use_custom_cell_size:

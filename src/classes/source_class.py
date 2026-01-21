@@ -1,4 +1,4 @@
-import casatasks as ct # type: ignore
+import casatasks as ct
 
 #from pre_calibration.options_class import Options 
 from classes.observations_class import Obs_data 
@@ -60,6 +60,7 @@ class source_info:
     '''checks if the SPW matches the input *and* define for model if auto'''
     band_option = options.band
     detected_bands = self.find_bands(options)
+
     if len(detected_bands) > 1:
       raise Exception("More than one band detected, Not yet implemented.")
     if band_option == "auto":
@@ -67,6 +68,7 @@ class source_info:
       return detected_bands[0]
     if band_option != detected_bands[0]:
       ct.casalog.post(f"The selected band: \"{band_option}\" doesn't match detected bands: {detected_bands}")
+    return options.band
 
   def in_spw(self,listobs_spw,test_band):
     '''checks if a spw is within a range'''

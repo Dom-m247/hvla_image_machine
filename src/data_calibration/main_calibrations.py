@@ -76,7 +76,6 @@ def gain_cal(options:options_class.Options):
    )
   if not Path(FLUXSCALE_X+'1').is_dir():
     #transfer flux to amp cal
-    print(f"applying flux scale to source...")
     fluxScale_out = ct.fluxscale(vis=AMP_CAL_MS+'.ms',
                             caltable=GAINCAL_G1,
                             fluxtable=FLUXSCALE_X + '1',
@@ -84,8 +83,7 @@ def gain_cal(options:options_class.Options):
                             transfer=[str(options.source_ids.initial_ms_fieldID)], #phase cal ?,
                             incremental=False
    )
-  print(f"Applying Calibrations to science source...")
-  print(f"applying calibration to field ID: {options.source_ids.initial_ms_fieldID}")
+  print(f"applying calibration to {AMP_CAL_MS+'.ms'}'s field ID: {options.source_ids.initial_ms_fieldID}")
   apply_cal_out = ct.applycal(vis=AMP_CAL_MS+'.ms',
            field=str(options.source_ids.initial_ms_fieldID),
            gaintable=[FLUXSCALE_X+'1',BANDPASS_B0],

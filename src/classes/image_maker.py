@@ -2,7 +2,7 @@ from classes import *
 from pre_calibration.options_class import Options
 from pre_calibration.constants import *
 import casatasks as ct
-
+import casashell
 class Cleaner:
   def tclean_cycle(options:Options,
                    imagename='first_im',
@@ -34,11 +34,16 @@ class Cleaner:
                   imsize=imsize
                   )
   def gaincal_cycle(options:Options):
+    pass
+  def manual_clean(options):
+    passing_ars = '--logfile' #+logfile
+    casashell.start_casa('--logger')
     
-  
   def find_cell_size(options:Options):
     '''returns 1/10th of the corresponding band's max angular freq'''
-    temp = BAND_ANGULAR_RESOLUTION[options.band][ARRAY_CONFIGURATION]
-    print(f"{temp/10}")
-    return (BAND_ANGULAR_RESOLUTION[options.band][ARRAY_CONFIGURATION])/10
+    if options.use_custom_cell_size:
+      #options selected as True, 
+      return options.cell_size
+    angular_res = BAND_ANGULAR_RESOLUTION[options.band][ARRAY_CONFIGURATION]
+    return (angular_res)/10
 

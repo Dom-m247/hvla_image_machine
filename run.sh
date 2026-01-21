@@ -6,6 +6,7 @@ VENV_NAME=".hvla_env"
 DEPENDENCY_SCRIPT="src/Dependencies.py"
 MAIN_SCRIPT="src/HVLA_image_machine.py"
 SYS_ARG=""
+CPU_CORES="25,26,27,28" #Delete,comment me out or change to dedsignated cores!
 
 #check if args exist
 
@@ -21,7 +22,7 @@ if [ -d "$VENV_NAME" ]; then
   echo "Running $DEPENDENCY_SCRIPT..."
   "$VENV_NAME/bin/python" "$DEPENDENCY_SCRIPT"
   echo "Running $MAIN_SCRIPT..."
-  "$VENV_NAME/bin/python" "$MAIN_SCRIPT" "$SYS_ARG"
+  "taskset" "--cpu-list" "$CPU_CORES" "$VENV_NAME/bin/python" "$MAIN_SCRIPT" "$SYS_ARG"
   exit 0
 fi
 
@@ -43,5 +44,5 @@ echo "Virtual environment '$VENV_NAME' created and activated."
 echo "Running $DEPENDENCY_SCRIPT..."
 "$VENV_NAME/bin/python" "$DEPENDENCY_SCRIPT"
 echo "Running $MAIN_SCRIPT..."
-  "$VENV_NAME/bin/python" "$MAIN_SCRIPT" "$SYS_ARG"
+  "taskset" "--cpu-list" "$CPU_CORES" "$VENV_NAME/bin/python" "$MAIN_SCRIPT" "$SYS_ARG"
 

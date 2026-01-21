@@ -1,8 +1,12 @@
 # Welcome! this is still underconstruction, 
-currently it's as simply as running run.sh,
-any successful run through will create an import.json, which can be used as an arugment
+currently it's as simply as running run.sh with python 3.10 installed.
+a dedicated environment will be created to run the script and utilized everytime
+any successful run through will create an import.json, which can be used as an arugment to recreate the same steps
  `bash run.sh import`
- 
+
+if running locally, without prior installations of CASA, 
+  in src/HVLA_image_machine.py, under `update_config()` uncomment where noted.
+
 also ask for credentials.json!
 
 
@@ -73,10 +77,13 @@ also ask for credentials.json!
 ### Gain calibration
 
 ### image Generation
+  - add default option to auto find smth relative to beam width
   - add parrellelization to tclean(if possible)
 ### Archival
   - use XML data to populate?
 
+### CASA config
+ - properly handle first time startup of 
 ### Failover Handling
  - add casa.log copying if error occurs
 

@@ -315,7 +315,7 @@ class BreakpointsWindow:
         
         # Image size
         ttk.Label(image_frame, text="Image Size (pixels):", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
-        self.image_size_var = tk.IntVar(value=1080)
+        self.image_size_var = tk.IntVar(value=2048)
         self.image_size_spinbox = ttk.Spinbox(
             image_frame,
             from_=256,
@@ -385,7 +385,7 @@ class BreakpointsWindow:
         self.breakpoint_vars = {
             "manual_flagging": tk.BooleanVar(value=False),
             "calibration": tk.BooleanVar(value=False),
-            "image_generation": tk.BooleanVar(value=False),
+            "manual_clean": tk.BooleanVar(value=False),
             "display_image":tk.BooleanVar(value=True)
             
         }
@@ -393,7 +393,7 @@ class BreakpointsWindow:
         breakpoints = [
             ("Manual Data Flagging", "manual_flagging"),
             ("Calibration", "calibration"),
-            ("Image Generation", "image_generation"),
+            ("Manual Cleaning", "manual_clean"),
             ("Display Image After Generation","display_image" )
         ]
         
@@ -451,7 +451,7 @@ class BreakpointsWindow:
         breakpoint_names = {
             "manual_flagging": "Manual Data Flagging",
             "calibration": "Calibration",
-            "image_generation": "Image Generation",
+            "manual_clean": "Manual Clean",
             "display_image":"Display Image After"
         }
         breakpoint_display = ", ".join([breakpoint_names[bp] for bp in selected_breakpoints])

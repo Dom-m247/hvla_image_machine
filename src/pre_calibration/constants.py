@@ -2,17 +2,17 @@
 FOLDER_NAME = 'hvla_image_machine'
 IMPORT_JSON = 'import.json'
 #Measurment set Name Defaults
-FULLMS = 'fullSet_demo' # for the full MS before splitting
-AMP_CAL_MS = 'demo_run' #'amp_cal_set'
+FULLMS = 'fullset' # for the full MS before splitting
+AMP_CAL_MS = 'initial' #'amp_cal_set'
 GAINCAL_G0ALL = AMP_CAL_MS + '.G0all'
 BANDPASS_B0 = AMP_CAL_MS + '.B0'
 GAINCAL_G1 = AMP_CAL_MS + '.G1'
 FLUXSCALE_X = AMP_CAL_MS + '.fluxscale' # + '1','2' ..etc
-CALIBRATED_MS = 'test_demo' #final calibrated ms for imaging
+CALIBRATED_MS = 'source' #final calibrated ms for imaging
 
 #temp not utlizied / fallbacks
 MIN_SNR = 5.0 #a default min SNR for gaincal
-FIRST_IMAGE = 'image_demo'
+FIRST_IMAGE = 'cleaned_image'
 
 #class Band:
   #band name, GHZ range, MHZ range, Angular res, Solint?

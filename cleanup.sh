@@ -1,5 +1,6 @@
 #!/bin/bash
 
+
 # Remove .log files
 find . -type f -name "*.log" -delete
 find . -type f -name "*-listobs.txt" -delete

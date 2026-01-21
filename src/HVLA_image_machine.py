@@ -1,21 +1,19 @@
 import sys,os
 import casaviewer
 import casatasks
+import casaconfig
 from pre_calibration.options_class import Options
 from pre_calibration import *
 from image_generation.image_maker import Cleaner
-#from data_calibration import *
 #from archive_dowload import *
-#from pre_calibration.options_class import Options
 from pprint import *
 import time
 
 def main(argv):
   """ Main function to run the HVLA Image Machine application."""
   print("Welcome to the HVLA Image Machine!")
-  #os.environ['PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION'] = 'python'
-  #check for dependencies and install if needed, including venv setup
-  #Dependencies.install_dep_call() 
+  #update casa_config measurments 
+  update_config()
   #sign in to gmail and get token
   #token = gmail_options_fetch.generateToken()
   
@@ -55,21 +53,23 @@ def main(argv):
   print(f"Calibration Time taken: {elapsed_time:.4f} seconds")
 
   #tcleaning!
-  print(f"Starting Clean")
-  start_time = time.perf_counter()
- 
   cleaner = Cleaner()
-  image = Cleaner.tclean_cycle(options=source)
-  
-  end_time = time.perf_counter()
-  elapsed_time = end_time - start_time
-  print(f"Imaging Time taken: {elapsed_time:.4f} seconds")
-  casatasks.casalog.post(f"Imaging Time taken: {elapsed_time:.4f} seconds")
+  if not 'manual_clean' in  source.breakpoints:
+    print(f"Starting Clean")
+    start_time = time.perf_counter()
+    image = Cleaner.tclean_cycle(options=source)
+    end_time = time.perf_counter()
+    elapsed_time = end_time - start_time
+    print(f"Imaging Time taken: {elapsed_time:.4f} seconds")
+    casatasks.casalog.post(f"Imaging Time taken: {elapsed_time:.4f} seconds")
+  else:
+    print(f"Starting Manual Clean")
+    image = Cleaner.manual_clean(options=source)
   #output options obj as json! #CHANGE TO IMPORT
-  #import_settings.generate_import(source)
+  import_settings.generate_import(source)
   import_settings.generate_debug_export(source,filename="export_for_testing")
-
-  #casaviewer.imview(vis=(source.image_filename+'.image.tt0'))   
+  if 'display_image' in source.breakpoints and not 'manual_clean' in source.breakpoints:
+   casaviewer.imview(raster=(source.image_filename)+'.image.tt0')   
   print("Completed Successfuly. Exiting...")
   
   #except Exception as e:
@@ -95,6 +95,10 @@ def delete_logs():
     item = 'casa-' + str(timestamp_integers[i])[:8] + '-' + str(timestamp_integers[i])[8:14] + '.log'
     os.remove(os.path.join(item)) # deleting casa logs
 
+def update_config():
+  #if first time startup
+  #casaconfig.measures_update() #UNCOMMENT HERE ON FIRST USE
+  return
 
 if __name__ == "__main__":
   main(sys.argv)
