@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+CPU_CORES="25,26,27,28" #Delete,comment me out or change to dedsignated cores!
+
+
 PYTHON_CMD="python3.10"
 VENV_NAME=".hvla_env"
 DEPENDENCY_SCRIPT="src/Dependencies.py"
 MAIN_SCRIPT="src/HVLA_image_machine.py"
 SYS_ARG=""
-CPU_CORES="25,26,27,28" #Delete,comment me out or change to dedsignated cores!
+
 
 #check if args exist
 
