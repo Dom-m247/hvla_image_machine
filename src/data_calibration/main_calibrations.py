@@ -8,22 +8,20 @@ import pprint as pp
 from data_calibration import parse_listobs as parse
 
 from pathlib import Path
-import threading
-import sys
-import time
 
-def gain_cal(options:options_class.Options):
+
+def amp_phase_cal(options:options_class.Options):
   """
   Perform gain calibration on the amplitude calibrator data
   """
   find_refant(options)
   if not Path(GAINCAL_G0ALL).is_dir():
     #define fields in init.ms
-    fields = str(options.amp_cal.initial_ms_fieldID)+","+str(options.source_ids.initial_ms_fieldID)
-
+    fields = str(options.amp_cal.initial_ms_fieldID)+","+str(options.source_ids.initial_ms_fieldID) + ',' + str(options.phase_cal.initial_ms_fieldID)
+    #initial phase calibration
     gaincal_output = ct.gaincal(vis=AMP_CAL_MS+'.ms',
                                 caltable=GAINCAL_G0ALL,
-                                field=fields, #make intelligent
+                                field=fields, 
                                 spw='',      #leave blank for all spws option
                                 solint='int', 
                                 refant=options.ref_ant,
@@ -35,10 +33,9 @@ def gain_cal(options:options_class.Options):
     
   #bandpass cal
   if not Path(BANDPASS_B0).is_dir():
-    print(f"Performing Bandpass...")
     bandpass_output = ct.bandpass(vis=AMP_CAL_MS+'.ms',
                                   caltable=BANDPASS_B0,
-                                  field=str(options.amp_cal.initial_ms_fieldID),
+                                  field=options.amp_cal.name,
                                   spw='',
                                   refant=options.ref_ant,
                                   solint='inf',
@@ -49,9 +46,10 @@ def gain_cal(options:options_class.Options):
   #possible flagging_breakpoint here
   #2nd gain cal passes
   if not Path(GAINCAL_G1).is_dir():
+    #apply AP cal to flux model
     gaincal_output2 = ct.gaincal(vis=AMP_CAL_MS+'.ms',
                                caltable=GAINCAL_G1,
-                               field=str(options.amp_cal.initial_ms_fieldID),
+                               field=options.amp_cal.name,
                                spw='', 
                                solint='inf',
                                refant=options.ref_ant,
@@ -64,7 +62,7 @@ def gain_cal(options:options_class.Options):
     #apply to source
     gaincal_out3 = ct.gaincal(vis=AMP_CAL_MS+'.ms',
                             caltable=GAINCAL_G1,
-                            field=str(options.source_ids.initial_ms_fieldID),
+                            field=options.phase_cal.name,
                             spw='',
                             solint='inf',
                             refant=options.ref_ant,
@@ -75,22 +73,38 @@ def gain_cal(options:options_class.Options):
                             append=True
    )
   if not Path(FLUXSCALE_X+'1').is_dir():
-    #transfer flux to amp cal
+    #transfer flux from amp_cal to phase_cal
     fluxScale_out = ct.fluxscale(vis=AMP_CAL_MS+'.ms',
                             caltable=GAINCAL_G1,
                             fluxtable=FLUXSCALE_X + '1',
-                            reference=[str(options.amp_cal.initial_ms_fieldID)],
-                            transfer=[str(options.source_ids.initial_ms_fieldID)], #phase cal ?,
+                            reference=[options.amp_cal.name], #fluxdensity model calibrator
+                            transfer=[options.phase_cal.name], #nodder,
                             incremental=False
    )
-  print(f"applying calibration to {AMP_CAL_MS+'.ms'}'s field ID: {options.source_ids.initial_ms_fieldID}")
-  apply_cal_out = ct.applycal(vis=AMP_CAL_MS+'.ms',
-           field=str(options.source_ids.initial_ms_fieldID),
+  
+  if not Path(CALIBRATED_MS+'ms').is_dir():
+    print(f"applying calibrations to {AMP_CAL_MS+'.ms'}'s name : {options.source_ids.name} field ID: {options.source_ids.initial_ms_fieldID}")
+    apply_cal_out = ct.applycal(vis=AMP_CAL_MS+'.ms',
+           field= options.amp_cal.name ,
            gaintable=[FLUXSCALE_X+'1',BANDPASS_B0],
+           gainfield=[options.amp_cal.name,''],
            interp=['nearest',''], #['nearest','linear']?
            calwt=[False], #true?
-           parang=False
-  )
+    )
+    apply_cal_out = ct.applycal(vis=AMP_CAL_MS+'.ms',
+           field= options.phase_cal.name ,
+           gaintable=[FLUXSCALE_X+'1',BANDPASS_B0],
+           gainfield=[options.phase_cal.name,''],
+           interp=['nearest',''], #['nearest','linear']?
+           calwt=[False], #true?
+    )
+    apply_cal_out = ct.applycal(vis=AMP_CAL_MS+'.ms',
+           field=options.source_ids.name,
+           gaintable=[FLUXSCALE_X+'1',BANDPASS_B0],
+           gainfield=[options.phase_cal.name,''],
+           interp=['linear',''], #['nearest','linear']?
+           calwt=[False], #true?
+    )
 
   #return to data_data_cal and split of callibrated data
   

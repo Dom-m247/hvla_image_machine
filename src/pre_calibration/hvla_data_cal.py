@@ -13,7 +13,7 @@ from pathlib import Path
 
 def build_setjy(options):
   #pp.pp(options.get_dict())
-  visfile = AMP_CAL_MS+'.ms'
+  visfile = FULLMS+'.ms'
   amp_field = '1'
   obs = options.split_observations
   #extract field ID for amp cal from listobs output
@@ -21,9 +21,9 @@ def build_setjy(options):
     if (section)[0:5] == 'field':
       if obs[section]['name'] == options.amp_cal.name:
         amp_field = str(section[len(section)-1:])
-  
-  use_model = options.amp_cal.model #+ ".im" #add +".im" to original add!
-  ct.setjy(vis=visfile,field=amp_field,standard='Perley-Butler 2013',model=use_model,usescratch= True ,scalebychan=True,spw='')
+  amp_field = options.amp_cal.name
+  use_model = options.amp_cal.model 
+  ct.setjy(vis=visfile,field=amp_field,standard='Perley-Butler 2013',model=use_model,usescratch= True,scalebychan=True,spw='')
 
 
 def convert_to_ms(archive,options):
@@ -51,15 +51,18 @@ def pre_data_calibration(options:Options):
   options.observation_data = parse.populate_Obs_data(list_obs) 
 
   #find calibrators TODO: add phase calibration option
-  options.amp_cal  = source_info(options,"amp_calibrator")
-  LoadingAnimation.performing_action(" ms split on source and amp calibrator", target=cal_split.amp_cal_split, args=(options,))
-  #print("running Amp Calibration...")
-  #cal_split.amp_cal_split(options)
+  options.source_ids  = source_info(options,type="target",name=options.source)
+  options.amp_cal  = source_info(options,type="flux_calibrator")
+  options.phase_cal  = source_info(options,type="phase_cal")
+  LoadingAnimation.performing_action(" ms split on source, Flux/amp calibrator, and phase calibrator", target=cal_split.amp_cal_split, args=(options,))
+
+  #split off the calibrators and target's to make cleaning and calibration more efficient
   split_list_obs = parse.log_listobs(AMP_CAL_MS,options)
   options.init_data = parse.populate_Obs_data(split_list_obs) 
   #set split off .ms field ID's for bandpass/gain cal
   options.source_ids.initial_ms_fieldID = options.source_ids.find_fieldID(options.init_data)
   options.amp_cal.initial_ms_fieldID = options.amp_cal.find_fieldID(options.init_data)
+  options.phase_cal.initial_ms_fieldID = options.phase_cal.find_fieldID(options.init_data)
 
 def data_calibration(options:Options):
   """
@@ -70,7 +73,7 @@ def data_calibration(options:Options):
   build_setjy(options)
   print("Performing Data Calibration...")
   if not Path(CALIBRATED_MS+'.ms').is_dir():
-    main_calibrations.gain_cal(options)
+    main_calibrations.amp_phase_cal(options)
     #split of calibrated data for imaging
     LoadingAnimation.performing_action(" calibrated data split", target=calibrated_split, args=(options,))
 
@@ -82,7 +85,7 @@ def calibrated_split(options:Options):
     print(f"The calibrated data exists, not splitting")
     ct.casalog.post(f"{AMP_CAL_MS+'.ms'} -> {CALIBRATED_MS}")
   else:
-    ct.split(vis=AMP_CAL_MS+'.ms',outputvis=CALIBRATED_MS+'.ms',datacolumn = 'corrected', field=options.source_ids.initial_ms_fieldID)
+    ct.split(vis=AMP_CAL_MS+'.ms',outputvis=CALIBRATED_MS+'.ms',datacolumn = 'corrected', field=options.source_ids.name)
     ct.casalog.post(f"{AMP_CAL_MS+'.ms'} -> {CALIBRATED_MS}")
   parse.log_listobs(CALIBRATED_MS,options)
 

@@ -76,7 +76,7 @@ class Obs_data:
     self.antennas = self.gen_antennas(antennas)
     self.fields = self.gen_fields(fields)
     self.sources = self.gen_sources(sources)
-    self.observations = self.gen_observations(observations)
+    self.observations = self.gen_observations(observations) #/Scans --> broken in listobs parsing :)
     self.spectral_windows = self.gen_spectral_windows(spectral_windows)
 
   def gen_spectral_windows(self,obs_spectral_windows):
@@ -126,6 +126,7 @@ class Obs_data:
       antennas_list.append(self.antennas[count].to_dict())
     for count in range(len(self.fields)):
       fields_list.append(self.fields[count].to_dict())
+    summary_dict.update({'fields':fields_list})
     for count in range(len(self.sources)):
       sources_list.append(self.sources[count].to_dict())
     for count in range(len(self.observations)):
@@ -135,8 +136,8 @@ class Obs_data:
 
     summary_dict.update({'fields':fields_list})
     summary_dict.update({'sources':sources_list})  
-    summary_dict.update({'observations':observations_list})
+    #summary_dict.update({'observations':observations_list})
     summary_dict.update({'spectral_windows':spectral_windows_list})
-    summary_dict.update({'antennas':antennas_list})
+    #summary_dict.update({'antennas':antennas_list})
     return summary_dict
   

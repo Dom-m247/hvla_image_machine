@@ -36,12 +36,10 @@ def main(argv):
         raise RuntimeError("No options were selected, Exiting")
       source = Options()
       source.process_input_dict(options)
-      #For checking obj with all options 
-      #import_settings.genereate_import(source)
     except RuntimeError as e:
       print(f"{e}")
       sys.exit()
-
+  
   #TODO:archive download here/in GUI app/other module 
   #if sourceID = somthing, run scraper routine
   #try:
@@ -57,7 +55,8 @@ def main(argv):
   if not 'manual_clean' in  source.breakpoints:
     print(f"Starting Clean")
     start_time = time.perf_counter()
-    image = Cleaner.tclean_cycle(options=source)
+    Cleaner.tclean_cycle(options=source)
+    #image = Cleaner.cleaning_practice(options=source)
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time
     print(f"Imaging Time taken: {elapsed_time:.4f} seconds")
@@ -65,6 +64,7 @@ def main(argv):
   else:
     print(f"Starting Manual Clean")
     image = Cleaner.manual_clean(options=source)
+
   #output options obj as json! #CHANGE TO IMPORT
   import_settings.generate_import(source)
   import_settings.generate_debug_export(source,filename="export_for_testing")

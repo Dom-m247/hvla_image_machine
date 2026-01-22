@@ -34,6 +34,7 @@ class Options:
     #source_classe objects
     self.source_ids = None
     self.amp_cal = None
+    self.phase_cal = None
     self.init_data = Obs_data()
     #extra members added during processing for tracking 
     self.ref_ant = None
@@ -75,6 +76,7 @@ class Options:
     summary_dict.update(self.__dict__)
     summary_dict.update({'amp_cal':self.amp_cal.to_dict()})
     summary_dict.update({'source_ids':self.source_ids.to_dict()})  
+    summary_dict.update({'phase_cal':self.amp_cal.to_dict()})
     summary_dict.update({'observation_data':self.observation_data.to_dict()})
     summary_dict.update({'init_data':self.init_data.to_dict()})
     summary_dict.pop('split_observations',None)

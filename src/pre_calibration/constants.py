@@ -10,13 +10,20 @@ GAINCAL_G1 = AMP_CAL_MS + '.G1'
 FLUXSCALE_X = AMP_CAL_MS + '.fluxscale' # + '1','2' ..etc
 CALIBRATED_MS = 'source' #final calibrated ms for imaging
 
+GAINCAL_G2 = AMP_CAL_MS +'.G2'
+
 #temp not utlizied / fallbacks
+DEFAULT_IMAGE_SIZE = [2048,2048]
 MIN_SNR = 5.0 #a default min SNR for gaincal
-FIRST_IMAGE = 'cleaned_image'
+FIRST_IMAGE = 'image'
 
 #class Band:
   #band name, GHZ range, MHZ range, Angular res, Solint?
-
+#calibration source type 
+TYPE_FLUX_CAL = 'flux_calibrator'
+TYPE_PHASE_CAL = 'phase_cal'
+TYPE_TARGET = 'target'
+AUTO = 'auto'
   
 #Constants that may be integrated, but are being placed here for reference!
 BAND_GHZ_RANGES = {'L': [0.985, 2.025], 
@@ -36,7 +43,18 @@ BAND_MHZ_RANGES = {'L': [985.0, 2025.0],
                    'Ka': [28258.0, 37011.0], 
                    'Q': [43148.0, 48873.0],}
 #note: configurations A=0,B=1,C=2,D=3
-BAND_ANGULAR_RESOLUTION = {'4': [800,2200,20000,20000],
+BAND_ANGULAR_RESOLUTION = {'4': [24,80,260,850],
+                           'P': [5.6,18.5,60,200],
+                           'L': [1.3,4.3,14,46],
+                           'S': [0.65,2.1,7.0,23],
+                           'C': [0.33,1.0,3.5,12],
+                           'X': [0.20,0.60,2.1,7.2],
+                           'Ku':[0.13,0.42,1.4,4.6],
+                           'K': [0.089,0.28,0.95,3.1],
+                           'Ka':[0.059,0.19,0.63,2.1],
+                           'Q': [0.043,0.14,0.47,1.5]
+}
+BAND_LARGEST_SCALE = {'4': [800,2200,20000,20000],
                            'P': [155,515,4150,4150],
                            'L': [36,120,970,970],
                            'S': [18,58,490,490],

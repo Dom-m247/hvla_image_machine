@@ -102,8 +102,8 @@ also ask for credentials.json!
 
 ### Bugs 
 - in ~~Breakpoint~~ source selection gui, ~~submit~~ close requires it being pressed twice.
-- fix error "2025-12-29 20:47:31     SEVERE  ::casa  measures_update: the measures data at /home/user/.casa/data is not maintained by casaconfig and so it can not be updated unless force is True"
-- plotms broken? just wsl?
+  - ##### Race Conditions present
+    - plotms doesn't pause 
 # Possible issues
 - Any instances of path access messed up by calling script from outside active dir?
   - (at runtime, set path to correct folder)

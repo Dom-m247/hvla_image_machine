@@ -5,32 +5,24 @@ from . import target_aquisition as TA
 from classes.source_class import source_info
 #from ..data_class import data
 from pre_calibration.constants import *
+from pre_calibration.options_class import Options
+
 import sys,pprint
 from pathlib import Path
 
 
-def get_command(options):
-  fields = TA.define_split_fields(options)
-  spwID = TA.build_spwID(options)
-  return fields,spwID
-
-
-def amp_cal_split(options):
+def amp_cal_split(options:Options):
   '''
   split off amp and target(?) fields for calibration
   #split(vis =  msfile+".ms", outputvis = "init.ms", datacolumn = 'data', field = (source_id, ampcal_id), spw = used_spws)
   '''
-  if options.source is None:
-    TA.find_target(options)
-  else:
-    TA.make_sourceID(options)
   fields,spwID = get_command(options)
+
   if Path(AMP_CAL_MS+".ms").is_dir():
     #raise Exception(f"{AMP_CAL_MS}.ms already exists, please move,delete, or rename it")
     ct.casalog.post(f"{FULLMS+'.ms'} -> {AMP_CAL_MS+'.ms'} | fields: {fields} | spw: {spwID}")
   else:
     ct.casalog.post(f"{FULLMS+'.ms'} -> {AMP_CAL_MS+'.ms'} | fields: {fields} | spw: {spwID}")
-    print(f"\rSplitting off Amp Calibrator data to {AMP_CAL_MS+'.ms'}")
     ct.split(vis=FULLMS+'.ms',outputvis=AMP_CAL_MS+'.ms',datacolumn = 'data', field=fields, spw=spwID)
   #if options.get_dict_sp('breakpoints')['verify_scans']:
     #pause, show listobs(vis='init.ms') and continue if correct, else END
@@ -40,7 +32,29 @@ def amp_cal_split(options):
     print("Manual Data Flagging! ### NOT YET IMPLEMENTED")
     #open_plotms_thread(AMP_CAL_MS+".ms")
     print("Resuming Calibration Process...")
+
+
+def get_command(options:Options):
+  fields = define_split_fields(options)
+  spwID = build_spwID(options)
+  return fields,spwID
  
+def build_spwID(options:Options):
+  """build the spwID for splitting
+  TODO: ADD BREAKPOINT CUSTOM SPW?
+  """
+  spwIDs = ''
+  for spw in options.observation_data.spectral_windows:
+    spwIDs = spwIDs + str(spw.id)
+    spwIDs += ','
+  return spwIDs[:-1] #remove last comma
+  
+
+def define_split_fields(options:Options):
+  #needs multiple MS integration
+  print(f"splitting on fields('src,amp,phase) | {str(options.source_ids.field_id)},{str(options.amp_cal.field_id)},{str(options.phase_cal.field_id)} ")
+  split_fields = str(options.source_ids.field_id) + ',' + str(options.amp_cal.field_id) + ',' + str(options.phase_cal.field_id)
+  return split_fields
 
 def open_plotms_thread(visfile):
   """
