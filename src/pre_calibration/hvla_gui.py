@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-
+from .constants import *
 
 class SourceInputWindow:
     def __init__(self, master, app):
@@ -227,8 +227,8 @@ class BreakpointsWindow:
         self.master = master
         self.app = app
         master.title("Breakpoints Selection")
-        master.geometry("650x650")
-        master.minsize(650, 550)
+        master.geometry("700x700")
+        master.minsize(700, 600)
         
         ttk.Label(
             master, 
@@ -288,7 +288,7 @@ class BreakpointsWindow:
         self.ref_antenna_menu.pack(anchor="w", pady=(0, 15))
         
         ttk.Label(calibration_frame, text="Minimum SNR Ratio:", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
-        self.snr_var = tk.DoubleVar(value=3.0)
+        self.snr_var = tk.DoubleVar(value=MIN_SNR)
         self.snr_spinbox = ttk.Spinbox(
             calibration_frame,
             from_=0,
@@ -302,16 +302,27 @@ class BreakpointsWindow:
         # Image Generation Options Frame
         image_frame = ttk.LabelFrame(options_container, text="Image Generation Options", padding=15)
         image_frame.pack(side="right", fill="both", expand=True, padx=(5, 0))
-        
+
+        self.use_custom_naming_var = tk.BooleanVar(value=False)
+        self.use_custom_image_name_check = ttk.Checkbutton(
+            image_frame,
+            text="Set a custom filename for image",
+            variable=self.use_custom_naming_var,
+            command=self.toggle_image_name_entry
+        )
+        self.use_custom_image_name_check.pack(anchor="w", pady=(0, 5))
+
         # Image filename
         ttk.Label(image_frame, text="Image Filename(ExampleName_XX):", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
-        self.image_filename_var = tk.StringVar(value="im")
+        self.image_filename_var = tk.StringVar(value="image_name")
         self.image_filename_entry = ttk.Entry(
             image_frame,
             textvariable=self.image_filename_var,
-            width=30
+            width=30,
+            state='disabled'
         )
         self.image_filename_entry.pack(anchor="w", pady=(0, 5))
+        
         
         # Image size
         ttk.Label(image_frame, text="Image Size (pixels):", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
@@ -379,7 +390,17 @@ class BreakpointsWindow:
             state="disabled"
         )
         self.cell_size_entry.pack(anchor="w", pady=(0, 5))
-        
+
+        ttk.Label(image_frame, text="Self Calibration Cycles:", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
+        self.self_cal_cycle_var = tk.IntVar(value=1)
+        self.self_cal_cycle_spinbox = ttk.Spinbox(
+            image_frame,
+            from_=0,
+            to=4096,
+            textvariable=self.self_cal_cycle_var,
+            width=30
+        )
+        self.self_cal_cycle_spinbox.pack(anchor="w", pady=(0, 5))
 
         # Checkboxes for breakpoints (allow multiple selections)
         self.breakpoint_vars = {
@@ -393,7 +414,7 @@ class BreakpointsWindow:
         breakpoints = [
             ("Manual Data Flagging", "manual_flagging"),
             ("Calibration", "calibration"),
-            ("Manual Cleaning", "manual_clean"),
+            ("Manual self-cal(launches casa)", "manual_clean"),
             ("Display Image After Generation","display_image" )
         ]
         
@@ -437,10 +458,17 @@ class BreakpointsWindow:
     
     def toggle_cell_size_entry(self):
         """Enable/disable cell size entry based on checkbox state"""
-        if self.use_custom_cell_var.get():
+        if self.use_custom_naming_var.get():
             self.cell_size_entry.config(state="normal")
         else:
             self.cell_size_entry.config(state="disabled")
+
+    def toggle_image_name_entry(self):
+        """Enable/disable custom file nameing based on checkbox state"""
+        if self.use_custom_naming_var.get():
+            self.image_filename_entry.config(state="normal")
+        else:
+            self.image_filename_entry.config(state="disabled")
     
     def submit(self):
         """Submit the selected breakpoints"""
@@ -466,13 +494,14 @@ class BreakpointsWindow:
             "custom_amp_cal": self.amp_cal_mode.get(),
             "reference_antenna": self.ref_antenna_var.get(),
             "min_snr": self.snr_var.get(),
-            "image_filename": self.image_filename_var.get(),
+            "image_filename": self.image_filename_var.get() if self.use_custom_naming_var.get() else None,
             "image_size": [self.image_size_var.get(),self.image_size_var.get()],
             "interactive_image": self.interactive_var.get(),
             "use_custom_cell_size": self.use_custom_cell_var.get(),
             "cell_size": self.cell_size_var.get() if self.use_custom_cell_var.get() else None,
             "deconvolver":self.deconvolver.get(),
-            "weighting":self.weighting.get()
+            "weighting":self.weighting.get(),
+            "self_cal_cycles":self.self_cal_cycle_var.get()
         }
         # Store in app
         self.app.summary_dict = summary_dict

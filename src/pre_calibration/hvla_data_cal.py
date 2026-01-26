@@ -30,10 +30,11 @@ def convert_to_ms(archive,options):
   """
   Converts raw HVLA data archive to Measurement Set (MS) format
   """
+  #get some version of the observation Name
   #OUTPUT MS name = "fullMS.ms" -> weird cstring error if not directly entered.
   if (archive.endswith('.ms')):
     print(f"Archive {archive} is already in MS format.")
-    archive = archive[:len(archive)-3]
+    archive = archive[:len(archive)-3] #remove '.ms'
     return parse.log_listobs(archive,options)
   #import archive to MS
   try:
@@ -49,15 +50,18 @@ def pre_data_calibration(options:Options):
   list_obs = convert_to_ms(options.archive_file,options) 
   #extract info from listobs -> more complete than returned data
   options.observation_data = parse.populate_Obs_data(list_obs) 
+  
 
   #find calibrators TODO: add phase calibration option
   options.source_ids  = source_info(options,type="target",name=options.source)
   options.amp_cal  = source_info(options,type="flux_calibrator")
   options.phase_cal  = source_info(options,type="phase_cal")
+  generate_file_names(options)
+  #generate Naming Schemese for files
   LoadingAnimation.performing_action(" ms split on source, Flux/amp calibrator, and phase calibrator", target=cal_split.amp_cal_split, args=(options,))
 
   #split off the calibrators and target's to make cleaning and calibration more efficient
-  split_list_obs = parse.log_listobs(AMP_CAL_MS,options)
+  split_list_obs = parse.log_listobs(options.initial_calibration_filename,options)
   options.init_data = parse.populate_Obs_data(split_list_obs) 
   #set split off .ms field ID's for bandpass/gain cal
   options.source_ids.initial_ms_fieldID = options.source_ids.find_fieldID(options.init_data)
@@ -72,7 +76,7 @@ def data_calibration(options:Options):
   pre_data_calibration(options)
   build_setjy(options)
   print("Performing Data Calibration...")
-  if not Path(CALIBRATED_MS+'.ms').is_dir():
+  if not Path(options.calibrated_filename+'.ms').is_dir():
     main_calibrations.amp_phase_cal(options)
     #split of calibrated data for imaging
     LoadingAnimation.performing_action(" calibrated data split", target=calibrated_split, args=(options,))
@@ -81,13 +85,13 @@ def calibrated_split(options:Options):
   """
   split off calibrated data for imaging
   """
-  if Path(CALIBRATED_MS+'.ms').is_dir():
+  if Path(options.calibrated_filename+'.ms').is_dir():
     print(f"The calibrated data exists, not splitting")
-    ct.casalog.post(f"{AMP_CAL_MS+'.ms'} -> {CALIBRATED_MS}")
+    ct.casalog.post(f"{options.initial_calibration_filename+'.ms'} -> {options.calibrated_filename+'.ms'}")
   else:
-    ct.split(vis=AMP_CAL_MS+'.ms',outputvis=CALIBRATED_MS+'.ms',datacolumn = 'corrected', field=options.source_ids.name)
-    ct.casalog.post(f"{AMP_CAL_MS+'.ms'} -> {CALIBRATED_MS}")
-  parse.log_listobs(CALIBRATED_MS,options)
+    ct.split(vis=options.initial_calibration_filename+'.ms',outputvis=options.calibrated_filename+'.ms',datacolumn = 'corrected', field=options.source_ids.name)
+    ct.casalog.post(f"{options.initial_calibration_filename+'.ms'} -> {options.calibrated_filename+'.ms'}")
+  parse.log_listobs(options.calibrated_filename,options)
 
 
 def do_vla_import(archive_file:str,output_ms:str):
@@ -98,3 +102,9 @@ def do_vla_import(archive_file:str,output_ms:str):
   ct.importvla(archivefiles={archive_file},vis=output_ms+'.ms')
   
   
+def generate_file_names(options:Options):
+  ''' set a variable that can be used to better generate filenames'''
+  options.initial_calibration_filename = options.observation_data.obs_info.project + '_' +AMP_CAL_MS
+  options.calibrated_filename = options.source_ids.name
+  if options.image_filename is None:
+    options.image_filename = options.source_ids.name +'_'+ options.band + '_'

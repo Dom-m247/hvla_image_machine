@@ -22,4 +22,9 @@ find . -type d -name "*.fluxscale*" -exec rm -rf {} +
 find . -type d -name "*.tt0" -exec rm -rf {} +
 find . -type d -name "*.mask" -exec rm -rf {} +
 find . -type d -name "TempLattice*" -exec rm -rf {} +
+
+#remove pb and pbcorimage
+find . -type d -name "*.pb" -exec rm -rf {} +
+find . -type d -name "*.pbcorimage" -exec rm -rf {} +
+
 echo "Cleanup completed: removed .log, .ms, and .ms.flagversion files"

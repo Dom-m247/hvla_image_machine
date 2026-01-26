@@ -1,4 +1,11 @@
 from casatasks import casalog # type: ignore
+import pprint
+class Obs_information:
+    def __init__(self,obs_info={}):
+      self.observer = obs_info['observer'] #will likeley be empty
+      self.project = obs_info['project'] #IMPORTAN
+      self.observtion = obs_info['observation'] #instrement 
+      self.data_records = obs_info['data_records']
 
 class Spectral_Windows:
     def __init__(self,spectral_windows=[]):
@@ -72,12 +79,14 @@ class Obs_data:
   def __init__(self,
                antennas=[],fields=[],
                sources=[],observations=[],
-               spectral_windows=[]):
+               spectral_windows=[],obs_info=None):
     self.antennas = self.gen_antennas(antennas)
     self.fields = self.gen_fields(fields)
     self.sources = self.gen_sources(sources)
     self.observations = self.gen_observations(observations) #/Scans --> broken in listobs parsing :)
     self.spectral_windows = self.gen_spectral_windows(spectral_windows)
+    if obs_info:
+      self.obs_info = Obs_information(obs_info)
 
   def gen_spectral_windows(self,obs_spectral_windows):
     """generate a list of Observation objects"""
@@ -121,7 +130,7 @@ class Obs_data:
     sources_list=[]
     observations_list=[]
     spectral_windows_list=[]
-
+    
     for count in range(len(self.antennas)):
       antennas_list.append(self.antennas[count].to_dict())
     for count in range(len(self.fields)):
@@ -133,7 +142,8 @@ class Obs_data:
       observations_list.append(self.observations[count].to_dict())
     for count in range(len(self.spectral_windows)):
       spectral_windows_list.append(self.spectral_windows[count].to_dict())
-
+   
+    summary_dict.update({'obs_info':self.obs_info.__dict__}) #already a Dict
     summary_dict.update({'fields':fields_list})
     summary_dict.update({'sources':sources_list})  
     #summary_dict.update({'observations':observations_list})

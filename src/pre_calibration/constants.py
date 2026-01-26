@@ -4,16 +4,26 @@ IMPORT_JSON = 'import.json'
 #Measurment set Name Defaults
 FULLMS = 'fullset' # for the full MS before splitting
 AMP_CAL_MS = 'initial' #'amp_cal_set'
-GAINCAL_G0ALL = AMP_CAL_MS + '.G0all'
-BANDPASS_B0 = AMP_CAL_MS + '.B0'
-GAINCAL_G1 = AMP_CAL_MS + '.G1'
-FLUXSCALE_X = AMP_CAL_MS + '.fluxscale' # + '1','2' ..etc
+#GAINCAL_G0ALL = AMP_CAL_MS + '.G0all'
+#BANDPASS_B0 = AMP_CAL_MS + '.B0'
+#GAINCAL_G1 = AMP_CAL_MS + '.G1'
+#FLUXSCALE_X = AMP_CAL_MS + '.fluxscale' # + '1','2' ..etc
+#CALIBRATED_MS = 'source' #final calibrated ms for imaging
+#
+#GAINCAL_G2 = AMP_CAL_MS +'.G2'
+
+GAINCAL_G0ALL =  '.G0all'
+BANDPASS_B0 = '.B0'
+GAINCAL_G1 = '.G1'
+FLUXSCALE_X = '.fluxscale' # + '1','2' ..etc
 CALIBRATED_MS = 'source' #final calibrated ms for imaging
 
-GAINCAL_G2 = AMP_CAL_MS +'.G2'
+GAINCAL_G2 = '.G2'
+SELF_CAL= '.selfcal'
 
 #temp not utlizied / fallbacks
 DEFAULT_IMAGE_SIZE = [2048,2048]
+INITIAL_NITER = 250 # half of niter from tutorial
 MIN_SNR = 5.0 #a default min SNR for gaincal
 FIRST_IMAGE = 'image'
 

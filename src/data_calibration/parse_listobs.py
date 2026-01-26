@@ -28,6 +28,7 @@ class parseListObs:
         parse_sources(listObsFile),
         parse_observations(listObsFile),
         parse_spw(listObsFile),
+        parse_obs_info(listObsFile)
       )
       
     except ValueError as e:
@@ -49,10 +50,49 @@ class parseListObs:
   def log_listobs_ms(ms):
     '''make and log a listobs for a given .ms file'''
     listobs_file = ms + '-listobs.txt'
-    ct.listobs(vis = ms, listfile = listobs_file, overwrite = True)
+    listobs_out = ct.listobs(vis = ms, listfile = listobs_file, overwrite = True)
     read_listobs = open(listobs_file, 'r').read()
     ct.casalog.post(read_listobs)
     return read_listobs
+
+def parse_obs_info(listobs_text):
+  '''Parse observation header info: Observer, Project, Observation type, Data records, etc.'''
+  obs_info = {}
+  
+  # Parse Observer and Project from line: "Observer: XXX     Project: XXX"
+  observer_match = re.search(r'Observer:\s*(\S+)', listobs_text)
+  if observer_match:
+    obs_info['observer'] = observer_match.group(1)
+  
+  project_match = re.search(r'Project:\s*(\S+)', listobs_text)
+  if project_match:
+    obs_info['project'] = project_match.group(1)
+  
+  # Parse Observation type
+  observation_match = re.search(r'Observation:\s*(\S+)', listobs_text)
+  if observation_match:
+    obs_info['observation'] = observation_match.group(1)
+  
+  # Parse Data records
+  data_records_match = re.search(r'Data records:\s*(\d+)', listobs_text)
+  if data_records_match:
+    obs_info['data_records'] = int(data_records_match.group(1))
+  
+  # Parse Total elapsed time
+  elapsed_time_match = re.search(r'Total elapsed time = ([\d.]+) seconds', listobs_text)
+  if elapsed_time_match:
+    obs_info['total_elapsed_time'] = float(elapsed_time_match.group(1))
+  
+  # Parse observation start and end times
+  observation_timerange_match = re.search(
+    r'Observed from\s+([\d\-/]+/[\d:.]+\.\d+)\s+to\s+([\d\-/]+/[\d:.]+\.\d+)\s+\((\w+)\)',
+    listobs_text
+  )
+  if observation_timerange_match:
+    obs_info['observed_from'] = observation_timerange_match.group(1)
+    obs_info['observed_to'] = observation_timerange_match.group(2)
+    obs_info['time_format'] = observation_timerange_match.group(3)
+  return obs_info
 
 def parse_spw(listobs_text):
   '''Parse spectral windows section'''

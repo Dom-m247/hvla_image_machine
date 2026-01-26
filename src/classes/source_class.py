@@ -32,7 +32,6 @@ class source_info:
       self.field_id = self.find_fieldID(options.observation_data)
     #extra members defined by initial ms split after initilization
     self.initial_ms_fieldID = ''
-    pprint.pp(self.to_dict())
   
   def find_fieldID(self,data_source):
     for field in data_source.fields:

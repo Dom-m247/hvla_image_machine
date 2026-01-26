@@ -4,7 +4,6 @@ from classes.observations_class import Obs_data
 #from classes.source_class import source_info
 from pre_calibration.constants import *
 
-import pprint as pp
 
 class Options:
   """contains all the parameters, and options"""
@@ -29,7 +28,10 @@ class Options:
     self.min_snr = min_snr
   
     #other members 
-    
+    #fileNames
+    self.initial_calibration_filename = '' #ms/calbration tables include phase,amp and target
+    self.calibrated_filename = '' #file name of calibrated source standalone MS
+
     self.observation_data = Obs_data() 
     #source_classe objects
     self.source_ids = None
@@ -62,6 +64,7 @@ class Options:
         self.cell_size = dict_in['cell_size']
       self.deconvolver = dict_in['deconvolver']
       self.weighting = dict_in['weighting']
+      self.self_cal_cycles = dict_in['self_cal_cycles']
       casalog.post(f"Information added to obj: {dict_in}") #logging values added to data_set object
       return True
     except ValueError as e:
@@ -100,6 +103,7 @@ class Options:
       summary_dict.update({'cell_size':self.cell_size})
     summary_dict.update({'deconvolver':self.deconvolver})
     summary_dict.update({'weighting':self.weighting})
+    summary_dict.update({'self_cal_cycles':self.self_cal_cycles})
     return summary_dict
   
   def generate_debug_dict(self):

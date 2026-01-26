@@ -55,8 +55,9 @@ def main(argv):
   if not 'manual_clean' in  source.breakpoints:
     print(f"Starting Clean")
     start_time = time.perf_counter()
-    Cleaner.tclean_cycle(options=source)
-    #image = Cleaner.cleaning_practice(options=source)
+    image_1 = Cleaner.initial_cycle(options=source)
+    #if not 'self_cal' in source.do_self_cal:
+    # image = Cleaner.cleaning_practice(options=source)
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time
     print(f"Imaging Time taken: {elapsed_time:.4f} seconds")
@@ -102,3 +103,32 @@ def update_config():
 
 if __name__ == "__main__":
   main(sys.argv)
+
+  #casatasks.tclean(vis='3c391_ctm_mosaic_spw0.ms',imagename='3c391_ctm_spw0_ms_I',
+  #    field='',spw='',
+  #    specmode='mfs',
+  #    niter=500,
+  #    gain=0.1,threshold='1mJy',
+  #    gridder='mosaic',
+  #    deconvolver='multiscale',
+  #    scales=[0, 5, 15, 45],smallscalebias=0.9,
+  #    interactive=True,
+  #    imsize=[480,480],cell=['2.5arcsec','2.5arcsec'],
+  #    stokes='I',
+  #    weighting='briggs',robust=0.5,
+  #    pbcor=False,
+  #    savemodel='modelcolumn')
+  #casatasks.tclean(vis='3c391_ctm_mosaic_spw0.ms',imagename='3c391_ctm_spw0_multiscale',
+  #    field='',spw='',
+  #    specmode='mfs',
+  #    niter=20000,
+  #    gain=0.1, threshold='1.0mJy',
+  #    gridder='mosaic',
+  #    deconvolver='multiscale',
+  #    scales=[0, 5, 15, 45], smallscalebias=0.9,
+  #    interactive=True,
+  #    imsize=[480,480], cell=['2.5arcsec','2.5arcsec'],
+  #    stokes='I',
+  #    weighting='briggs',robust=0.5,
+  #    pbcor=False,
+  #    savemodel='modelcolumn')
