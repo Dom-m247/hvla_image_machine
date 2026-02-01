@@ -200,7 +200,7 @@ def parse_sources(listobs_text):
   return sources
 
 def parse_fields(listobs_text):
-  '''Parse fields section, handling empty Code field'''
+  '''Parse fields section, handling empty Code field and long epoch names'''
   fields_section = re.search(r'Fields: \d+(.*?)(?=\n\n|Spectral|\Z)', listobs_text, re.DOTALL)
   if not fields_section:
     raise ValueError('fields')
@@ -214,8 +214,13 @@ def parse_fields(listobs_text):
     
     # Use regex to parse: ID [Code] Name RA Decl Epoch SrcId nRows
     # Code is optional (single letter or empty)
-    match = re.match(r'\s*(\d+)\s+([A-Z]?)\s+(\S+)\s+([\d:.]+)\s+([\d+\-.]+)\s+(\w+)\s+(\d+)\s+(\d+)', line)
+    # Epoch can contain letters, numbers, and underscores (e.g., B1950_VLA0, J2000)
+    match = re.match(r'\s*(\d+)\s+([A-Z]?)\s+(\S+)\s+([\d:.]+)\s+([\d+\-.]+)\s+([\w_]+)\s+(\d+)(?:\s+(\d+))?', line)
     if match:
+      # Handle case where SrcId and nRows might both be present or just nRows
+      src_id = int(match.group(7))
+      nrows = int(match.group(8)) if match.group(8) else int(match.group(7))
+      
       field = {
         'id': int(match.group(1)),
         'code': match.group(2) if match.group(2) else None,  # None if empty
@@ -223,8 +228,8 @@ def parse_fields(listobs_text):
         'ra': match.group(4),
         'decl': match.group(5),
         'epoch': match.group(6),
-        'src_id': int(match.group(7)),
-        'nrows': int(match.group(8))
+        'src_id': src_id if match.group(8) else None,
+        'nrows': nrows
       }
       fields.append(field)
   return fields

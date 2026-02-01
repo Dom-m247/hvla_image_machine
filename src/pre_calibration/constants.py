@@ -22,7 +22,7 @@ GAINCAL_G2 = '.G2'
 SELF_CAL= '.selfcal'
 
 #temp not utlizied / fallbacks
-DEFAULT_IMAGE_SIZE = [2048,2048]
+DEFAULT_IMAGE_SIZE = [1080,1080] # keep me a perfect Square!
 INITIAL_NITER = 250 # half of niter from tutorial
 MIN_SNR = 5.0 #a default min SNR for gaincal
 FIRST_IMAGE = 'image'

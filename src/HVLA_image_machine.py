@@ -6,7 +6,7 @@ from pre_calibration.options_class import Options
 from pre_calibration import *
 from image_generation.image_maker import Cleaner
 #from archive_dowload import *
-from pprint import *
+import pprint
 import time
 
 def main(argv):
@@ -55,15 +55,13 @@ def main(argv):
   if not 'manual_clean' in  source.breakpoints:
     print(f"Starting Clean")
     start_time = time.perf_counter()
-    image_1 = Cleaner.initial_cycle(options=source)
-    #if not 'self_cal' in source.do_self_cal:
-    # image = Cleaner.cleaning_practice(options=source)
+    cleaner.image_gen(source)
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time
     print(f"Imaging Time taken: {elapsed_time:.4f} seconds")
     casatasks.casalog.post(f"Imaging Time taken: {elapsed_time:.4f} seconds")
   else:
-    print(f"Starting Manual Clean")
+    print(f"Starting Manual Clean and self_cal")
     image = Cleaner.manual_clean(options=source)
 
   #output options obj as json! #CHANGE TO IMPORT

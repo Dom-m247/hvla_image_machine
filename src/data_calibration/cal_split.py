@@ -20,10 +20,10 @@ def amp_cal_split(options:Options):
 
   if Path(options.initial_calibration_filename+".ms").is_dir():
     #raise Exception(f"{AMP_CAL_MS}.ms already exists, please move,delete, or rename it")
-    ct.casalog.post(f"{FULLMS+'.ms'} -> {options.initial_calibration_filename+'.ms'} | fields: {fields} | spw: {spwID}")
+    ct.casalog.post(f"{options.proj_name+'.ms'} -> {options.initial_calibration_filename+'.ms'} | fields: {fields} | spw: {spwID}")
   else:
-    ct.casalog.post(f"{FULLMS+'.ms'} -> {options.initial_calibration_filename+'.ms'} | fields: {fields} | spw: {spwID}")
-    ct.split(vis=FULLMS+'.ms',outputvis=options.initial_calibration_filename+'.ms',datacolumn = 'data', field=fields, spw=spwID)
+    ct.casalog.post(f"{options.proj_name+'.ms'} -> {options.initial_calibration_filename+'.ms'} | fields: {fields} | spw: {spwID}")
+    ct.split(vis=options.proj_name+'.ms',outputvis=options.initial_calibration_filename+'.ms',datacolumn = 'data', field=fields, spw=spwID)
   #if options.get_dict_sp('breakpoints')['verify_scans']:
     #pause, show listobs(vis='init.ms') and continue if correct, else END
 

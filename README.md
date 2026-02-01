@@ -44,6 +44,7 @@ also ask for credentials.json!
 - ##### Race Conditions present
   - plotms doesn't pause,
   - Split/import don't pause either
+- if list-obs formating is inconsitient  (ex. epoch and srcID running into each other) 
 
 # Possible issues
 - Any instances of path access messed up by calling script from outside active dir?

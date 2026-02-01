@@ -108,11 +108,12 @@ def amp_phase_cal(options:options_class.Options):
 
   #return to data_data_cal and split of callibrated data
   
-def self_cal_cycle(options:options_class.Options,cycle_number,solint):
+def self_cal_cycle(options:options_class.Options,cycle_number,solint='inf'):
   '''
   Perform one cycle of self calibration with 
   '''
-  solint = 'inf'
+  find_refant(options) #do again incase it's starting with a calibrated dataSet
+  cycle_number = str(cycle_number)
   ct.gaincal(vis=options.calibrated_filename+'.ms',
              caltable=options.calibrated_filename+SELF_CAL+cycle_number,
              field='',
@@ -123,9 +124,9 @@ def self_cal_cycle(options:options_class.Options,cycle_number,solint):
              gaintype='G',
              calmode='p'
              )
-  ct.applycal(vis=options.calibrated_filename+'ms',
+  ct.applycal(vis=options.calibrated_filename+'.ms',
               field='',spw='',
-              selcetdat=False,
+              selectdata=False,
               gaintable=[options.calibrated_filename+SELF_CAL+cycle_number],
               gainfield=[''],
               interp=['nearest'],
@@ -135,8 +136,9 @@ def find_refant(options:options_class.Options):
   """
   Identify the reference antenna for calibration
   """
-  anntennas_list = parse.antennas_distance(options) #sorted list of antennas by distance 
-  options.ref_ant = anntennas_list[2]['id'] #closest antenna by name ie "VA01"
+  if options.ref_ant is None:
+    anntennas_list = parse.antennas_distance(options) #sorted list of antennas by distance 
+    options.ref_ant = anntennas_list[3]['id'] #closest antenna by name ie "VA01" #3rd closest by vibes
 
 def check_refant(options,gaincal_out):
   """

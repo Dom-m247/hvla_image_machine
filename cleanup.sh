@@ -16,7 +16,7 @@ find . -type d -name "*.ms.flagversions" -exec rm -rf {} +
 find . -type d -name "*.G*" -exec rm -rf {} +
 find . -type d -name "*.B0" -exec rm -rf {} +
 find . -type d -name "*.fluxscale*" -exec rm -rf {} +
-
+find . -type d -name "*.selfcal*" -exec rm -rf {} +
 
 #remove images
 find . -type d -name "*.tt0" -exec rm -rf {} +

@@ -81,8 +81,8 @@ class Obs_data:
                sources=[],observations=[],
                spectral_windows=[],obs_info=None):
     self.antennas = self.gen_antennas(antennas)
-    self.fields = self.gen_fields(fields)
     self.sources = self.gen_sources(sources)
+    self.fields = self.gen_fields(fields)
     self.observations = self.gen_observations(observations) #/Scans --> broken in listobs parsing :)
     self.spectral_windows = self.gen_spectral_windows(spectral_windows)
     if obs_info:
@@ -113,7 +113,10 @@ class Obs_data:
     """generate a list of fields objects"""
     fields = []
     for count in range(len(obs_fields)):
-      fields.append(Fields(obs_fields[count]))
+      field = Fields(obs_fields[count])
+      if field.src_id is None:
+        self.supplement_srcid(field)
+      fields.append(field)
     return fields
   
   def gen_antennas(self,obs_antennas):
@@ -123,6 +126,11 @@ class Obs_data:
       antennas.append(Antenna(obs_antennas[count]))
     return antennas
   
+  def supplement_srcid(self,field:Fields):
+    for each_source in self.sources:
+      if each_source.name == field.name:
+        field.src_id = each_source.id
+
   def to_dict(self):
     summary_dict = {}
     antennas_list=[]

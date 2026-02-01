@@ -227,8 +227,8 @@ class BreakpointsWindow:
         self.master = master
         self.app = app
         master.title("Breakpoints Selection")
-        master.geometry("700x700")
-        master.minsize(700, 600)
+        master.geometry("680x750")
+        master.minsize(680, 750)
         
         ttk.Label(
             master, 
@@ -326,7 +326,7 @@ class BreakpointsWindow:
         
         # Image size
         ttk.Label(image_frame, text="Image Size (pixels):", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
-        self.image_size_var = tk.IntVar(value=2048)
+        self.image_size_var = tk.IntVar(value=DEFAULT_IMAGE_SIZE[1]) #1 pulls the first of the [#,#] square 
         self.image_size_spinbox = ttk.Spinbox(
             image_frame,
             from_=256,
@@ -368,7 +368,7 @@ class BreakpointsWindow:
             state="readonly",
             width=30
         )
-        self.deconvolver_choice.pack(anchor="w", pady=(0, 15))
+        self.weighting_choice_menu.pack(anchor="w", pady=(0, 15))
         
         
         # Cell size with manual override
@@ -391,6 +391,18 @@ class BreakpointsWindow:
         )
         self.cell_size_entry.pack(anchor="w", pady=(0, 5))
 
+        # Do self_calibration cycles 
+        #ttk.Label(image_frame, text="", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
+        self.do_self_cal_var = tk.BooleanVar(value=False)
+        self.do_self_cal_check = ttk.Checkbutton(
+            image_frame,
+            variable=self.do_self_cal_var,
+            text='Do self_cal Cycles',
+            command=self.toggle_self_cal_entry
+        )
+        self.do_self_cal_check.pack(anchor="w", pady=(0, 5))
+        
+        #self.cell_size_var = tk.DoubleVar(value=0.0)
         ttk.Label(image_frame, text="Self Calibration Cycles:", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
         self.self_cal_cycle_var = tk.IntVar(value=1)
         self.self_cal_cycle_spinbox = ttk.Spinbox(
@@ -398,7 +410,8 @@ class BreakpointsWindow:
             from_=0,
             to=4096,
             textvariable=self.self_cal_cycle_var,
-            width=30
+            width=10,
+            state='disabled'
         )
         self.self_cal_cycle_spinbox.pack(anchor="w", pady=(0, 5))
 
@@ -458,7 +471,7 @@ class BreakpointsWindow:
     
     def toggle_cell_size_entry(self):
         """Enable/disable cell size entry based on checkbox state"""
-        if self.use_custom_naming_var.get():
+        if self.use_custom_cell_var.get():
             self.cell_size_entry.config(state="normal")
         else:
             self.cell_size_entry.config(state="disabled")
@@ -469,6 +482,13 @@ class BreakpointsWindow:
             self.image_filename_entry.config(state="normal")
         else:
             self.image_filename_entry.config(state="disabled")
+
+    def toggle_self_cal_entry(self):
+        """Enable/disable custom file nameing based on checkbox state"""
+        if self.do_self_cal_var.get():
+            self.self_cal_cycle_spinbox.config(state="normal")
+        else:
+            self.self_cal_cycle_spinbox.config(state="disabled")
     
     def submit(self):
         """Submit the selected breakpoints"""
@@ -501,7 +521,8 @@ class BreakpointsWindow:
             "cell_size": self.cell_size_var.get() if self.use_custom_cell_var.get() else None,
             "deconvolver":self.deconvolver.get(),
             "weighting":self.weighting.get(),
-            "self_cal_cycles":self.self_cal_cycle_var.get()
+            "do_self_cal":self.do_self_cal_var.get(),
+            "self_cal_cycles":self.self_cal_cycle_var.get() if self.do_self_cal_var.get() else None,
         }
         # Store in app
         self.app.summary_dict = summary_dict

@@ -111,7 +111,7 @@ class source_info:
     fields = options.observation_data.fields
     for i in range(len(fields)):
       for amp_cal in COMMON_AMPCALS_DICT:
-        if fields[i].name == amp_cal:
+        if fields[i].name == amp_cal or fields[i].name == COMMON_AMPCALS_DICT[amp_cal] :
           ct.casalog.post(f'Amp Cal found, ID:{amp_cal}, {COMMON_AMPCALS_DICT[amp_cal]}')
           self.name3c = COMMON_AMPCALS_DICT[amp_cal]
           self.name = fields[i].name
