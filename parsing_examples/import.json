@@ -1,0 +1,21 @@
+{
+    "source": null,
+    "archive_file": "ARCHIVE.EXP OR .MS ",
+    "band": "AUTO, or specify a band (e.g. L, S, C, X, Ku, K, Ka, Q)",
+    "breakpoints": [],
+    "custom_amp_cal": "auto",
+    "reference_antenna": "auto",
+    "min_snr": 3.0,
+    "image_filename": "IMAGE FILENAME HERE",
+    "image_size": [
+        1080,
+        1080
+    ],
+    "interactive_image": false,
+    "use_custom_cell_size": true,
+    "cell_size": 0.01,
+    "deconvolver": "mtmfs",
+    "weighting": "briggs",
+    "do_self_cal": true,
+    "self_cal_cycles": 1
+}
