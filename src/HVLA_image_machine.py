@@ -8,6 +8,7 @@ from image_generation.image_maker import Cleaner
 #from archive_dowload import *
 import pprint
 import time
+from pathlib import Path
 
 def main(argv):
   """ Main function to run the HVLA Image Machine application."""
@@ -67,9 +68,10 @@ def main(argv):
   #output options obj as json! #CHANGE TO IMPORT
   import_settings.generate_import(source)
   import_settings.generate_debug_export(source,filename="export_for_testing")
-  if 'display_image' in source.breakpoints and not 'manual_clean' in source.breakpoints:
-   casaviewer.imview(raster=(source.image_filename)+'.image.tt0')   
+  #if 'display_image' in source.breakpoints and not 'manual_clean' in source.breakpoints:
+  # casaviewer.imview(raster=(source.image_filename)+'.image.tt0')   
   print("Completed Successfuly. Exiting...")
+  
   
   #except Exception as e:
     #generate debug export, then exit

@@ -24,7 +24,7 @@ SELF_CAL= '.selfcal'
 #temp not utlizied / fallbacks
 DEFAULT_IMAGE_SIZE = [1080,1080] # keep me a perfect Square!
 INITIAL_NITER = 250 # half of niter from tutorial
-MIN_SNR = 5.0 #a default min SNR for gaincal
+MIN_SNR = 3.0 #a default min SNR for gaincal
 FIRST_IMAGE = 'image'
 
 #class Band:

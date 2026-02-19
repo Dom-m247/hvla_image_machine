@@ -131,6 +131,30 @@ def self_cal_cycle(options:options_class.Options,cycle_number,solint='inf'):
               gainfield=[''],
               interp=['nearest'],
               calwt=[False],applymode='calflag') #calflag vs. calonly
+
+def self_cal_solint_variation(options:options_class.Options,cycle_number,solint):
+  '''
+  Perform one cycle of self calibration with 
+  '''
+  find_refant(options) #do again inc
+  cycle_number = str(cycle_number)
+  ct.gaincal(vis=options.calibrated_filename+'.ms',
+             caltable=options.calibrated_filename+SELF_CAL+cycle_number,
+             field='',
+             spw='',
+             selectdata=False,
+             solint=solint,
+             refant=options.ref_ant,
+             gaintype='G',
+             calmode='p'
+             )
+  ct.applycal(vis=options.calibrated_filename+'.ms',
+              field='',spw='',
+              selectdata=False,
+              gaintable=[options.calibrated_filename+SELF_CAL+cycle_number],
+              gainfield=[''],
+              interp=['nearest'],
+              calwt=[False],applymode='calflag') #calflag vs. calonly
   
 def find_refant(options:options_class.Options):
   """

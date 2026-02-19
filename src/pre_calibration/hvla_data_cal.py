@@ -30,8 +30,8 @@ def convert_to_ms(archive,options):
   #get some version of the observation Name
   #OUTPUT MS name = "fullMS.ms" -> weird cstring error if not directly entered.
   if (archive.endswith('.ms')):
-    print(f"Archive {archive} is already in MS format.")
     archive = archive[:len(archive)-3] #remove '.ms'
+    options.proj_name = archive[archive.rfind('/')+1:]
     return parse.log_listobs(archive,options)
   #import archive to MS
   try:
@@ -67,8 +67,6 @@ def pre_data_calibration(options:Options):
 
   #split off the calibrators and target's to make cleaning and calibration more efficient
   split_list_obs = parse.log_listobs(options.initial_calibration_filename,options)
-  with open('split_listobs_out.txt','w') as out2:
-    pp.pp(list_obs,stream=out2)
   options.init_data = parse.populate_Obs_data(split_list_obs) 
   #set split off .ms field ID's for bandpass/gain cal
   options.source_ids.initial_ms_fieldID = options.source_ids.find_fieldID(options.init_data)
@@ -90,7 +88,7 @@ def calibrated_split(options:Options):
 def build_setjy(options):
   visfile = options.proj_name +'.ms'
   amp_field = '1'
-  obs = options.split_observations
+  obs = options.split_observations 
   #extract field ID for amp cal from listobs output
   for section in obs:
     if (section)[0:5] == 'field':

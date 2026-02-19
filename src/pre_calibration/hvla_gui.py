@@ -420,7 +420,7 @@ class BreakpointsWindow:
             "manual_flagging": tk.BooleanVar(value=False),
             "calibration": tk.BooleanVar(value=False),
             "manual_clean": tk.BooleanVar(value=False),
-            "display_image":tk.BooleanVar(value=True)
+            "display_image#Not Working":tk.BooleanVar(value=False)
             
         }
         

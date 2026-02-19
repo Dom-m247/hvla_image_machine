@@ -41,6 +41,8 @@ class Options:
     #extra members added during processing for tracking 
     self.ref_ant = None
     self.split_observations = None
+    self.solint = None
+    self.val = 0 #debugging variable
     # validate inputs below; else throw err 
        
   def process_input_dict(self,dict_in):
@@ -112,7 +114,7 @@ class Options:
   
   def generate_debug_dict(self):
     '''add extra data found - Defunct?'''
-    print(f"YYOOOOOO GENERATE_DEBUG_DICT WAS RAN BROOOOOOOO")
+   
     summary_dict = self.generate_dict() 
     summary_dict.update({'amp_cal_source':self.amp_cal_source})
     summary_dict.update({'observation_data':self.observation_data}) 

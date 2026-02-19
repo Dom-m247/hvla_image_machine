@@ -28,7 +28,7 @@ class Cleaner:
     '''
     options.cell_size = Cleaner.find_cell_size(options) 
     if options.do_self_cal:
-      niter = 200 
+      niter = 1000 
     #add nmajor=1/2 instead of lowering niter?
     ct.tclean(imagename=options.image_filename,
                   vis=options.calibrated_filename+'.ms',
@@ -43,19 +43,23 @@ class Cleaner:
                   scales=scales,
                   cell=str(options.cell_size)+'arcsec',
                   imsize=options.image_size,
+                  pblimit=-0.1
                   #mask='circle[[800pix,800pix],600pix]'
                   )
-    ct.impbcor(imagename=options.image_filename+'.image.tt0',pbimage=options.image_filename+'.pb.tt0',outfile=options.image_filename+'.pbcorimage')
+    ct.impbcor(imagename=options.image_filename+'.image.tt0',
+               pbimage=options.image_filename+'.pb.tt0',
+               outfile=options.image_filename+'.pbcorimage',
+               overwrite=True)
     return ct.imstat(imagename=options.image_filename+'.pbcorimage')
   
-  def self_cal_cycle(options:Options,iter):
+  def self_cal_cycle(options:Options,iter):#,solint):
     '''
     Runs a single automated cycle of self calibration
     '''
    
     small_scale_bias = 0.7 # a thing that should be able to change as an imput?
     robust= 0.5
-    niter = 500 
+    niter = 9999 
     savemodel='modelcolumn'
     nterms=1  #jvla = 2, HVLA = 1
     scales = []
@@ -65,9 +69,9 @@ class Cleaner:
     #main_calibrations.self_cal_cycle(options,iter )
     LoadingAnimation.performing_action(action=f'self-cal cylce {iter}',
                                        target=main_calibrations.self_cal_cycle,
-                                       args=(options,iter))
+                                       args=(options,iter))#,solint))
     #clean
-    ct.tclean(imagename=options.image_filename+'_'+iter,
+    x = ct.tclean(imagename=options.image_filename+'_'+iter,
                   vis=options.calibrated_filename+'.ms',
                   deconvolver=options.deconvolver,
                   smallscalebias=small_scale_bias,
@@ -80,11 +84,13 @@ class Cleaner:
                   scales=scales,
                   cell=str(options.cell_size)+'arcsec',
                   imsize=options.image_size,
+                  pblimit = -0.01
     )
     ct.impbcor(imagename=options.image_filename+'_'+iter+'.image.tt0',
                pbimage=options.image_filename+'_'+iter+'.pb.tt0',
                outfile=options.image_filename+'_'+iter+'.pbcorimage',
                overwrite=True)
+    pprint.pp(x)
     return ct.imstat(imagename=options.image_filename+'_'+iter+'.pbcorimage')
   
 
@@ -94,7 +100,7 @@ class Cleaner:
     '''
     #initial cleaning,
     images = []
-
+    
     images.append(image_data.Image(options,Cleaner.initial_cycle(options=options)))
     if options.do_self_cal:
       for iterations in range(options.self_cal_cycles):
@@ -109,9 +115,12 @@ class Cleaner:
     #for each in images:
     #  pprint.pp(f"{each.__dict__}")
 
-      
-
-
+  def find_solint_variations(options:Options):
+    '''
+    define different solints for self cal cycles, and run cycles with those solints to find the best one 
+    '''
+    obs_solint = options.solint
+    
 
   def manual_clean_calibration(options:Options):
     '''

@@ -42,3 +42,15 @@ class LoadingAnimation:
       #  time.sleep(0.5)
       #sys.stdout.write('\n')
       #sys.stdout.flush()
+
+  def plotMS_wait():
+    """
+    Create an infinite loop that waits till user presses enter on termincal
+    """
+    try:
+      waiting = "Please perform actions In PlotMS. Press Enter to continue..."
+      while(input(waiting) != ''):
+        time.sleep(0.5)
+    except KeyboardInterrupt:
+      pass
+

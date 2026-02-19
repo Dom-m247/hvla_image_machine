@@ -14,6 +14,7 @@ Why are we parsing listobs? the Returned value doesn't contain everything (i bel
 also, I already had it mostly done before I had the though to utilize the
 return value for listobs()
 '''
+
 class parseListObs:
   def populate_Obs_data(listObsFile):
     '''
@@ -39,18 +40,20 @@ class parseListObs:
     generates a listobs and post to log
       give name of ms w/out .ms
     '''
-    import pprint as pp
+
     ### Listobs
     listobs_file = ms + '-listobs.txt'
     options.split_observations = ct.listobs(vis = ms+'.ms', listfile = listobs_file, overwrite = True)
+    options.solint = getscan_solint(options,options.split_observations)
     read_listobs = open(listobs_file, 'r').read()
     ct.casalog.post(read_listobs)
     return read_listobs
   
-  def log_listobs_ms(ms):
+  def log_listobs_final_split(ms,options):
     '''make and log a listobs for a given .ms file'''
     listobs_file = ms + '-listobs.txt'
-    listobs_out = ct.listobs(vis = ms, listfile = listobs_file, overwrite = True)
+    options.split_observations = ct.listobs(vis = ms, listfile = listobs_file, overwrite = True)
+    options.solint = int(getscan_solint(options,options.split_observations))
     read_listobs = open(listobs_file, 'r').read()
     ct.casalog.post(read_listobs)
     return read_listobs
@@ -283,23 +286,28 @@ def antennas_distance(options:Options):
   return sorted(distance_list, key=lambda x: x['distance'])
   #stuff?
 
-#def log_listobs_ms(ms):
-#  '''make and log a listobs for a given .ms file'''
-#  listobs_file = ms + '-listobs.txt'
-#  ct.listobs(vis = ms, listfile = listobs_file, overwrite = True)
-#  read_listobs = open(listobs_file, 'r').read()
-#  ct.casalog.post(read_listobs)
-#  return read_listobs
-#
-#def log_listobs(ms):
-#  '''
-#  generates a listobs and post to log
-#    give name of ms w/out .ms
-#  '''
-#  import pprint as pp
-#  ### Listobs
-#  listobs_file = ms + '-listobs.txt'
-#  ct.listobs(vis = ms+'.ms', listfile = listobs_file, overwrite = True)
-#  read_listobs = open(listobs_file, 'r').read()
-#  ct.casalog.post(read_listobs)
-#  return read_listobs
+def check_integration_time_sameness(array):
+  """check if all scans have the same integration time, if not, return False"""
+  first_int_time = array[0]
+  for int_time in array:
+    if int_time != first_int_time:
+      raise ValueError(f"Integration times are not the same across scans! Found {int_time} and {first_int_time}")
+
+def getscan_solint(options:Options,listobs_dict):
+  """get integration time from listobs output
+    throws exception if integration times are not the same across scans
+  """
+  ## options.split_observations-> 'scan_##' -> scan_solint
+  scan_solint_array = []
+  numScans = 0
+  for each_key in listobs_dict:
+    if 'scan' in each_key:
+      for each_subsection in listobs_dict[each_key]['0']:
+        if each_subsection == 'IntegrationTime':
+          intTime =  listobs_dict[each_key]['0'][each_subsection]
+          scan_solint_array.append(intTime)
+          numScans += 1 
+  
+  check_integration_time_sameness(scan_solint_array)
+  solint = sum(scan_solint_array)/numScans
+  return solint
