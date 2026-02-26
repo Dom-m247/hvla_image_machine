@@ -93,5 +93,10 @@ EXPORT_KEYS = ['source','archive_file', 'band', 'breakpoints',
                'solint','custom_amp_cal', 'reference_antenna', 
                'amp_cal_source','model'] #amp_cal_source + model import not supported (over written)
 
-
+BREAKPOINTS = {
+            "manual_flagging": "Manual Data Flagging",
+            "calibration": "Calibration",
+            "manual_clean": "Manual Clean",
+            "display_image":"Display Image After"
+        }
 

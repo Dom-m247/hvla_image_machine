@@ -416,20 +416,26 @@ class BreakpointsWindow:
         self.self_cal_cycle_spinbox.pack(anchor="w", pady=(0, 5))
 
         # Checkboxes for breakpoints (allow multiple selections)
-        self.breakpoint_vars = {
-            "manual_flagging": tk.BooleanVar(value=False),
-            "calibration": tk.BooleanVar(value=False),
-            "manual_clean": tk.BooleanVar(value=False),
-            "display_image(not Working)":tk.BooleanVar(value=False)
+        self.breakpoint_vars = {}
+        breakpoints = []
+        for key in BREAKPOINTS.keys():
+            self.breakpoint_vars.update({{key},breakpoint[key]}) = tk.BooleanVar(value=False)
+            breakpoints.append((BREAKPOINTS[key], key))
             
-        }
-        
-        breakpoints = [
-            ("Manual Data Flagging", "manual_flagging"),
-            ("Calibration", "calibration"),
-            ("Manual self-cal(launches casa)", "manual_clean"),
-            ("Display Image After Generation","display_image" )
-        ]
+        #self.breakpoint_vars = {
+        #    "manual_flagging": tk.BooleanVar(value=False),
+        #    "calibration": tk.BooleanVar(value=False),
+        #    "manual_clean": tk.BooleanVar(value=False),
+        #    "display_image":tk.BooleanVar(value=False)
+        #    
+        #}
+        #
+        #breakpoints = [
+        #    ("Manual Data Flagging", "manual_flagging"),
+        #    ("Calibration", "calibration"),
+        #    ("Manual self-cal(launches casa)", "manual_clean"),
+        #    ("Display Image After Generation","display_image" )
+        #]
         
         self.checkbuttons = []
         for text, value in breakpoints:
@@ -496,13 +502,13 @@ class BreakpointsWindow:
         source_info = self.app.source_data
         
         # Format breakpoint names for display
-        breakpoint_names = {
-            "manual_flagging": "Manual Data Flagging",
-            "calibration": "Calibration",
-            "manual_clean": "Manual Clean",
-            "display_image":"Display Image After"
-        }
-        breakpoint_display = ", ".join([breakpoint_names[bp] for bp in selected_breakpoints])
+        #breakpoint_names = {
+        #    "manual_flagging": "Manual Data Flagging",
+        #    "calibration": "Calibration",
+        #    "manual_clean": "Manual Clean",
+        #    "display_image":"Display Image After"
+        #}
+        breakpoint_display = ", ".join([BREAKPOINTS[bp] for bp in selected_breakpoints])
         
         # Create summary dictionary
         summary_dict = {
