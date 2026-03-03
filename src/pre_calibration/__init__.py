@@ -6,7 +6,7 @@ from casatasks import casalog
 from pre_calibration import hvla_gui
 from pre_calibration import hvla_data_cal
 from pre_calibration import import_settings
-from pre_calibration import constants
+#from pre_calibration import constants
 #from pre_calibration import options_class
 
 
@@ -14,6 +14,6 @@ __all__ = [
     'hvla_gui',
     'hvla_data_cal',
     'import_settings',
-    'constants',
+#'constants',
    # 'options_class'
 ]

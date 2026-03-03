@@ -1,6 +1,6 @@
 from classes import *
 from pre_calibration.options_class import Options
-from pre_calibration.constants import *
+from classes.constants import *
 import casatasks as ct
 import casashell
 class Cleaner:

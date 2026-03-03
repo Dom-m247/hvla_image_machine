@@ -8,14 +8,7 @@ PYTHON_CMD="python3.10"
 VENV_NAME=".hvla_env"
 DEPENDENCY_SCRIPT="src/Dependencies.py"
 MAIN_SCRIPT="src/HVLA_image_machine.py"
-SYS_ARG=""
-
-
-#check if args exist
-
-if [ "$#" -ge 1 ]; then
-  SYS_ARG="$1"
-fi
+MAIN_SCRIPT_SHORT="HVLA_image_machine.py"
 
 # If venv exists, activate and run the HVLA script
 if [ -d "$VENV_NAME" ]; then
@@ -24,8 +17,8 @@ if [ -d "$VENV_NAME" ]; then
   source "$VENV_NAME/bin/activate"
   echo "Running $DEPENDENCY_SCRIPT..."
   "$VENV_NAME/bin/python" "$DEPENDENCY_SCRIPT"
-  echo "Running $MAIN_SCRIPT..."
-  "taskset" "--cpu-list" "$CPU_CORES" "$VENV_NAME/bin/python" "$MAIN_SCRIPT" "$SYS_ARG"
+  echo "Running $MAIN_SCRIPT_SHORT..."
+  "taskset" "--cpu-list" "$CPU_CORES" "$VENV_NAME/bin/python" "$MAIN_SCRIPT" "$@"
   exit 0
 fi
 
@@ -46,6 +39,6 @@ source "$VENV_NAME/bin/activate"
 echo "Virtual environment '$VENV_NAME' created and activated."
 echo "Running $DEPENDENCY_SCRIPT..."
 "$VENV_NAME/bin/python" "$DEPENDENCY_SCRIPT"
-echo "Running $MAIN_SCRIPT..."
-  "taskset" "--cpu-list" "$CPU_CORES" "$VENV_NAME/bin/python" "$MAIN_SCRIPT" "$SYS_ARG"
+echo "Running $MAIN_SCRIPT_SHORT..."
+  "taskset" "--cpu-list" "$CPU_CORES" "$VENV_NAME/bin/python" "$MAIN_SCRIPT" "$@"
 

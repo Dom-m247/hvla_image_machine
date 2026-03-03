@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-from .constants import *
+from classes.constants import *
 
 class SourceInputWindow:
     def __init__(self, master, app):
@@ -419,7 +419,7 @@ class BreakpointsWindow:
         self.breakpoint_vars = {}
         breakpoints = []
         for key in BREAKPOINTS.keys():
-            self.breakpoint_vars.update({{key},breakpoint[key]}) = tk.BooleanVar(value=False)
+            self.breakpoint_vars.update({f"{key}" : tk.BooleanVar(value=False)})
             breakpoints.append((BREAKPOINTS[key], key))
             
         #self.breakpoint_vars = {

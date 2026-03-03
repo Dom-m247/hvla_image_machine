@@ -1,6 +1,7 @@
 #parent directory name, edit if different!
 FOLDER_NAME = 'hvla_image_machine'
 IMPORT_JSON = 'import.json'
+RS_IMPORT = 'radio_search_results.json'
 #Measurment set Name Defaults
 FULLMS = 'fullset' # for the full MS before splitting
 AMP_CAL_MS = 'initial' #'amp_cal_set'

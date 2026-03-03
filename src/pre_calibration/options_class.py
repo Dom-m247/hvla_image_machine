@@ -2,7 +2,7 @@ from casatasks import casalog  # type: ignore
 import sys
 from classes.observations_class import Obs_data
 #from classes.source_class import source_info
-from pre_calibration.constants import *
+from classes.constants import *
 import pprint
 
 class Options:
@@ -10,7 +10,7 @@ class Options:
   '''values for Dictionary keys:
   source, bands, breakpoints'''
 
-  def __init__(self, 
+  def __init__(self,sysArgs=None, 
                source=None,
                archive_file = '',
                band='auto',
@@ -19,6 +19,7 @@ class Options:
                reference_antenna='auto',
                min_snr=3.0,):
     #default members
+    self.sysArgs = sysArgs
     self.source = source
     self.archive_file = archive_file
     self.band = band

@@ -1,10 +1,10 @@
-import casatasks as ct # type: ignore
-
-#from ..pre_calibration import options
-from pre_calibration.constants import *
-from pre_calibration.options_class import Options
-from classes.source_class import source_info
-from classes.observations_class import Obs_data
+#import casatasks as ct # type: ignore
+#
+##from ..pre_calibration import options
+#from pre_calibration.constants import *
+#from pre_calibration.options_class import Options
+#from classes.source_class import source_info
+#from classes.observations_class import Obs_data
 
 
 '''

@@ -2,12 +2,11 @@
 #from .options_class import Options
 #from casatasks import casalog
 import json,sys
-from .constants import FOLDER_NAME, IMPORT_JSON, EXPORT_KEYS
+from classes.constants import FOLDER_NAME, IMPORT_JSON, EXPORT_KEYS,RS_IMPORT
 from .options_class import Options
 import pprint
 
-class ImportHandler():
-  pass
+
 
 def add_path(archivePath):
   """localize path to archive name"""

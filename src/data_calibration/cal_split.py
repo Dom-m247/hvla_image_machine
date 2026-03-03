@@ -4,7 +4,7 @@ from . import parse_listobs as parse
 from . import target_aquisition as TA
 from classes.source_class import source_info
 #from ..data_class import data
-from pre_calibration.constants import *
+from classes.constants import *
 from pre_calibration.options_class import Options
 
 import sys,pprint

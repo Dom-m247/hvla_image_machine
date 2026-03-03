@@ -1,11 +1,11 @@
 from classes import image_data
 from pre_calibration.options_class import Options
-from pre_calibration.constants import *
+from classes.constants import *
 from data_calibration import main_calibrations
 import casatasks as ct
 import casashell
 import pprint
-from classes.terminal_helper import *
+from classes.Loading_Animation import *
 #I(this script) am so FULL of magic numbers 🥰 that are absolutley pulled from thin Air 
 
 class Cleaner:

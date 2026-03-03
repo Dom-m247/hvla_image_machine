@@ -3,9 +3,9 @@ import sys,os
 
 from data_calibration import *
 from classes.source_class import source_info
-from classes.terminal_helper import LoadingAnimation
+from classes.Loading_Animation import LoadingAnimation
 import pprint as pp
-from .constants import *
+from classes.constants import *
 from classes import *
 from .options_class import Options
 from pathlib import Path

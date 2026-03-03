@@ -1,41 +1,70 @@
-import sys,os
+import sys,os,argparse
 import casaviewer
 import casatasks
 import casaconfig
+from classes.CLI_input import CLI
 from pre_calibration.options_class import Options
 from pre_calibration import *
 from image_generation.image_maker import Cleaner
+from archive_dowload.radio_search_integration import RadioSearchIntegration
 #from archive_dowload import *
 import pprint
 import time
 from pathlib import Path
 
-def main(argv):
+def argumentManager():
+  '''for ArgParse'''
+  parser = argparse.ArgumentParser(description="HVLA Image Machine", allow_abbrev=True)
+  parser.add_argument('--radio_search','-rs', action='store_true', help='search for and download archives using radio_search script. Will also run in terminal mode')
+  parser.add_argument('--importRun','-i','-import', action='store_true', help='import from json file for auto-run')
+  parser.add_argument('--noexport', action='store_true', help='export options to json file')
+  parser.add_argument('--debug', action='store_true', help='use debug exports for testing')
+  parser.add_argument('--terminal','-t', action='store_true', help='run whole script in terminal mode without GUI')
+  parser.add_argument('--terminalCalib','-tc', action='store_true', help='run with gui for imput, but terminal for calibration and imaging')
+  parser.add_argument('--archive','-a', action='store_true', help='run archiving routine')
+  arguments = parser.parse_args()
+  if arguments.radio_search:
+    arguments.terminal = True
+  return arguments
+
+def main(): #argv
   """ Main function to run the HVLA Image Machine application."""
   print("Welcome to the HVLA Image Machine!")
+  source = Options()
+  source.sysArgs = argumentManager()
   #update casa_config measurments 
-  update_config()
+  #update_config()  ####UNCOMMENT HERE ON FIRST USE###
+
   #sign in to gmail and get token
   #token = gmail_options_fetch.generateToken()
-  
-  delete_logs()
 
-  if len(argv) > 1 and argv[1] == "import":
+  delete_logs()
+  
+  if source.sysArgs.importRun:
+    print("importingWorks???")
     # Import mode - skip GUI
     try:
       imported_setting = import_settings.import_options()
-      source = Options()
+      
       source.process_input_dict(imported_setting)
     except FileNotFoundError as error:
       print(f"The import does not exist.{error}")
-  else:
+  elif source.sysArgs.terminal:
+    if source.sysArgs.radio_search:
+      radio_search(source)
+    else:
+      CLI.get_options(source)
+    print("Running in terminal mode without GUI. ### NOT YET IMPLEMENTED")
+    #get source options from user
+    #source = CLI.get_terminal_input()
+    return
+  else: #not parser.importRun and not parser.terminal:
     # Normal GUI mode
     try:
       #get source options from user
       options = hvla_gui.run_hvla_app()
       if options is None: #opens GUI and gets user input
         raise RuntimeError("No options were selected, Exiting")
-      source = Options()
       source.process_input_dict(options)
     except RuntimeError as e:
       print(f"{e}")
@@ -66,7 +95,8 @@ def main(argv):
     image = Cleaner.manual_clean(options=source)
 
   #output options obj as json! #CHANGE TO IMPORT
-  import_settings.generate_import(source)
+  if not source.sysArgs.noexport:
+    import_settings.generate_import(source)
   import_settings.generate_debug_export(source,filename="export_for_testing")
   #if 'display_image' in source.breakpoints and not 'manual_clean' in source.breakpoints:
   # casaviewer.imview(raster=(source.image_filename)+'.image.tt0')   
@@ -98,11 +128,21 @@ def delete_logs():
 
 def update_config():
   #if first time startup
-  #casaconfig.measures_update() #UNCOMMENT HERE ON FIRST USE
+  casaconfig.measures_update()
   return
 
+def radio_search(source:Options):
+  """Utilize radio_search to find and download archives"""
+  #not yet fully implemented, Utilizes Internal tool to search and download observation archives
+  if not source.sysArgs.radio_search:
+    return
+  print("starting radio_search")
+  RadioSearchIntegration.perform_radio_search(source)
+  
+
 if __name__ == "__main__":
-  main(sys.argv)
+  main()#sys.argv
+
 
   #casatasks.tclean(vis='3c391_ctm_mosaic_spw0.ms',imagename='3c391_ctm_spw0_ms_I',
   #    field='',spw='',

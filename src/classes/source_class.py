@@ -2,7 +2,7 @@ import casatasks as ct
 
 #from pre_calibration.options_class import Options 
 from classes.observations_class import Obs_data 
-from pre_calibration.constants import *
+from classes.constants import *
 import pprint
 TYPE_FLUX_CAL = 'flux_calibrator'
 TYPE_PHASE_CAL = 'phase_cal'

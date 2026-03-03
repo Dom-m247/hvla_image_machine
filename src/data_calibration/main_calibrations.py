@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pre_calibration.constants import *
+from classes.constants import *
 import casatasks as ct
 from pre_calibration import options_class
 from classes import *
