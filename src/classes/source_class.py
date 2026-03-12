@@ -3,6 +3,8 @@ import casatasks as ct
 #from pre_calibration.options_class import Options 
 from classes.observations_class import Obs_data 
 from classes.constants import *
+from API_integrations.simbad import simbad
+from API_integrations.NED import NED_API
 import pprint
 TYPE_FLUX_CAL = 'flux_calibrator'
 TYPE_PHASE_CAL = 'phase_cal'
@@ -14,11 +16,14 @@ class source_info:
   def __init__(self,options,type='',name=''):
     self.type = type
     self.name = name
+    self.listobs_name = ''
     self.source_id = ''
     self.field_id = ''
+    self.ra = ''
+    self.decl = ''
 
     if self.type == TYPE_FLUX_CAL and options.custom_amp_cal == AUTO:
-      if not self.detect_amp_cal(options):
+      if not self.detect_flux_cal_first(options):
         raise Exception('No Calibrator was detected for setJy')
     elif self.type == TYPE_PHASE_CAL or (self.type == TYPE_TARGET and self.name is None): #would specifying a phase cal impede this logic?
       #search through fullset observation data and find 2nd most observed field?
@@ -28,10 +33,13 @@ class source_info:
     elif self.type == TYPE_TARGET and (self.name is not None):
       #a source was specified
       self.name = options.source
-      self.source_id = self.find_source_id(options)
+      #self.source_name = self.name
+      self.source_id = self.find_source_id(options) #find source ID from source name may not work if given source name is doesn't match name in field.
       self.field_id = self.find_fieldID(options.observation_data)
+      #check_self_phase_cal = 
     #extra members defined by initial ms split after initilization
     self.initial_ms_fieldID = ''
+    self.set_RA_DECL(options)
   
   def find_fieldID(self,data_source):
     for field in data_source.fields:
@@ -40,6 +48,12 @@ class source_info:
       
   def find_source_id(self, options):
     '''find source_id from source name'''
+    #check if the name matchs the 
+    id = self.check_name_in_list_obs(options)
+    if(id is not False):
+      return id
+    
+    possible_names = simbad.get_names(self.name)
     for section in options.observation_data.sources:
       print(f"source | {section}")
       print(f"source.name | {section.name}")
@@ -47,8 +61,17 @@ class source_info:
 
       if section.name == options.source:
         return section.id
-      else:
-        raise Exception(f'Source {options.source} not found in observation')
+
+  def check_name_in_list_obs(self, options):
+    for section in options.observation_data.sources:
+      print(f"source | {section}")
+      print(f"source.name | {section.name}")
+      print(f"options.source | {options}")
+
+      if section.name == options.source:
+        return section.id
+    else:
+      return False
   
   def detect_by_nrows(self, options, source_type): #may be able to find 'source?'
     fields = options.observation_data.fields
@@ -72,8 +95,10 @@ class source_info:
     self.source_id = source_field_entry.src_id
     self.field_id = source_field_entry.id
 
-    
-
+  def set_RA_DECL(self,options):
+    '''set RA and DECL coords for source'''
+    self.ra = options.observation_data.fields[self.field_id].ra
+    self.decl = options.observation_data.fields[self.field_id].decl
 
   def find_bands(self,options):
     detected_bands = []
@@ -106,8 +131,8 @@ class source_info:
                 #lower range      upper range
     return True if (listobs_spw >= test_band[0]) and (listobs_spw <= test_band[1]) else False
     
-  def detect_amp_cal(self,options):
-    '''Finds the (first) Amp/Flux density calibrator in the full ms'''
+  def detect_flux_cal_first(self,options):
+    '''Finds the (first) Flux density calibrator in the full ms'''
     fields = options.observation_data.fields
     for i in range(len(fields)):
       for amp_cal in COMMON_AMPCALS_DICT:
@@ -122,6 +147,11 @@ class source_info:
           return True
     return False
   
+  def check_self_phase_cal(self,options):
+    '''checks Net.Ipca if self phase cal is doable'''
+    #call NED by name, and RA DEC, check >=50mjy with 20% of band
+    options.is_self_cal = NED_API.check_self_cal_potential()
+    pass
   def manual_amp_cal(self,options):
     pass
   #def check_source_manual(data,source_id):
