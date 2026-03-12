@@ -6,8 +6,8 @@ find . -type f -name "*-listobs.txt" -delete
 
 # Remove .ms directories
 find . -type d -name "*.ms" -exec rm -rf {} +
-#find . -type d -name "source.ms" -exec rm -rf {} +
-#find . -type d -name "initial.ms" -exec rm -rf {} +
+find . -type d -name "source.ms" -exec rm -rf {} +
+find . -type d -name "initial.ms" -exec rm -rf {} +
 
 # Remove .ms.flagversion directories
 find . -type d -name "*.ms.flagversions" -exec rm -rf {} +
