@@ -26,9 +26,8 @@
     - problems encountered while calibrating (statistics?)
     - (m) redshift
     - () # of any calibration round 
-- Simbad
  - Nrao tool -> https://data.nrao.edu/archive-service/
-- remove autopep8 from packages
+- remove autopep8, fabric from packages
 
 ### Testing
 -decide on number of observations from 2008
