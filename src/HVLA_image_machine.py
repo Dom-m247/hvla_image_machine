@@ -14,17 +14,18 @@ from pathlib import Path
 
 def argumentManager():
   '''for ArgParse'''
+  #do a -auto that will trigger fallback options for calibselection
   parser = argparse.ArgumentParser(description="HVLA Image Machine", allow_abbrev=True)
-  parser.add_argument('--radio_search','-rs', action='store_true', help='search for and download archives using radio_search script. Will also run in terminal mode')
+  parser.add_argument('--radio_search','-rs', action='store_true', help='search for and download archives using radio_search script. Will also run in cli mode')
   parser.add_argument('--importRun','-i','-import', action='store_true', help='import from json file for auto-run')
   parser.add_argument('--noexport', action='store_true', help='export options to json file')
   parser.add_argument('--debug', action='store_true', help='use debug exports for testing')
-  parser.add_argument('--terminal','-t', action='store_true', help='run whole script in terminal mode without GUI')
-  parser.add_argument('--terminalCalib','-tc', action='store_true', help='run with gui for imput, but terminal for calibration and imaging')
+  parser.add_argument('--cli','-c','-t', action='store_true', help='run whole script in cli mode without GUI')
+  parser.add_argument('--cliCalib','-tc', action='store_true', help='run cli for calibration and imaging, allows user over-ride on calibrators')
   parser.add_argument('--archive','-a', action='store_true', help='run archiving routine')
   arguments = parser.parse_args()
   if arguments.radio_search:
-    arguments.terminal = True
+    arguments.cli = True
   return arguments
 
 def main(): #argv
@@ -49,16 +50,16 @@ def main(): #argv
       source.process_input_dict(imported_setting)
     except FileNotFoundError as error:
       print(f"The import does not exist.{error}")
-  elif source.sysArgs.terminal:
+  elif source.sysArgs.cli and not source.sysArgs.cliCalib:
     if source.sysArgs.radio_search:
-      radio_search(source)
+      radio_search(source) #gets source_name + band + archive
     else:
-      CLI.get_options(source)
-    print("Running in terminal mode without GUI. ### NOT YET IMPLEMENTED")
-    #get source options from user
-    #source = CLI.get_terminal_input()
+      CLI.fullCLI(source) #get source_name + band
+      print("Running in cli mode without GUI. ###NOT YET fully IMPLEMENTED")
+      #get source options from user
+      CLI.get_cli_input(source)
     return
-  else: #not parser.importRun and not parser.terminal:
+  else: #not parser.importRun and not parser.cli:
     # Normal GUI mode
     try:
       #get source options from user
@@ -131,13 +132,12 @@ def update_config():
   casaconfig.measures_update()
   return
 
-def radio_search(source:Options):
+def radio_search(options:Options):
   """Utilize radio_search to find and download archives"""
   #not yet fully implemented, Utilizes Internal tool to search and download observation archives
-  if not source.sysArgs.radio_search:
+  if not options.sysArgs.radio_search:
     return
-  print("starting radio_search")
-  RadioSearchIntegration.perform_radio_search(source)
+  RadioSearchIntegration.perform_radio_search(options)
   
 
 if __name__ == "__main__":
