@@ -1,6 +1,8 @@
+from pprint import pp
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from classes.constants import *
+from API_integrations import NED
 
 class SourceInputWindow:
     def __init__(self, master, app):
@@ -132,14 +134,27 @@ class SourceInputWindow:
         """Placeholder for source validation"""
         source = self.source_var.get()
         if not source.strip():
-            messagebox.showwarning("Input Error", "Please enter a source name")
+            messagebox.showwarning("Input Error", f" {source.strip()}, Please enter a source name")
             return
         # Validation logic goes here
-        messagebox.showinfo("Validation", f"Source '{source}' validation logic here")
-        
+        #messagebox.showinfo("Validation", f"Source '{source}' validation logic here")
+        #results = NED.NED_API.obj_exists(source)
+        messagebox.showinfo("source Validation","this may take a moment")
+        try:
+            results = NED.NED_API.obj_exists(source)
+            if results is False:
+                messagebox.showwarning("validation error", "Please check your identifier and try again")
+                return
+        except Exception as e:
+            messagebox.showerror("Error", f"{e}")
+            return
         # Mark source as validated and enable Get Observations button
+        
         self.source_validated = True
-        self.get_obs_button.config(state="normal")
+        self.source_ra = results['ra_decl']['ra']
+        self.source_decl = results['ra_decl']['decl']
+        self.search_alias = results['alias']
+        #self.get_obs_button.config(state="normal") #hahahahaha no. Add If -radio_seach is true untick
         
         # Display source info
         self.display_source_info(source)
@@ -215,7 +230,10 @@ class SourceInputWindow:
         self.app.source_data = {
             "source": source,
             "band": band,
-            "file": self.selected_file
+            "file": self.selected_file,
+            "source_ra":self.source_ra,
+            "source_ra":self.source_decl,
+            "search_alias": self.search_alias,
         }
         # Close this window and open breakpoints window
         self.master.destroy()
@@ -515,6 +533,9 @@ class BreakpointsWindow:
             "source": source_info['source'],
             "archive_file": source_info['file'],
             "band": source_info['band'],
+            "source_ra": source_info['source_ra'],
+            "source_decl": source_info['source_ra'],
+            "search_alias": source_info['search_alias'],
             "breakpoints": selected_breakpoints,
             "solint": self.solint_var.get(),
             "custom_amp_cal": self.amp_cal_mode.get(),
