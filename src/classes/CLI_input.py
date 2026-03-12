@@ -1,9 +1,11 @@
 from pathlib import Path
 import threading
+import sys
 
 from pre_calibration.options_class import Options
 from classes.constants import *
-from simbad_integration import simbad
+from API_integrations.simbad import simbad
+from API_integrations.NED import NED_API
 class CLI:
   
   '''Helper functions for terminal interactions, managing input'''
@@ -22,7 +24,11 @@ class CLI:
     get options from terminal input
     used for Radio Search and Terminal Calibration modes
     '''
-    options.source = CLI.get_source()
+    source_dict = CLI.get_source()
+    options.source = source_dict['source']
+    options.source_ra = source_dict['ra_decl'][0]
+    options.source_decl = source_dict['ra_decl'][1]
+    options.search_alias = source_dict['alias']
     options.band = CLI.getBand()
 
   def getBreakpoints():
@@ -45,12 +51,14 @@ class CLI:
         print("Invalid input. Please enter valid breakpoints.")
     return breakpoints
 
-  def getBand(auto):
+  def getBand():
     '''get band'''
     while True:
       try:
-        band = input(f"Enter Band{auto}: ")
-        if band not in BAND_GHZ_RANGES.keys() or band == '': #breaks for auto with Radio_search
+        band = input(f"Enter Band or press enter for none: ")
+        if band == "":
+          break
+        if (band not in BAND_GHZ_RANGES.keys()): #breaks for auto with Radio_search
           raise ValueError(f"Invalid band {band}. Please enter one of {list(BAND_GHZ_RANGES.keys())}.")
         break
       except ValueError:
@@ -75,9 +83,39 @@ class CLI:
     while True:
       try:
         source = input("Enter Source Name: ")
-        if not simbad.validate_source(source):
-          raise ValueError(f"Source {source} not found in Simbad. Please enter a valid source.")
+        if not (result := NED_API.obj_exists(source)):
+          raise ValueError(f"Source {source} not found by NED. Please enter a valid source.")
+        if(source == ''):
+          sys.exit() #maybe auto/hold off till after import?
         break
       except ValueError:
-        print("Invalid input. Please enter a valid source name.")
-    return source
+        print("source not found. Please enter a valid name or press enter to canel.")
+    result.update({'source':source})
+    return result
+  
+  def getOptionsFullCLI(options:Options):
+    '''for organizing call order on full CLI no rs'''
+    #get/unpack archive do listobs
+    #get source 
+    #get band
+    #validate self-cal
+    #else -> guess/choose calibrator
+    pass
+
+  def getRSArchive():
+    '''a function to get the archive name from radio search'''
+    while True:
+      try:
+        archive = input("Enter the archive Name: ")
+        if(archive == ''):
+          sys.exit()
+        break
+      except ValueError:
+        print("something borked Please enter a valid name or press enter to canel.")
+    return archive
+  
+  def fullCLI(options:Options):
+    """Handles the procession for input via cli ->
+    will ask user if not self-cal 
+    """
+    pass
