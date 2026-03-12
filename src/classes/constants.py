@@ -22,11 +22,12 @@ CALIBRATED_MS = 'source' #final calibrated ms for imaging
 GAINCAL_G2 = '.G2'
 SELF_CAL= '.selfcal'
 
-#temp not utlizied / fallbacks
+#Defualts/ Thresholds
 DEFAULT_IMAGE_SIZE = [1080,1080] # keep me a perfect Square!
 INITIAL_NITER = 250 # half of niter from tutorial
 MIN_SNR = 3.0 #a default min SNR for gaincal
 FIRST_IMAGE = 'image'
+MIN_FLUX_FOR_SELF_CAL = 0.02 #Jy,
 
 #class Band:
   #band name, GHZ range, MHZ range, Angular res, Solint?
