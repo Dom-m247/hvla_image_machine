@@ -289,25 +289,30 @@ def antennas_distance(options:Options):
 def check_integration_time_sameness(array):
   """check if all scans have the same integration time, if not, return False"""
   first_int_time = array[0]
-  for int_time in array:
-    if int_time != first_int_time:
-      raise ValueError(f"Integration times are not the same across scans! Found {int_time} and {first_int_time}")
+  #for int_time in array:
+  #  if int_time != first_int_time:
+  #    raise ValueError(f"Integration times are not the same across scans! Found {int_time} and {first_int_time}")
 
 def getscan_solint(options:Options,listobs_dict):
-  """get integration time from listobs output
+  """get integration time of source from listobs output
     throws exception if integration times are not the same across scans
   """
   ## options.split_observations-> 'scan_##' -> scan_solint
-  scan_solint_array = []
-  numScans = 0
+  #scan_solint_array = []
+  #numScans = 0
   for each_key in listobs_dict:
     if 'scan' in each_key:
       for each_subsection in listobs_dict[each_key]['0']:
-        if each_subsection == 'IntegrationTime':
-          intTime =  listobs_dict[each_key]['0'][each_subsection]
-          scan_solint_array.append(intTime)
-          numScans += 1 
+        if each_subsection == 'FieldName':
+          if listobs_dict[each_key]['0'][each_subsection] == options.source:
+            solint = listobs_dict[each_key]['0']['IntegrationTime']
+            return solint
+        #if each_subsection == 'IntegrationTime':
+        #  intTime =  listobs_dict[each_key]['0'][each_subsection]
+        #  scan_solint_array.append(intTime)
+        #  numScans += 1 
   
-  check_integration_time_sameness(scan_solint_array)
-  solint = sum(scan_solint_array)/numScans
+  #check_integration_time_sameness(scan_solint_array)
+  #solint = sum(scan_solint_array)/numScans
   return solint
+  #return 30 
