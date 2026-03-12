@@ -4,7 +4,7 @@ import sys
 import time
 from pre_calibration.options_class import Options
 from classes.constants import *
-from simbad_integration import simbad
+from API_integrations.simbad import simbad
 
 class LoadingAnimation:
   def performing_action(action: str, target=None, args=()):
