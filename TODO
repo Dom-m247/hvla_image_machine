@@ -11,6 +11,7 @@
   - PlotMS breakpointing 
     - use a loop to wait for terminal input to continue (?)
 -Calibration 
+  - add "dont do self phase calibration
   - add multiple solint's to selfCal -based on options.solint
 - Things to classify(turn to classes)
  - image (imstat) return for parsing -> new module Image analysis

@@ -27,6 +27,9 @@ class Options:
     self.custom_amp_cal = custom_amp_cal
     self.reference_antenna = reference_antenna
     self.min_snr = min_snr
+    self.source_ra = ''
+    self.source_decl = ''
+    self.search_alias = ''
   
     #other members 
     #fileNames
@@ -37,6 +40,7 @@ class Options:
     #source_classe objects
     self.source_ids = None
     self.amp_cal = None
+    self.self_phase_cal = None #true/false
     self.phase_cal = None
     self.init_data = Obs_data()
     #extra members added during processing for tracking 
@@ -55,6 +59,9 @@ class Options:
       self.source = dict_in['source']
       self.archive_file = dict_in['archive_file']
       self.band = dict_in['band']
+      self.source_ra = dict_in['source_ra'] #ADD ME TO IMPORT//EXPORT 
+      self.source_decl = dict_in['source_decl']
+      self.search_alias = dict_in['search_alias']
       self.breakpoints = dict_in['breakpoints']
       self.custom_amp_cal = dict_in['custom_amp_cal']
       self.reference_antenna = dict_in['reference_antenna']
@@ -83,8 +90,9 @@ class Options:
     summary_dict = {}
     summary_dict.update(self.__dict__)
     summary_dict.update({'amp_cal':self.amp_cal.to_dict()})
-    summary_dict.update({'source_ids':self.source_ids.to_dict()})  
-    summary_dict.update({'phase_cal':self.amp_cal.to_dict()})
+    summary_dict.update({'source_ids':self.source_ids.to_dict()}) 
+    if self.phase_cal: 
+      summary_dict.update({'phase_cal':self.phase_cal.to_dict()})
     summary_dict.update({'observation_data':self.observation_data.to_dict()})
     summary_dict.update({'init_data':self.init_data.to_dict()})
     summary_dict.pop('split_observations',None)

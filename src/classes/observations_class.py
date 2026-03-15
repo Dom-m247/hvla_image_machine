@@ -30,8 +30,8 @@ class Observations:
     self.field_id = observations['field_id']
     self.field_name = observations['field_name']
     self.nrows = observations['nrows']
-    self.nrows = observations['spw_ids']
-    self.nrows = observations['average_intervals']
+    self.spw_ids = observations['spw_ids']
+    self.average_intervals = observations['average_intervals']
   def to_dict(self):
     return self.__dict__
   
@@ -50,13 +50,34 @@ class Fields:
     self.id = field['id']
     self.code = field['code']
     self.name = field['name']
-    self.ra = field['ra']
-    self.decl = field['decl']
+    self.ra = self.parse_RA(field['ra'])
+    self.decl = self.parse_DECL(field['decl'])
     self.epoch = field['epoch']
     self.src_id = field['src_id']
     self.nrows = field['nrows']
   def to_dict(self):
     return self.__dict__    
+  def parse_RA(self,ra_string):
+    '''parse RA string from listobs into degrees'''
+    #RA is in format HH:MM:SS.SS
+    #ra_parts = ra_string.split(':')
+    #ra_hours = float(ra_parts[0])
+    #ra_minutes = float(ra_parts[1])
+    #ra_seconds = float(ra_parts[2])
+    #ra_degrees = (ra_hours + (ra_minutes/60) + (ra_seconds/3600)) * 15 #convert to degrees
+    return ra_string
+  def parse_DECL(self,decl_string):
+    '''parse DECL string from listobs into degrees'''
+    #DECL is in format DD:MM:SS.SS
+    #decl_parts = decl_string.split(':')
+    #decl_degrees = float(decl_parts[0])
+    #decl_minutes = float(decl_parts[1])
+    #decl_seconds = float(decl_parts[2])
+    #if decl_degrees < 0:
+    #  decl_total_degrees = decl_degrees - (decl_minutes/60) - (decl_seconds/3600)
+    #else:
+    #  decl_total_degrees = decl_degrees + (decl_minutes/60) + (decl_seconds/3600)
+    return decl_string
 
 class Antenna:
   def __init__(self, antenna={}):

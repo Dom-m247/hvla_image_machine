@@ -4,6 +4,7 @@ from astroquery.simbad import Simbad
 from pprint import pp 
 from astropy.table import Table
 import numpy as np
+import re
 
 class simbad:
   '''functions for simbad integration'''
@@ -47,9 +48,14 @@ class simbad:
 
   def formatted_names_list(source_name):
     '''given a resolvable source name, returns list into format'''
-    result = Simbad.query_objects(source_name)
+    result = Simbad.query_objectids(source_name)
+    all_names = []
     if (simbad.check_result(result) is False):
       return False
     else:
-      #parse it
-      pass
+      for each_id in result:
+        name = str(each_id)
+        name = re.sub(r'[^0-9+\-.]', '', name) #this may not work for *alllllll sources, but it should work for most. It removes all characters except numbers, +, -, and .
+        name = name.strip('-')
+        all_names.append(name)
+      return all_names

@@ -55,22 +55,25 @@ def pre_data_calibration(options:Options):
   list_obs = convert_to_ms(options.archive_file,options) 
 
   #extract info from listobs -> more complete than returned data
-  options.observation_data = parse.populate_Obs_data(list_obs) 
-
+  options.observation_data = parse.populate_Obs_data(list_obs)
+  
   #find calibrators TODO: add phase calibration option
   set_calibrators(options)
-  
+  pp.pprint(options.source_ids.__dict__)
+  pp.pprint(options.amp_cal.__dict__)
   generate_file_names(options)
   #generate Naming Schemese for files
   LoadingAnimation.performing_action(" ms split on source, Flux calibrator, and phase calibrator", target=cal_split.amp_cal_split, args=(options,))
 
   #split off the calibrators and target's to make cleaning and calibration more efficient
-  split_list_obs = parse.log_listobs(options.initial_calibration_filename,options)
+  split_list_obs = parse.log_listobs_precalib(options.initial_calibration_filename,options)
   options.init_data = parse.populate_Obs_data(split_list_obs) 
-  #set split off .ms field ID's for bandpass/gain cal
+  #set split off .ms field ID's for bandpass/gain cal and find new field ID
   options.source_ids.initial_ms_fieldID = options.source_ids.find_fieldID(options.init_data)
   options.amp_cal.initial_ms_fieldID = options.amp_cal.find_fieldID(options.init_data)
-  options.phase_cal.initial_ms_fieldID = options.phase_cal.find_fieldID(options.init_data)
+  print(f"flux cal field ID: {options.amp_cal.initial_ms_fieldID} | source field ID: {options.source_ids.initial_ms_fieldID}")
+  if not options.self_phase_cal:
+    options.phase_cal.initial_ms_fieldID = options.phase_cal.find_fieldID(options.init_data)
 
 def calibrated_split(options:Options):
   """
@@ -80,13 +83,13 @@ def calibrated_split(options:Options):
     print(f"The calibrated data exists, not splitting")
     ct.casalog.post(f"{options.initial_calibration_filename+'.ms'} -> {options.calibrated_filename+'.ms'}")
   else:
-    ct.split(vis=options.initial_calibration_filename+'.ms',outputvis=options.calibrated_filename+'.ms',datacolumn = 'corrected', field=options.source_ids.name)
+    ct.split(vis=options.initial_calibration_filename+'.ms',outputvis=options.calibrated_filename+'.ms',datacolumn = 'corrected', field=options.source_ids.listobs_name)
     ct.casalog.post(f"{options.initial_calibration_filename+'.ms'} -> {options.calibrated_filename+'.ms'}")
   parse.log_listobs(options.calibrated_filename,options)
 
 def build_setjy(options):
   visfile = options.proj_name +'.ms'
-  amp_field = '1'
+  amp_field = options.amp_cal.initial_ms_fieldID
   obs = options.split_observations 
   #extract field ID for amp cal from listobs output
   for section in obs:
@@ -112,10 +115,11 @@ def determine_self_calibrator(options:Options,):
 def set_calibrators(options:Options):
   '''set calibrator objects in options'''
   #check self_cal first
-  
+  print(f"{options.source}")
   if(options.sysArgs.cli or options.sysArgs.cliCalib):
     pass
-  options.source_ids  = source_info(options,type="target",name=options.source)
   options.amp_cal  = source_info(options,type="flux_calibrator")
+  options.source_ids  = source_info(options,type="target",name=options.source)
+  options.source_ids.check_self_phase_cal(options)
   if not options.self_phase_cal:
     options.phase_cal  = source_info(options,type="phase_cal")

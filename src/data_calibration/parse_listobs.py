@@ -22,8 +22,8 @@ class parseListObs:
       Note: line # are hard coded, see parsing examples if I break
     '''
     #prime realestate to parrallelize in the future
-    try:
-      return Obs_data(
+    #try:
+    return Obs_data(
         parse_antennas(listObsFile),
         parse_fields(listObsFile),
         parse_sources(listObsFile),
@@ -32,8 +32,8 @@ class parseListObs:
         parse_obs_info(listObsFile)
       )
       
-    except ValueError as e:
-      print(f'An error occured parsing the list_obs {e} section. ')
+    #except ValueError as e:
+    print(f'An error occured parsing the list_obs {e} section. ')
   
   def log_listobs(ms,options):
     '''
@@ -44,13 +44,21 @@ class parseListObs:
     ### Listobs
     listobs_file = ms + '-listobs.txt'
     options.split_observations = ct.listobs(vis = ms+'.ms', listfile = listobs_file, overwrite = True)
-    options.solint = getscan_solint(options,options.split_observations)
     read_listobs = open(listobs_file, 'r').read()
     ct.casalog.post(read_listobs)
     return read_listobs
   
+  def log_listobs_precalib(ms,options):
+    '''also utilized to determine solint for t-clean self-cal'''
+    listobs_file = ms + '-listobs.txt'
+    options.split_observations = ct.listobs(vis = ms+'.ms', listfile = listobs_file, overwrite = True)
+    options.solint = getscan_solint(options,options.split_observations)
+    read_listobs = open(listobs_file, 'r').read()
+    ct.casalog.post(read_listobs)
+    return read_listobs
+
   def log_listobs_final_split(ms,options):
-    '''make and log a listobs for a given .ms file'''
+    '''make and log a listobs for a given .ms file'''#never used
     listobs_file = ms + '-listobs.txt'
     options.split_observations = ct.listobs(vis = ms, listfile = listobs_file, overwrite = True)
     options.solint = int(getscan_solint(options,options.split_observations))
@@ -140,38 +148,62 @@ def parse_spw(listobs_text):
   return spws
 
 def parse_observations(listobs_text):
-  '''Parse observations section with scan data'''
-  # Find observations data between the header and Fields section
+  '''Parse observations section with scan data.
+  Handles both full date+time lines and time-only continuation lines.
+  '''
   obs_section = re.search(r'Date\s+Timerange.*?\n(.*?)(?=\(nRows|\n\s*Fields:)', listobs_text, re.DOTALL)
   if not obs_section:
     raise ValueError('Observations')
-  
+
+  # Lines with full date prefix: "DD-Mon-YYYY/HH:MM:SS.s - HH:MM:SS.s  scan fld name nrows [spw] [intv]"
+  FULL_RE = re.compile(
+    r'(\d{2}-\w+-\d{4})/(\d{2}:\d{2}:\d{2}\.\d+)\s*-\s*(\d{2}:\d{2}:\d{2}\.\d+)\s+'
+    r'(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+(\[[\d,\s]+\])\s+(\[[\d,\s]+\])'
+  )
+  # Continuation lines with time only (date carried forward from previous full line)
+  TIME_RE = re.compile(
+    r'(\d{2}:\d{2}:\d{2}\.\d+)\s*-\s*(\d{2}:\d{2}:\d{2}\.\d+)\s+'
+    r'(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+(\[[\d,\s]+\])\s+(\[[\d,\s]+\])'
+  )
+
   observations = []
-  lines = obs_section.group(1).strip().split('\n')
-  
-  for line in lines:
-    if not line.strip():
+  current_date = None
+
+  for line in obs_section.group(1).split('\n'):
+    stripped = line.strip()
+    if not stripped:
       continue
-    
-    # Parse observation line: Date Timerange Scan FldId FieldName nRows SpwIds Average Interval
-    match = re.match(
-      r'(\d{2}-\w+-\d{4})/(\d{2}:\d{2}:\d{2}\.\d+)\s*-\s*(\d{2}:\d{2}:\d{2}\.\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+(\[[\d,]+\])\s+(\[[\d\s,]+\])',
-      line
-    )
-    
-    if match:
-      observation = {
-        'date': match.group(1),
-        'timerange_start': match.group(2),
-        'timerange_end': match.group(3),
-        'scan': int(match.group(4)),
-        'field_id': int(match.group(5)),
-        'field_name': match.group(6),
-        'nrows': int(match.group(7)),
-        'spw_ids': match.group(8),  # Keep as string '[0,1]'
-        'average_intervals': match.group(9)  # Keep as string '[10, 10]'
-      }
-      observations.append(observation)
+
+    m = FULL_RE.search(stripped)
+    if m:
+      current_date = m.group(1)
+      observations.append({
+        'date': current_date,
+        'timerange_start': m.group(2),
+        'timerange_end': m.group(3),
+        'scan': int(m.group(4)),
+        'field_id': int(m.group(5)),
+        'field_name': m.group(6),
+        'nrows': int(m.group(7)),
+        'spw_ids': m.group(8),
+        'average_intervals': m.group(9),
+      })
+      continue
+
+    if current_date:
+      m = TIME_RE.search(stripped)
+      if m:
+        observations.append({
+          'date': current_date,
+          'timerange_start': m.group(1),
+          'timerange_end': m.group(2),
+          'scan': int(m.group(3)),
+          'field_id': int(m.group(4)),
+          'field_name': m.group(5),
+          'nrows': int(m.group(6)),
+          'spw_ids': m.group(7),
+          'average_intervals': m.group(8),
+        })
 
   return observations
 
@@ -300,11 +332,12 @@ def getscan_solint(options:Options,listobs_dict):
   ## options.split_observations-> 'scan_##' -> scan_solint
   #scan_solint_array = []
   #numScans = 0
+  solint = None
   for each_key in listobs_dict:
     if 'scan' in each_key:
       for each_subsection in listobs_dict[each_key]['0']:
         if each_subsection == 'FieldName':
-          if listobs_dict[each_key]['0'][each_subsection] == options.source:
+          if listobs_dict[each_key]['0'][each_subsection] == options.source or listobs_dict[each_key]['0'][each_subsection] == options.source_ids.listobs_name:
             solint = listobs_dict[each_key]['0']['IntegrationTime']
             return solint
         #if each_subsection == 'IntegrationTime':

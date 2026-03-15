@@ -52,8 +52,12 @@ def build_spwID(options:Options):
 
 def define_split_fields(options:Options):
   #needs multiple MS integration
-  print(f"splitting on fields('src,amp,phase) | {str(options.source_ids.field_id)},{str(options.amp_cal.field_id)},{str(options.phase_cal.field_id)} ")
-  split_fields = str(options.source_ids.field_id) + ',' + str(options.amp_cal.field_id) + ',' + str(options.phase_cal.field_id)
+  if options.self_phase_cal:
+    print(f"Self Phase Calibration Selected, splitting | {str(options.source_ids.field_id)},{str(options.amp_cal.field_id)}")
+    return str(options.source_ids.field_id) + ',' + str(options.amp_cal.field_id)
+  else:
+    print(f"splitting on fields('src,amp,phase) | {str(options.source_ids.field_id)},{str(options.amp_cal.field_id)},{str(options.phase_cal.field_id)} ")
+    split_fields = str(options.source_ids.field_id) + ',' + str(options.amp_cal.field_id) + ',' + str(options.phase_cal.field_id)
   return split_fields
 
 def open_plotms_thread(visfile):

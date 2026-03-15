@@ -45,7 +45,7 @@ class CLI:
         if selected == '':
           return []
         selected_indices = [int(x.strip()) for x in selected.split(',')]
-        breakpoints = [list(BREAKPOINTS.keys())[i] for i in selected_indices if i <= len(BREAKPOINTS)]
+        breakpoints = [list(BREAKPOINTS.keys())[i-1] for i in selected_indices if i-1 < len(BREAKPOINTS)]
         break 
       except ValueError:
         print("Invalid input. Please enter valid breakpoints.")

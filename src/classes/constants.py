@@ -97,8 +97,8 @@ EXPORT_KEYS = ['source','archive_file', 'band', 'breakpoints',
 
 BREAKPOINTS = {
             "manual_flagging": "Manual Data Flagging",
-            "calibration": "Calibration",
-            "manual_clean": "Manual Clean",
+            "pick_calibrator": "Pick Calibrator",
+            "manual_self_cal": "Manual Self-Cal",
             "display_image":"Display Image After"
         }
 

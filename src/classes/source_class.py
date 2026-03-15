@@ -21,13 +21,19 @@ class source_info:
     self.field_id = ''
     self.ra = ''
     self.decl = ''
-
+    
+    print (f"{self.type} | {options.custom_amp_cal}")
     if self.type == TYPE_FLUX_CAL and options.custom_amp_cal == AUTO:
+      print(f"finding flux cal!!!!!!!!!!!!!")
       if not self.detect_flux_cal_first(options):
         raise Exception('No Calibrator was detected for setJy')
+    elif self.type == TYPE_PHASE_CAL and 'pick_calibrator' in options.breakpoints:
+      pass
     elif self.type == TYPE_PHASE_CAL or (self.type == TYPE_TARGET and self.name is None): #would specifying a phase cal impede this logic?
       #search through fullset observation data and find 2nd most observed field?
-      self.detect_by_nrows(options,self.type)
+      #also does source picking off most observed
+      #self.detect_by_nrows(options,self.type) outdated, does not fuction consitiently
+      self.find_phase_cal_distance(options)
     elif self.type == TYPE_FLUX_CAL and options.custom_amp_cal != AUTO: #Change to Phase Cal? AND or Add phase cla
       self.manual_amp_cal(options)
     elif self.type == TYPE_TARGET and (self.name is not None):
@@ -36,42 +42,42 @@ class source_info:
       #self.source_name = self.name
       self.source_id = self.find_source_id(options) #find source ID from source name may not work if given source name is doesn't match name in field.
       self.field_id = self.find_fieldID(options.observation_data)
+      self.set_RA_DECL(options)
+      
       #check_self_phase_cal = 
     #extra members defined by initial ms split after initilization
     self.initial_ms_fieldID = ''
-    self.set_RA_DECL(options)
   
   def find_fieldID(self,data_source):
     for field in data_source.fields:
-      if field.name == self.name: 
+      if field.name == self.listobs_name: 
         return field.id
       
+  def _normalize_name(self, name):
+    '''Strip B1950/J2000 epoch prefix (b/B/j/J) from a source name'''
+    import re
+    return re.sub(r'^[BbJj](?=\d)', '', name).strip()
+
   def find_source_id(self, options):
     '''find source_id from source name'''
-    #check if the name matchs the 
     id = self.check_name_in_list_obs(options)
     if(id is not False):
       return id
-    
-    possible_names = simbad.get_names(self.name)
-    for section in options.observation_data.sources:
-      print(f"source | {section}")
-      print(f"source.name | {section.name}")
-      print(f"options.source | {options}")
-
-      if section.name == options.source:
-        return section.id
-
+    possible_names = simbad.formatted_names_list(options.search_alias)
+    for sources in options.observation_data.sources:
+      for name in possible_names:
+        if sources.name == name:
+          self.listobs_name = sources.name
+          return sources.id
+    raise Exception(f"Source name {self.name} not found in listobs or SIMBAD with aliases {possible_names}")
+     
   def check_name_in_list_obs(self, options):
-    for section in options.observation_data.sources:
-      print(f"source | {section}")
-      print(f"source.name | {section.name}")
-      print(f"options.source | {options}")
-
-      if section.name == options.source:
-        return section.id
-    else:
-      return False
+    normalized = self._normalize_name(self.name)
+    for sources in options.observation_data.sources:
+      if sources.name == self.name or sources.name == normalized:
+        self.listobs_name = sources.name
+        return sources.id
+    return False
   
   def detect_by_nrows(self, options, source_type): #may be able to find 'source?'
     fields = options.observation_data.fields
@@ -97,10 +103,15 @@ class source_info:
 
   def set_RA_DECL(self,options):
     '''set RA and DECL coords for source'''
-    self.ra = options.observation_data.fields[self.field_id].ra
-    self.decl = options.observation_data.fields[self.field_id].decl
+    for field in options.observation_data.fields:
+      if field.id == self.field_id:
+        self.ra = field.ra
+        self.decl = field.decl
 
   def find_bands(self,options):
+    '''
+    Detects the bands for the source based on the spectral windows in the observation data.
+    '''
     detected_bands = []
     if options.band == AUTO:
       for each_spw in options.observation_data.spectral_windows:
@@ -140,17 +151,20 @@ class source_info:
           ct.casalog.post(f'Amp Cal found, ID:{amp_cal}, {COMMON_AMPCALS_DICT[amp_cal]}')
           self.name3c = COMMON_AMPCALS_DICT[amp_cal]
           self.name = fields[i].name
+          self.listobs_name = fields[i].name
           self.field_id = fields[i].id 
           self.source_id = fields[i].src_id
-          self.bands = self.asses_spw(options) 
-          self.model = self.name3c + '_' + self.bands  +'.im'
+          band = self.asses_spw(options) 
+          options.band = band
+          self.band = band
+          self.model = self.name3c + '_' + self.band  +'.im'
           return True
     return False
   
   def check_self_phase_cal(self,options):
-    '''checks Net.Ipca if self phase cal is doable'''
+    '''checks ned  if self phase cal is doable'''
     #call NED by name, and RA DEC, check >=50mjy with 20% of band
-    options.is_self_cal = NED_API.check_self_cal_potential()
+    options.self_phase_cal = NED_API.check_self_cal_potential(self.name,options.band)
     pass
   def manual_amp_cal(self,options):
     pass
@@ -163,7 +177,69 @@ class source_info:
   #      return True
   #    else:
   #      return None
+  def find_phase_cal_distance(self, options):
+    '''
+    Builds a dict of {field_id: (Fields, SkyCoord)} for all fields except the
+    amp_cal and source target, sorts them by angular separation from the target,
+    then picks the closest one that appears in the NRAO calibrator list for the
+    current band.  Falls back to the closest field if none match.
+    '''
+    from astropy.coordinates import SkyCoord
+    from classes.nrao_calibrators import NRAOCalibrators
 
+    def _to_skycoord(ra_str, decl_str):
+      # decl from listobs uses dot separators: +35.47.50.538 -> +35:47:50.538
+      sign = decl_str[0] if decl_str[0] in '+-' else '+'
+      parts = decl_str.lstrip('+-').split('.', 2)
+      decl_colon = f"{sign}{parts[0]}:{parts[1]}:{parts[2]}"
+      return SkyCoord(ra_str, decl_colon, unit=('hourangle', 'deg'))
+
+    exclude_ids = {options.amp_cal.field_id, options.source_ids.field_id}
+
+    # {field_id: (Fields object, SkyCoord)}
+    candidates = {}
+    for field in options.observation_data.fields:
+      if field.id in exclude_ids:
+        continue
+      candidates[field.id] = (field, _to_skycoord(field.ra, field.decl))
+
+    source_coord = _to_skycoord(options.source_ids.ra, options.source_ids.decl)
+
+    # sort closest -> furthest from target
+    sorted_candidates = sorted(
+      candidates.items(),
+      key=lambda item: source_coord.separation(item[1][1]).deg
+    )
+
+    nrao = NRAOCalibrators()
+    for field_id, (field, coord) in sorted_candidates:
+      cal_entry = nrao.find_by_name(field.name)
+      if cal_entry is not None and cal_entry.get_band(options.band) is not None:
+        self.name = field.name
+        self.listobs_name = field.name
+        self.field_id = field.id
+        self.source_id = field.src_id
+        self.set_RA_DECL(options)
+        sep = source_coord.separation(coord).deg
+        ct.casalog.post(f'Phase cal: {self.name} ({sep:.2f} deg from target)')
+        if sep > 10:
+          ct.casalog.post(f'WARNING: Phase calibrator {self.name} is {sep:.2f} deg from target — calibration may be degraded.', priority='WARN')
+          print(f"WARNING: Phase calibrator '{self.name}' is {sep:.2f} degrees from target source. Calibration quality may be degraded.")
+        return
+
+    # fallback: closest field even if not confirmed in NRAO list
+    if sorted_candidates:
+      field_id, (field, coord) = sorted_candidates[0]
+      self.name = field.name
+      self.listobs_name = field.name
+      self.field_id = field.id
+      self.source_id = field.src_id
+      self.set_RA_DECL(options)
+      sep = source_coord.separation(coord).deg
+      ct.casalog.post(f'Phase cal (NRAO unconfirmed): {self.name} ({sep:.2f} deg from target)')
+      if sep > 10:
+        ct.casalog.post(f'WARNING: Phase calibrator {self.name} is {sep:.2f} deg from target — calibration may be degraded.', priority='WARN')
+        print(f"WARNING: Phase calibrator '{self.name}' is {sep:.2f} degrees from target source. Calibration quality may be degraded.")
   def verify_model(data):
     '''
       verify that the amp calibrator alligns with the selceted Band
