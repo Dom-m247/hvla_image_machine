@@ -265,7 +265,20 @@ class BreakpointsWindow:
         # Calibration Options Frame
         calibration_frame = ttk.LabelFrame(options_container, text="Calibration Options", padding=15)
         calibration_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
-        
+
+        #force use phase calibrator, manual auto
+        ttk.Label(calibration_frame, text="phase calibrator method:", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
+        self.calibration_method = tk.StringVar(value="auto")
+        phase_calibrator_options = ["auto", "force phase calibrator", "pick phase calibrator"]
+        self.phase_calibrator_menu = ttk.Combobox(
+            calibration_frame,
+            textvariable=self.calibration_method,
+            values=phase_calibrator_options,
+            state="readonly",
+            width=30
+        )
+        self.phase_calibrator_menu.pack(anchor="w", pady=(0, 15))
+
         # Solution Interval (solint) dropdown
         ttk.Label(calibration_frame, text="Solution Interval (solint):", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
         self.solint_var = tk.StringVar(value="int")
@@ -537,6 +550,7 @@ class BreakpointsWindow:
             "source_decl": source_info['source_ra'],
             "search_alias": source_info['search_alias'],
             "breakpoints": selected_breakpoints,
+            "phase_calibrator_method": self.calibration_method.get(),
             "solint": self.solint_var.get(),
             "custom_amp_cal": self.amp_cal_mode.get(),
             "reference_antenna": self.ref_antenna_var.get(),

@@ -164,7 +164,9 @@ class source_info:
   def check_self_phase_cal(self,options):
     '''checks ned  if self phase cal is doable'''
     #call NED by name, and RA DEC, check >=50mjy with 20% of band
-    options.self_phase_cal = NED_API.check_self_cal_potential(self.name,options.band)
+    if options.phase_calibrator_method == 'auto':
+      options.self_phase_cal = NED_API.check_self_cal_potential(self.name,options.band)
+    options.self_phase_cal = False #set self-calable to false to force phase calibrator usage.
     pass
   def manual_amp_cal(self,options):
     pass

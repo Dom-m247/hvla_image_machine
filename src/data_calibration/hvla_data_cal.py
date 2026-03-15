@@ -108,9 +108,9 @@ def generate_file_names(options:Options):
     options.image_filename = options.observation_data.obs_info.project + "_" + options.source_ids.name +'_'+ options.band 
 
 
-def determine_self_calibrator(options:Options,):
-  '''attempt to determine calibrator or self-cal'''
-  options.source_ids  = source_info(options,type="target",name=options.source)
+#def determine_self_calibrator(options:Options,):
+#  '''attempt to determine calibrator or self-cal'''
+#  options.source_ids  = source_info(options,type="target",name=options.source)
 
 def set_calibrators(options:Options):
   '''set calibrator objects in options'''
@@ -118,8 +118,8 @@ def set_calibrators(options:Options):
   print(f"{options.source}")
   if(options.sysArgs.cli or options.sysArgs.cliCalib):
     pass
-  options.amp_cal  = source_info(options,type="flux_calibrator")
-  options.source_ids  = source_info(options,type="target",name=options.source)
+  options.amp_cal = source_info(options,type="flux_calibrator")
+  options.source_ids = source_info(options,type="target",name=options.source)
   options.source_ids.check_self_phase_cal(options)
   if not options.self_phase_cal:
     options.phase_cal  = source_info(options,type="phase_cal")

@@ -64,6 +64,7 @@ class Options:
       self.search_alias = dict_in['search_alias']
       self.breakpoints = dict_in['breakpoints']
       self.custom_amp_cal = dict_in['custom_amp_cal']
+      self.phase_calibrator_method = dict_in['phase_calibrator_method']
       self.reference_antenna = dict_in['reference_antenna']
       self.min_snr = dict_in['min_snr']
       self.image_filename = dict_in['image_filename']
