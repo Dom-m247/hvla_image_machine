@@ -181,7 +181,7 @@ class RadioSearchIntegration:
     CLI.getSourceInfo(options)
     #DO radio_search with options.source and options.band
 
-    password_file = Path(__file__).resolve().with_name('nraoPWD_DONOTLETGITTRACKME.txt')
+    password_file = Path(__file__).resolve().with_name('nraoCreds.txt')
     if not password_file.exists():
         raise FileNotFoundError(f"Password file not found: {password_file}")
     creds = {}
