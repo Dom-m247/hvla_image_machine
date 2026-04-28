@@ -1,7 +1,5 @@
 
 # TODO
--Implement `argparse` to handle cmd inputs more fluidly (-t,-i,-a etc.)
-- Update requirments for Simbad query 
 - GUI improvments + features todo
   - delineate "manual self-cal + cleaning" from interactive cleaning
 - Automatic Features to implement 

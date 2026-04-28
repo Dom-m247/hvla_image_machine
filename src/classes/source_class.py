@@ -13,16 +13,18 @@ AUTO = 'auto'
 
 class source_info:
   #TODO: upgrade to utilize other 'better' claibrators
-  def __init__(self,options,type='',name=''):
+  def __init__(self,options,type='',name='',listobs_name='',source_id='',field_id=''):
     self.type = type
     self.name = name
-    self.listobs_name = ''
-    self.source_id = ''
-    self.field_id = ''
+    self.listobs_name = listobs_name
+    self.source_id = source_id
+    self.field_id = field_id
     self.ra = ''
     self.decl = ''
-    
-    print (f"{self.type} | {options.custom_amp_cal}")
+    #a premtive determination if band is set to auto
+    if options.band == AUTO:
+      self.find_bands(options)
+
     if self.type == TYPE_FLUX_CAL and options.custom_amp_cal == AUTO:
       print(f"finding flux cal!!!!!!!!!!!!!")
       if not self.detect_flux_cal_first(options):
@@ -33,6 +35,7 @@ class source_info:
       #search through fullset observation data and find 2nd most observed field?
       #also does source picking off most observed
       #self.detect_by_nrows(options,self.type) outdated, does not fuction consitiently
+
       self.find_phase_cal_distance(options)
     elif self.type == TYPE_FLUX_CAL and options.custom_amp_cal != AUTO: #Change to Phase Cal? AND or Add phase cla
       self.manual_amp_cal(options)
@@ -143,7 +146,10 @@ class source_info:
     return True if (listobs_spw >= test_band[0]) and (listobs_spw <= test_band[1]) else False
     
   def detect_flux_cal_first(self,options):
-    '''Finds the (first) Flux density calibrator in the full ms'''
+    '''
+    Finds the (first) Flux density calibrator in the full ms
+    **** NEEDS TO BE UPDATED TO FIND CLOSEST FLUX 
+    '''
     fields = options.observation_data.fields
     for i in range(len(fields)):
       for amp_cal in COMMON_AMPCALS_DICT:
@@ -163,10 +169,13 @@ class source_info:
   
   def check_self_phase_cal(self,options):
     '''checks ned  if self phase cal is doable'''
+    if options.band == 'auto':
+      self.asses_spw(options)
     #call NED by name, and RA DEC, check >=50mjy with 20% of band
     if options.phase_calibrator_method == 'auto':
       options.self_phase_cal = NED_API.check_self_cal_potential(self.name,options.band)
-    options.self_phase_cal = False #set self-calable to false to force phase calibrator usage.
+    else: 
+      options.self_phase_cal = False #set self-calable to false to force phase calibrator usage.
     pass
   def manual_amp_cal(self,options):
     pass
@@ -188,7 +197,7 @@ class source_info:
     '''
     from astropy.coordinates import SkyCoord
     from classes.nrao_calibrators import NRAOCalibrators
-
+  
     def _to_skycoord(ra_str, decl_str):
       # decl from listobs uses dot separators: +35.47.50.538 -> +35:47:50.538
       sign = decl_str[0] if decl_str[0] in '+-' else '+'

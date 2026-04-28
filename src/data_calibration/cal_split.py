@@ -1,3 +1,5 @@
+from token import OP
+
 import casatasks as ct
 import casaplotms
 from . import parse_listobs as parse
@@ -23,7 +25,7 @@ def amp_cal_split(options:Options):
     ct.casalog.post(f"{options.proj_name+'.ms'} -> {options.initial_calibration_filename+'.ms'} | fields: {fields} | spw: {spwID}")
   else:
     ct.casalog.post(f"{options.proj_name+'.ms'} -> {options.initial_calibration_filename+'.ms'} | fields: {fields} | spw: {spwID}")
-    ct.split(vis=options.proj_name+'.ms',outputvis=options.initial_calibration_filename+'.ms',datacolumn = 'data', field=fields, spw=spwID)
+    ct.split(vis= MS_SUB_PATH + options.proj_name+'.ms',outputvis=options.initial_calibration_filename+'.ms',datacolumn = 'data', field=fields, spw=spwID)
   #if options.get_dict_sp('breakpoints')['verify_scans']:
     #pause, show listobs(vis='init.ms') and continue if correct, else END
 
@@ -35,7 +37,8 @@ def amp_cal_split(options:Options):
 
 
 def get_command(options:Options):
-  fields = define_split_fields(options)
+
+  fields = define_split_fields_phase_cal(options)
   spwID = build_spwID(options)
   return fields,spwID
  
@@ -50,7 +53,7 @@ def build_spwID(options:Options):
   return spwIDs[:-1] #remove last comma
   
 
-def define_split_fields(options:Options):
+def define_split_fields_phase_cal(options:Options):
   #needs multiple MS integration
   if options.self_phase_cal:
     print(f"Self Phase Calibration Selected, splitting | {str(options.source_ids.field_id)},{str(options.amp_cal.field_id)}")
@@ -59,6 +62,7 @@ def define_split_fields(options:Options):
     print(f"splitting on fields('src,amp,phase) | {str(options.source_ids.field_id)},{str(options.amp_cal.field_id)},{str(options.phase_cal.field_id)} ")
     split_fields = str(options.source_ids.field_id) + ',' + str(options.amp_cal.field_id) + ',' + str(options.phase_cal.field_id)
   return split_fields
+
 
 def open_plotms_thread(visfile):
   """

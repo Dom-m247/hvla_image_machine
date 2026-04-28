@@ -55,11 +55,9 @@ def main(): #argv
     if source.sysArgs.radio_search:
       radio_search(source) #gets source_name + band + archive
     else:
-      CLI.fullCLI(source) #get source_name + band
-      print("Running in cli mode without GUI. ###NOT YET fully IMPLEMENTED")
+      #print("Running in cli mode without GUI. ###NOT YET fully IMPLEMENTED")
       #get source options from user
-      CLI.get_cli_input(source)
-    return
+      CLI.getOptions(source)
   else: #not parser.importRun and not parser.cli:
     # Normal GUI mode
     try:

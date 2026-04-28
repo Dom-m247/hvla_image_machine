@@ -1,5 +1,7 @@
 #parent directory name, edit if different!
 FOLDER_NAME = 'hvla_image_machine'
+MS_SUB_PATH = 'measurement_sets/'
+IMAGES_PATH = 'images/ '
 IMPORT_JSON = 'import.json'
 RS_IMPORT = 'radio_search_results.json'
 #Measurment set Name Defaults
@@ -36,7 +38,8 @@ TYPE_FLUX_CAL = 'flux_calibrator'
 TYPE_PHASE_CAL = 'phase_cal'
 TYPE_TARGET = 'target'
 AUTO = 'auto'
-  
+SELF_PHASE_CAL = False
+
 #Constants that may be integrated, but are being placed here for reference!
 BAND_GHZ_RANGES = {'L': [0.985, 2.025], 
                    'S': [2.026, 4.013], 
@@ -101,4 +104,6 @@ BREAKPOINTS = {
             "manual_self_cal": "Manual Self-Cal",
             "display_image":"Display Image After"
         }
+
+
 

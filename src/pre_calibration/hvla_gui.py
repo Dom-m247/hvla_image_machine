@@ -171,7 +171,9 @@ class SourceInputWindow:
     def display_source_info(self, source):
         """Display validated source information"""
         info_content = f"""Source Information:\n\nName: {source}\n\nStatus: Validated ✓
-        \nBand: {self.band_var.get()}\n\nLast Updated: N/A\n\nObservations: N/A\n\nCoordinates: N/A"""
+        \nBand: {self.band_var.get()}
+        \nSearch Alias: {self.search_alias}
+        \n\nLast Updated: N/A\n\nObservations: N/A\n\nCoordinates: N/A"""
         self.info_text.config(state="normal")
         self.info_text.delete("1.0", "end")
         self.info_text.insert("1.0", info_content)
@@ -541,6 +543,7 @@ class BreakpointsWindow:
         #}
         breakpoint_display = ", ".join([BREAKPOINTS[bp] for bp in selected_breakpoints])
         
+        #self_cal_method = False if  self.calibration_method.get() is AUTO
         # Create summary dictionary
         summary_dict = {
             "source": source_info['source'],

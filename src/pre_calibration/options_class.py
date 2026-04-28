@@ -14,7 +14,7 @@ class Options:
                source=None,
                archive_file = '',
                band='auto',
-               breakpoints=[],
+               breakpoints=None,
                custom_amp_cal='auto',
                reference_antenna='auto',
                min_snr=3.0,):
@@ -24,7 +24,7 @@ class Options:
     self.archive_file = archive_file
     self.band = band
     self.breakpoints = breakpoints
-    self.custom_amp_cal = custom_amp_cal
+    self.custom_amp_cal = False if custom_amp_cal is AUTO else True # temp var, not yet implemented 
     self.reference_antenna = reference_antenna
     self.min_snr = min_snr
     self.source_ra = ''
@@ -63,8 +63,10 @@ class Options:
       self.source_decl = dict_in['source_decl']
       self.search_alias = dict_in['search_alias']
       self.breakpoints = dict_in['breakpoints']
-      self.custom_amp_cal = dict_in['custom_amp_cal']
+      #self.custom_amp_cal = dict_in['custom_amp_cal']
+      self.custom_amp_cal = False if dict_in['custom_amp_cal'] is AUTO else dict_in['custom_amp_cal'] # temp var, not yet implemented 
       self.phase_calibrator_method = dict_in['phase_calibrator_method']
+      print(f"Calibration Method: {self.phase_calibrator_method}")
       self.reference_antenna = dict_in['reference_antenna']
       self.min_snr = dict_in['min_snr']
       self.image_filename = dict_in['image_filename']

@@ -2,7 +2,7 @@
 #from .options_class import Options
 #from casatasks import casalog
 import json,sys
-from classes.constants import FOLDER_NAME, IMPORT_JSON, EXPORT_KEYS,RS_IMPORT
+from classes.constants import FOLDER_NAME, IMPORT_JSON, EXPORT_KEYS, RS_IMPORT
 from .options_class import Options
 import pprint
 
