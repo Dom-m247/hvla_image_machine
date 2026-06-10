@@ -1,12 +1,10 @@
 #for doing a RADIO_SEARCH based Download
 from classes.CLI_input import CLI
 from pre_calibration.options_class import Options
-import subprocess
-from pprint import pp
+import pprint
 import re
 import paramiko
 import getpass
-import pprint
 from pathlib import Path
 
 
@@ -63,7 +61,7 @@ class RadioSearch2:
     Usage:
         with RadioSearch2() as rs:
             result1 = rs('4C35.03', 'BANDS', 'C')
-            result2 = rs('--archfileinfo', '13B-326')
+            result2 = rs('--archfileinfo', '13B-326') #second is project code 
             result3 = rs('3C273', 'BANDS', 'X', 'CONF', 'A')
     """
     def __init__(self, host, user, password=None, key_filename=None):
@@ -196,11 +194,70 @@ class RadioSearchIntegration:
             raise ValueError(f"Missing or empty '{key}' in credentials file.")
     with RadioSearch2(host=creds['host'], user=creds['user'], password=creds['password']) as rs:
         rs_results = rs(options.search_alias, 'BANDS', options.band)
+        #process unformatted RS return, get user input
+        observations = parseObservations(rs_results)
+
+        selected_obs = CLI.selectObservation(observations)
+        if selected_obs is None:
+            print("No observation selected.")
+            return
+        print(f"\nSelected: {selected_obs.proj_code}  segment {selected_obs.seg}  ({selected_obs.date})")
+
+        archfiles = parseArchFileInfo(rs('--archfileinfo', selected_obs.proj_code))
+        archfiles_file = Path(__file__).resolve().parent / 'archfiles.txt'
+        
+        print(f"Archive file info written to {archfiles_file}")
+
+        options.proj_code = selected_obs.proj_code
+        #return the file(s) to download to the caller (radio_search), which will
+        #hand them to DelosDownload on a separate thread.
+        return RadioSearchIntegration.select_segment_files(archfiles, selected_obs)
+
+  def select_segment_files(archfiles, selected_obs):
+    """Select the archive file(s) belonging to the selected observation's segment.
+
+    Returns the list of archive file names to be downloaded from the NAS
+    (the actual download is handled by DelosDownload).
+
+    archfiles: list of nrao_segment objects (from parseArchFileInfo).
+    selected_obs: the nrao_observeration chosen by the user.
+    """
+    selected_segment = next(
+        (seg for seg in archfiles if seg.name == selected_obs.seg), None
+    )
+    if selected_segment is None:
+        print(f"No archive files found for segment {selected_obs.seg}.")
+        return []
+
+    download_files = [archfile.file_name for archfile in selected_segment.files]
+    print(f"Files to download for segment {selected_obs.seg}: {download_files}")
+    return download_files
+
+  #def find_ssh_pw():
+   # return 'nraoPWD_DONOTLETGITTRACKME.txt'
 
 
-    # Example: Call a function from the radio_search module to execute the search
-    # results = radio_search.execute_search(self.source.sysArgs)
-    # Process results and download archives as needed
+class DelosDownload:
+    """Downloads the selected archive files from the Delos NAS.
 
-  def find_ssh_pw():
-    return 'nraoPWD_DONOTLETGITTRACKME.txt'
+    Designed to run on its own thread while CLI calibration info is gathered in
+    parallel. On completion, sets options.archive_files to the LOCAL paths of the
+    downloaded files so they can be imported by do_vla_import/importvla.
+    """
+    def __init__(self, download_files, options, local_dir=None):
+        self.download_files = download_files or []
+        self.options = options
+        self.local_dir = Path(local_dir) if local_dir else Path(__file__).resolve().parent / 'downloads'
+
+    def download(self):
+        """Fetch each file from the NAS into local_dir and record the local paths."""
+        self.local_dir.mkdir(parents=True, exist_ok=True)
+        local_paths = []
+        for remote_file in self.download_files:
+            local_path = self.local_dir / Path(remote_file).name
+            # TODO: fetch remote_file from the Delos NAS into local_path
+            #       (e.g. scp/rsync/smb mount), then verify the file exists.
+            local_paths.append(str(local_path))
+        #importvla (do_vla_import) needs the local paths it can open
+        self.options.archive_files = local_paths
+        return local_paths

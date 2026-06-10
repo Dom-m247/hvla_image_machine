@@ -29,8 +29,19 @@ def data_calibration(options:Options):
   
 def convert_to_ms(archive,options):
   """
-  Converts raw HVLA data archive to Measurement Set (MS) format
+  Converts raw HVLA data archive to Measurement Set (MS) format.
+  `archive` may be a single archive/MS path (GUI/CLI mode) or a list of raw
+  archive files downloaded via radio_search (all imported into one MS).
   """
+  #radio_search path: a list of raw VLA archive files for the selected segment
+  if isinstance(archive, list):
+    try:
+      options.proj_name = options.proj_code + '_' + FULLMS #use selected observation's project code for naming
+      LoadingAnimation.performing_action("archive import, This may take a moment",target=do_vla_import,args=(archive,options.proj_name))
+      return parse.log_listobs(MS_SUB_PATH+options.proj_name,options)
+    except RuntimeError as file_exists:
+      print(f"MS file already exists, delete it and re-run")
+      sys.exit() # add call to a cleanup script?
   #get some version of the observation Name
   #OUTPUT MS name = "fullMS.ms" -> weird cstring error if not directly entered.
   if (archive.endswith('.ms')):
@@ -46,17 +57,26 @@ def convert_to_ms(archive,options):
     print(f"MS file already exists, delete it and re-run")
     sys.exit() # add call to a cleanup script?
 
-def do_vla_import(archive_file:str,output_ms:str):
+def do_vla_import(archive_files,output_ms:str):
   """
-  Convert VLA archive to Measurement Set format
+  Convert VLA archive to Measurement Set format.
+  `archive_files` may be a single archive file path or a list of raw archive
+  files; importvla concatenates a list of files into one MS.
   """
+  if isinstance(archive_files, str):
+    archive_files = [archive_files]
+  #NOTE: importvla needs local paths it can open. For the radio_search path,
+  #      the entries must be the LOCAL paths the NAS files were downloaded to,
+  #      not the bare archive file names. DelosDownload sets these local paths.
   if not Path(MS_SUB_PATH + output_ms+'.ms').is_dir():
-    print(f"\nImporting {archive_file} to {MS_SUB_PATH + output_ms+'.ms'}...")
-    ct.importvla(archivefiles={archive_file},vis= MS_SUB_PATH + output_ms+'.ms')
+    print(f"\nImporting {archive_files} to {MS_SUB_PATH + output_ms+'.ms'}...")
+    ct.importvla(archivefiles=archive_files,vis= MS_SUB_PATH + output_ms+'.ms')
 
 def pre_data_calibration(options:Options):
   """extract and clean necessary info for data calibration"""
-  list_obs = convert_to_ms(options.archive_file,options) 
+  #radio_search downloads a list of raw archive files; otherwise use the single archive/MS path
+  archive = options.archive_files if options.archive_files else options.archive_file
+  list_obs = convert_to_ms(archive,options)
 
   #extract info from listobs -> more complete than returned data
   options.observation_data = parse.populate_Obs_data(list_obs)

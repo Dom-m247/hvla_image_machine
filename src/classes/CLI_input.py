@@ -38,6 +38,30 @@ class CLI:
       options.self_cal_cycles = CLI.getSelfCalCycles()
 
 
+  def getCalibrationOptions(options:Options):
+    '''Gather calibration/imaging options for radio_search mode.
+    Source info is collected during the radio search and the archive files are
+    downloaded from the NAS, so both getSourceInfo and getObservationArchive
+    are skipped here. Intended to run on its own thread alongside DelosDownload.
+    '''
+    print("For any Options, pressing enter will select an Auto option")
+    options.breakpoints = CLI.getBreakpoints()
+    options.custom_amp_cal = False
+    options.phase_calibrator_method = CLI.getPhaseCalibratorMethod()
+    options.reference_antenna = CLI.getReferenceAntenna()
+    options.min_snr = CLI.getMinSNR()
+    options.image_filename = CLI.getImageFilename()
+    options.image_size = CLI.getImageSize()
+    options.interactive_image = CLI.getYesNo("Enable interactive imaging?")
+    options.use_custom_cell_size = CLI.getYesNo("Use a custom cell size?")
+    if options.use_custom_cell_size:
+      options.cell_size = CLI.getCellSize()
+    options.deconvolver = CLI.getDeconvolver()
+    options.weighting = CLI.getWeighting()
+    options.do_self_cal = CLI.getYesNo("Enable self-calibration?")
+    if options.do_self_cal:
+      options.self_cal_cycles = CLI.getSelfCalCycles()
+
   def getSourceInfo(options:Options):
     '''
     get options from terminal input
@@ -275,6 +299,36 @@ class CLI:
     will ask user if not self-cal 
     """
     pass
+
+  def selectObservation(observations) -> object:
+    '''Display a table of nrao_observeration objects and prompt the user to select one.'''
+    if not observations:
+      print("No observations found.")
+      return None
+
+    header = (
+      f"{'#':>3}  {'Date':<12} {'ProjCode':<12} {'Seg':<10} "
+      f"{'Band':<5} {'Cfg':<5} {'Sensitivity':<12} {'Separation':<12} {'Time':<8} Name"
+    )
+    print(header)
+    print('-' * (len(header) + 8))
+    for i, obs in enumerate(observations, 1):
+      print(
+        f"{i:>3}  {obs.date:<12} {obs.proj_code:<12} {obs.seg:<10} "
+        f"{obs.band:<5} {obs.cfg:<5} {obs.sensitivity:<12} {obs.separation:<12} {obs.time:<8} {obs.name}"
+      )
+
+    while True:
+      val = input(f"\nSelect an observation by number (1-{len(observations)}, or press enter to cancel): ").strip()
+      if val == '':
+        return None
+      try:
+        idx = int(val)
+        if 1 <= idx <= len(observations):
+          return observations[idx - 1]
+        print(f"Please enter a number between 1 and {len(observations)}.")
+      except ValueError:
+        print("Invalid input. Please enter a number.")
 
   def getManualPhaseCalibrator(options:Options):
     '''get manual phase calibrator name from user by listobs'''

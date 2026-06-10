@@ -30,6 +30,8 @@ class Options:
     self.source_ra = ''
     self.source_decl = ''
     self.search_alias = ''
+    self.proj_code = ''            #project code of selected radio_search observation
+    self.archive_files = []        #list of raw archive files downloaded via radio_search
   
     #other members 
     #fileNames

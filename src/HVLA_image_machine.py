@@ -6,10 +6,11 @@ from classes.CLI_input import CLI
 from pre_calibration.options_class import Options
 from pre_calibration import *
 from image_generation.image_maker import Cleaner
-from archive_dowload.radio_search_integration import RadioSearchIntegration
+from archive_dowload.radio_search_integration import RadioSearchIntegration, DelosDownload
 from data_calibration import hvla_data_cal
 #from archive_dowload import *
 import pprint
+import threading
 import time
 from pathlib import Path
 
@@ -132,11 +133,23 @@ def update_config():
   return
 
 def radio_search(options:Options):
-  """Utilize radio_search to find and download archives"""
+  """Utilize radio_search to find archives, then download them while gathering
+  calibration info in parallel."""
   #not yet fully implemented, Utilizes Internal tool to search and download observation archives
   if not options.sysArgs.radio_search:
     return
-  RadioSearchIntegration.perform_radio_search(options)
+  #find and select the observation; returns the archive file(s) to download from the NAS
+  download_files = RadioSearchIntegration.perform_radio_search(options)
+
+  #split control: one thread downloads the files from the NAS (DelosDownload),
+  #another gathers CLI calibration info. Wait for both before returning to main.
+  downloader = DelosDownload(download_files, options)
+  download_thread = threading.Thread(target=downloader.download)
+  calibration_thread = threading.Thread(target=CLI.getCalibrationOptions, args=(options,))
+  download_thread.start()
+  calibration_thread.start()
+  download_thread.join()
+  calibration_thread.join()
   
 
 if __name__ == "__main__":
