@@ -1,11 +1,35 @@
 #for doing a RADIO_SEARCH based Download
 from classes.CLI_input import CLI
+from classes.constants import DATA_ARCHIVE, FOLDER_NAME
 from pre_calibration.options_class import Options
+import json
 import pprint
 import re
+import subprocess
 import paramiko
 import getpass
 from pathlib import Path
+
+CREDS_FILE = 'nraoCreds.json' #JSON creds next to this module: host/user/password/delos_url
+
+
+def load_nrao_creds(required=('host', 'user', 'password')):
+    """Load JSON credentials from nraoCreds.json (host/user/password/delos_url).
+
+    `required` lists the keys that must be present and non-empty; raises otherwise.
+    """
+    creds_path = Path(__file__).resolve().with_name(CREDS_FILE)
+    if not creds_path.exists():
+        raise FileNotFoundError(f"Credentials file not found: {creds_path}")
+    try:
+        with open(creds_path, 'r') as creds_file:
+            creds = json.load(creds_file)
+    except json.JSONDecodeError as err:
+        raise ValueError(f"Credentials file {creds_path} is not valid JSON: {err}")
+    for key in required:
+        if not creds.get(key):
+            raise ValueError(f"Missing or empty '{key}' in credentials file {creds_path}.")
+    return creds
 
 
 class nrao_observeration:
@@ -64,10 +88,11 @@ class RadioSearch2:
             result2 = rs('--archfileinfo', '13B-326') #second is project code 
             result3 = rs('3C273', 'BANDS', 'X', 'CONF', 'A')
     """
-    def __init__(self, host, user, password=None, key_filename=None):
+    def __init__(self, host, user, password=None, key_filename=None, remote_path=None):
         self.client = paramiko.SSHClient()
         self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        
+        self.remote_path = remote_path #radio_search2 dir on the host; from nraoCreds.json
+
         connect_kwargs = {"hostname": host, "username": user}
         if key_filename:
             connect_kwargs["key_filename"] = key_filename
@@ -81,7 +106,7 @@ class RadioSearch2:
     def __call__(self, *args):
         quoted_args = " ".join(f"'{a}'" for a in args)
         remote_cmd = (
-            "cd REDACTED_PATH "
+            f"cd {self.remote_path} "
             f"&& ./radio_search2 {quoted_args}"
         )
         
@@ -179,20 +204,9 @@ class RadioSearchIntegration:
     CLI.getSourceInfo(options)
     #DO radio_search with options.source and options.band
 
-    password_file = Path(__file__).resolve().with_name('nraoCreds.txt')
-    if not password_file.exists():
-        raise FileNotFoundError(f"Password file not found: {password_file}")
-    creds = {}
-    with open(password_file, 'r') as pwrd_file:
-        for line in pwrd_file:
-            line = line.strip()
-            if '=' in line:
-                key, _, val = line.partition('=')
-                creds[key.strip()] = val.strip()
-    for key in ('host', 'user', 'password'):
-        if not creds.get(key):
-            raise ValueError(f"Missing or empty '{key}' in credentials file.")
-    with RadioSearch2(host=creds['host'], user=creds['user'], password=creds['password']) as rs:
+    creds = load_nrao_creds(required=('host', 'user', 'password', 'radio_search_path'))
+    with RadioSearch2(host=creds['host'], user=creds['user'], password=creds['password'],
+                      remote_path=creds['radio_search_path']) as rs:
         rs_results = rs(options.search_alias, 'BANDS', options.band)
         #process unformatted RS return, get user input
         observations = parseObservations(rs_results)
@@ -216,8 +230,9 @@ class RadioSearchIntegration:
   def select_segment_files(archfiles, selected_obs):
     """Select the archive file(s) belonging to the selected observation's segment.
 
-    Returns the list of archive file names to be downloaded from the NAS
-    (the actual download is handled by DelosDownload).
+    Returns the list of nrao_archfile objects to be downloaded from the NAS
+    (the actual download is handled by DelosDownload). The full objects are kept
+    so DelosDownload can read each file's observation date -> Delos year directory.
 
     archfiles: list of nrao_segment objects (from parseArchFileInfo).
     selected_obs: the nrao_observeration chosen by the user.
@@ -229,35 +244,131 @@ class RadioSearchIntegration:
         print(f"No archive files found for segment {selected_obs.seg}.")
         return []
 
-    download_files = [archfile.file_name for archfile in selected_segment.files]
-    print(f"Files to download for segment {selected_obs.seg}: {download_files}")
+    download_files = selected_segment.files
+    print(f"Files to download for segment {selected_obs.seg}: "
+          f"{[archfile.file_name for archfile in download_files]}")
     return download_files
-
-  #def find_ssh_pw():
-   # return 'nraoPWD_DONOTLETGITTRACKME.txt'
 
 
 class DelosDownload:
-    """Downloads the selected archive files from the Delos NAS.
+    """Downloads the selected archive files from the Delos NAS over HTTP (curl).
 
-    Designed to run on its own thread while CLI calibration info is gathered in
-    parallel. On completion, sets options.archive_files to the LOCAL paths of the
-    downloaded files so they can be imported by do_vla_import/importvla.
+    The Delos 'oldstyle' archive is laid out by observation year:
+        {base_url}{year}/{file_name}
+    e.g. 
+
+    The base URL is read from nraoCreds.json ('delos_url' key). The 4-digit year is taken
+    from each file's --archfileinfo entry (its observation date, falling back to the
+    YY embedded in the file name).
+
+    Files are saved under <repo>/data_archive/<proj_code>/ and the resulting local
+    paths are written to options.archive_files for do_vla_import/importvla.
+
+    Designed to run on its own thread while CLI calibration info is gathered in parallel.
     """
-    def __init__(self, download_files, options, local_dir=None):
+
+    #curl: fail on HTTP errors, show errors, retry, create parent dirs, bounded timeouts
+    CURL_BASE = ['curl', '-fsS', '--retry', '3', '--create-dirs',
+                 '--connect-timeout', '30', '--max-time', '600']
+
+    def __init__(self, download_files, options, local_dir=None, base_url=None, verbose=False):
         self.download_files = download_files or []
         self.options = options
-        self.local_dir = Path(local_dir) if local_dir else Path(__file__).resolve().parent / 'downloads'
+        self.base_url = base_url
+        #quiet by default: this runs on a worker thread alongside the interactive
+        #calibration prompts, so per-file prints would interleave with input().
+        self.verbose = verbose
+        self.error = None #set by run() if download() raises, for the caller to inspect after join
+        self.local_dir = Path(local_dir) if local_dir else self._default_local_dir()
+
+    def _default_local_dir(self):
+        """<repo_root>/data_archive/<proj_code>/ , built from constants."""
+        proj = self.options.proj_code or 'unknown_project'
+        return self._repo_root() / DATA_ARCHIVE.strip('/') / proj
+
+    @staticmethod
+    def _repo_root():
+        """Locate the hvla_image_machine project root from this file's path."""
+        here = Path(__file__).resolve()
+        for parent in here.parents:
+            if parent.name == FOLDER_NAME:
+                return parent
+        return here.parents[2] #<root>/src/archive_dowload/<file> -> <root>
+
+    def _resolve_base_url(self):
+        """Delos archive base URL (constructor override or nraoCreds.json), trailing '/'."""
+        url = self.base_url or load_nrao_creds(required=('delos_url',))['delos_url']
+        return url if url.endswith('/') else url + '/'
+
+    @staticmethod
+    def _file_name(entry):
+        """An entry may be an nrao_archfile or a bare file-name string."""
+        return getattr(entry, 'file_name', entry)
+
+    @classmethod
+    def _archive_year(cls, entry):
+        """4-digit observation year for an entry (date field first, then YY in file name)."""
+        date = getattr(entry, 'date', None)
+        if date:
+            year = cls._yy_to_year(str(date).split('-')[0])
+            if year:
+                return year
+        match = re.search(r'(\d{2})', str(cls._file_name(entry)))
+        year = cls._yy_to_year(match.group(1)) if match else None
+        if not year:
+            raise ValueError(f"Cannot determine observation year for {entry!r}")
+        return year
+
+    @staticmethod
+    def _yy_to_year(yy):
+        """Expand a 2-digit year to 4 digits (pivot 69: 69-99 -> 19xx, else 20xx)."""
+        yy = str(yy).strip()
+        if not (yy.isdigit() and len(yy) == 2):
+            return None
+        n = int(yy)
+        return str(1900 + n if n >= 69 else 2000 + n)
+
+    def remote_url(self, entry, base_url=None):
+        """Build the Delos HTTP URL for an archive file entry."""
+        base = base_url or self._resolve_base_url()
+        return f"{base}{self._archive_year(entry)}/{self._file_name(entry)}"
+
+    def run(self):
+        """Thread entry point: run download(), capturing any exception so the caller
+        can surface it after join() (exceptions raised in a worker thread are
+        otherwise lost). download() itself still raises for direct/programmatic use.
+        """
+        try:
+            self.download()
+        except Exception as exc:
+            self.error = exc
 
     def download(self):
-        """Fetch each file from the NAS into local_dir and record the local paths."""
+        """Fetch each archive file from Delos into local_dir; record the local paths."""
+        base_url = self._resolve_base_url()
         self.local_dir.mkdir(parents=True, exist_ok=True)
         local_paths = []
-        for remote_file in self.download_files:
-            local_path = self.local_dir / Path(remote_file).name
-            # TODO: fetch remote_file from the Delos NAS into local_path
-            #       (e.g. scp/rsync/smb mount), then verify the file exists.
+        for entry in self.download_files:
+            url = self.remote_url(entry, base_url)
+            local_path = self.local_dir / Path(self._file_name(entry)).name
+            self._curl(url, local_path)
             local_paths.append(str(local_path))
-        #importvla (do_vla_import) needs the local paths it can open
+        #do_vla_import/importvla needs the local paths it can open
         self.options.archive_files = local_paths
         return local_paths
+
+    def _curl(self, url, local_path):
+        """Download one file with curl; raise on failure or empty result."""
+        if self.verbose:
+            print(f"Downloading {url} -> {local_path}")
+        result = subprocess.run(
+            self.CURL_BASE + ['-o', str(local_path), url],
+            capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"curl failed ({result.returncode}) for {url}\n{result.stderr.strip()}"
+            )
+        if not local_path.exists() or local_path.stat().st_size == 0:
+            raise RuntimeError(f"Download produced no data: {local_path}")
+        return local_path

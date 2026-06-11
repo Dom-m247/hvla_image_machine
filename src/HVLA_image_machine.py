@@ -83,7 +83,7 @@ def main(): #argv
 
   #tcleaning!
   cleaner = Cleaner()
-  if not 'manual_clean' in  source.breakpoints:
+  if 'manual_clean' not in source.breakpoints:
     print(f"Starting Clean")
     start_time = time.perf_counter()
     cleaner.image_gen(source)
@@ -144,12 +144,25 @@ def radio_search(options:Options):
   #split control: one thread downloads the files from the NAS (DelosDownload),
   #another gathers CLI calibration info. Wait for both before returning to main.
   downloader = DelosDownload(download_files, options)
-  download_thread = threading.Thread(target=downloader.download)
+  download_thread = threading.Thread(target=downloader.run)
   calibration_thread = threading.Thread(target=CLI.getCalibrationOptions, args=(options,))
   download_thread.start()
   calibration_thread.start()
   download_thread.join()
   calibration_thread.join()
+  #surface any error from the download worker (thread exceptions are otherwise lost);
+  #stop here rather than letting importvla fail later on missing input files.
+  if downloader.error is not None:
+    print(f"\nArchive download failed: {downloader.error}")
+    raise downloader.error
+  #report downloads from the main thread (after the prompts finish) so the output
+  #doesn't interleave with the interactive calibration input()
+  if options.archive_files:
+    print(f"\nDownloaded {len(options.archive_files)} archive file(s):")
+    for path in options.archive_files:
+      print(f"  {path}")
+  else:
+    print("\nWarning: no archive files were downloaded (DelosDownload returned nothing).")
   
 
 if __name__ == "__main__":

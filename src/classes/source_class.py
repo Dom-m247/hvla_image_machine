@@ -67,17 +67,19 @@ class source_info:
     if(id is not False):
       return id
     possible_names = simbad.formatted_names_list(options.search_alias)
+    #strip the B1950/J2000 epoch prefix from BOTH sides before comparing: listobs
+    #names carry it (e.g. 'B0206+35') while SIMBAD aliases often don't ('0206+35').
+    normalized_aliases = {self._normalize_name(name) for name in possible_names}
     for sources in options.observation_data.sources:
-      for name in possible_names:
-        if sources.name == name:
-          self.listobs_name = sources.name
-          return sources.id
+      if self._normalize_name(sources.name) in normalized_aliases:
+        self.listobs_name = sources.name
+        return sources.id
     raise Exception(f"Source name {self.name} not found in listobs or SIMBAD with aliases {possible_names}")
      
   def check_name_in_list_obs(self, options):
     normalized = self._normalize_name(self.name)
     for sources in options.observation_data.sources:
-      if sources.name == self.name or sources.name == normalized:
+      if sources.name == self.name or self._normalize_name(sources.name) == normalized:
         self.listobs_name = sources.name
         return sources.id
     return False

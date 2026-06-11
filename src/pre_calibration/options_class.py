@@ -14,7 +14,7 @@ class Options:
                source=None,
                archive_file = '',
                band='auto',
-               breakpoints=None,
+               breakpoints: list | None = None,
                custom_amp_cal='auto',
                reference_antenna='auto',
                min_snr=3.0,):
@@ -23,7 +23,8 @@ class Options:
     self.source = source
     self.archive_file = archive_file
     self.band = band
-    self.breakpoints = breakpoints
+    #normalize to a list so 'x in options.breakpoints' is always valid (never None)
+    self.breakpoints = breakpoints if breakpoints is not None else []
     self.custom_amp_cal = False if custom_amp_cal is AUTO else True # temp var, not yet implemented 
     self.reference_antenna = reference_antenna
     self.min_snr = min_snr
@@ -64,7 +65,7 @@ class Options:
       self.source_ra = dict_in['source_ra'] #ADD ME TO IMPORT//EXPORT 
       self.source_decl = dict_in['source_decl']
       self.search_alias = dict_in['search_alias']
-      self.breakpoints = dict_in['breakpoints']
+      self.breakpoints = dict_in['breakpoints'] or []
       #self.custom_amp_cal = dict_in['custom_amp_cal']
       self.custom_amp_cal = False if dict_in['custom_amp_cal'] is AUTO else dict_in['custom_amp_cal'] # temp var, not yet implemented 
       self.phase_calibrator_method = dict_in['phase_calibrator_method']

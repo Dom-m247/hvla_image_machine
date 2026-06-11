@@ -4,6 +4,7 @@ MS_SUB_PATH = 'measurement_sets/'
 IMAGES_PATH = 'images/ '
 IMPORT_JSON = 'import.json'
 RS_IMPORT = 'radio_search_results.json'
+DATA_ARCHIVE = 'data_archive/' #local dir for raw archives downloaded from Delos (per-project subdir)
 #Measurment set Name Defaults
 FULLMS = 'fullset' # for the full MS before splitting
 AMP_CAL_MS = 'initial' #'amp_cal_set'
