@@ -187,7 +187,7 @@ class SourceInputWindow:
         )
         if file_path:
             # Check if file has correct extension
-            if file_path.endswith(('.ms', '.exp')):
+            if file_path.endswith(('.ms', '.exp', '.dat')):
                 self.selected_file = file_path
                 self.file_path_var.set(file_path)
             else:

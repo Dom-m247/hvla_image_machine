@@ -50,6 +50,7 @@ class Options:
     self.ref_ant = None
     self.split_observations = None
     self.solint = None
+    self.best_image_base = '' #image_filename base of the best (lowest-RMS) self-cal cycle
     self.val = 0 #debugging variable
     # validate inputs below; else throw err 
        
@@ -93,15 +94,12 @@ class Options:
       sys.exit()
 
   def to_dict(self):
-    summary_dict = {}
-    summary_dict.update(self.__dict__)
-    summary_dict.update({'amp_cal':self.amp_cal.to_dict()})
-    summary_dict.update({'source_ids':self.source_ids.to_dict()}) 
-    if self.phase_cal: 
-      summary_dict.update({'phase_cal':self.phase_cal.to_dict()})
-    summary_dict.update({'observation_data':self.observation_data.to_dict()})
-    summary_dict.update({'init_data':self.init_data.to_dict()})
-    summary_dict.pop('split_observations',None)
+    '''Snapshot of all members for export. Nested objects (source_info, Obs_data,
+    argparse Namespace, numpy scalars, ...) are converted at json.dump time by
+    import_settings._json_default, so this stays simple and None-safe -- no manual
+    per-field .to_dict() calls that crash when a calibrator/data member is still unset.'''
+    summary_dict = dict(self.__dict__)
+    summary_dict.pop('split_observations', None) #bulky listobs result, omit from export
     return summary_dict
   
   def generate_dict(self):
@@ -126,13 +124,5 @@ class Options:
     if self.do_self_cal:
       summary_dict.update({'self_cal_cycles':self.self_cal_cycles})
     return summary_dict
-  
-  def generate_debug_dict(self):
-    '''add extra data found - Defunct?'''
-   
-    summary_dict = self.generate_dict() 
-    summary_dict.update({'amp_cal_source':self.amp_cal_source})
-    summary_dict.update({'observation_data':self.observation_data}) 
-    summary_dict.update({'init_data':self.init_data})
 
 

@@ -55,12 +55,25 @@ def build_spwID(options:Options):
 
 def define_split_fields_phase_cal(options:Options):
   #needs multiple MS integration
-  if options.self_phase_cal:
-    print(f"Self Phase Calibration Selected, splitting | {str(options.source_ids.field_id)},{str(options.amp_cal.field_id)}")
-    return str(options.source_ids.field_id) + ',' + str(options.amp_cal.field_id)
-  else:
-    print(f"splitting on fields('src,amp,phase) | {str(options.source_ids.field_id)},{str(options.amp_cal.field_id)},{str(options.phase_cal.field_id)} ")
-    split_fields = str(options.source_ids.field_id) + ',' + str(options.amp_cal.field_id) + ',' + str(options.phase_cal.field_id)
+  #(label, field_id) for each field that must be in the split. self-phase-cal needs
+  #no separate phase calibrator (the target self-calibrates).
+  required = [('target', options.source_ids.field_id),
+              ('flux calibrator', options.amp_cal.field_id)]
+  if not options.self_phase_cal:
+    required.append(('phase calibrator', options.phase_cal.field_id))
+
+  #fail loudly if an id is missing rather than emitting malformed CASA syntax like "59,".
+  #note: field id 0 is valid, so test for an empty string, not falsiness.
+  missing = [label for label, fid in required if str(fid).strip() == '']
+  if missing:
+    raise ValueError(
+      f"Cannot build split field selection: missing field id for {', '.join(missing)} "
+      f"(calibrator detection likely failed upstream)."
+    )
+
+  split_fields = ','.join(str(fid) for _, fid in required)
+  mode = 'self-phase-cal (src,amp)' if options.self_phase_cal else 'src,amp,phase'
+  print(f"Splitting on fields [{mode}]: {split_fields}")
   return split_fields
 
 

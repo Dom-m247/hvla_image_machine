@@ -31,6 +31,7 @@ INITIAL_NITER = 250 # half of niter from tutorial
 MIN_SNR = 3.0 #a default min SNR for gaincal
 FIRST_IMAGE = 'image'
 MIN_FLUX_FOR_SELF_CAL = 0.02 #Jy,
+SELF_CAL_MIN_IMPROVEMENT_PCT = 10 #stop self-cal once an improving cycle gains < this % in RMS
 
 #class Band:
   #band name, GHZ range, MHZ range, Angular res, Solint?

@@ -50,7 +50,10 @@ class Cleaner:
                pbimage=options.image_filename+'.pb.tt0',
                outfile=options.image_filename+'.pbcorimage',
                overwrite=True)
-    return ct.imstat(imagename=options.image_filename+'.pbcorimage')
+    Cleaner.export_png(options.image_filename)
+    #RMS/improvement score is measured on the flat-noise restored image, not the
+    #pbcor image (whose noise blows up toward the edges and would skew the RMS).
+    return ct.imstat(imagename=options.image_filename+'.image.tt0')
   
   def self_cal_cycle(options:Options,iter):#,solint):
     '''
@@ -90,28 +93,54 @@ class Cleaner:
                pbimage=options.image_filename+'_'+iter+'.pb.tt0',
                outfile=options.image_filename+'_'+iter+'.pbcorimage',
                overwrite=True)
+    Cleaner.export_png(options.image_filename+'_'+iter)
     pprint.pp(x)
-    return ct.imstat(imagename=options.image_filename+'_'+iter+'.pbcorimage')
+    #flat-noise restored image for a consistent, uniform-noise RMS (see initial_cycle)
+    return ct.imstat(imagename=options.image_filename+'_'+iter+'.image.tt0')
   
 
   def image_gen(self, options:Options):
     '''
-    Handle generating an image!
+    Handle generating an image. Runs the initial clean, then self-cal cycles that
+    stop early (on convergence OR divergence) and keep the best (lowest-RMS) image.
+
+    Records the best image's filename base on options.best_image_base and returns
+    the best image_data.Image.
     '''
-    #initial cleaning,
-    images = []
-    
-    images.append(image_data.Image(options,Cleaner.initial_cycle(options=options)))
+    #initial clean: the baseline the self-cal cycles must beat
+    initial = image_data.Image(options, Cleaner.initial_cycle(options=options))
+    best = {'base': options.image_filename, 'rms': initial.rms[0],
+            'image': initial, 'cycle': 'initial'}
+    prev_rms = initial.rms[0]
+
     if options.do_self_cal:
-      for iterations in range(options.self_cal_cycles):
-        images.append(image_data.Image(options,Cleaner.self_cal_cycle(options,iterations)))
-        print(f"{type(images[iterations].rms)} | {type(images[iterations+1].rms[0])}")
-        improvment_score = ((images[iterations].rms[0] / images[iterations+1].rms[0]) * 100) - 100
-        print(f"Image Improvment: Last image - {images[iterations].rms[0]} | current image {images[iterations+1].rms[0]}")
-        print(f"That's an improvment of {improvment_score}%")
-        if improvment_score < 10:
-          print(f"Not meeting improvment requirment")
-          #break
+      for iteration in range(options.self_cal_cycles):
+        current = image_data.Image(options, Cleaner.self_cal_cycle(options, iteration))
+        curr_rms = current.rms[0]
+        if curr_rms <= 0:
+          print(f"Self-cal cycle {iteration}: non-positive RMS ({curr_rms}); stopping.")
+          break
+        #improvement > 0 -> RMS dropped (better); < 0 -> RMS rose (diverging)
+        improvement = ((prev_rms / curr_rms) * 100) - 100
+        print(f"Self-cal cycle {iteration}: RMS {prev_rms:.3e} -> {curr_rms:.3e} ({improvement:+.1f}%)")
+
+        #keep-best: adopt this cycle only if it genuinely lowered the RMS
+        if curr_rms < best['rms']:
+          best = {'base': f"{options.image_filename}_{iteration}", 'rms': curr_rms,
+                  'image': current, 'cycle': iteration}
+
+        #early stop
+        if improvement < 0:
+          print("  RMS increased -> self-cal diverging; stopping, keeping best so far.")
+          break
+        if improvement < SELF_CAL_MIN_IMPROVEMENT_PCT:
+          print(f"  improvement < {SELF_CAL_MIN_IMPROVEMENT_PCT}% -> converged; stopping.")
+          break
+        prev_rms = curr_rms
+
+    options.best_image_base = best['base']
+    print(f"Best image: {best['base']} (cycle {best['cycle']}, RMS {best['rms']:.3e})")
+    return best['image']
     #for each in images:
     #  pprint.pp(f"{each.__dict__}")
 
@@ -131,6 +160,28 @@ class Cleaner:
     print(f"{casalogFile}")
     print(f"----------------")
     casashell.start_casa('--logfile logfile.txt')  
+
+  def export_png(image_base, outfile=None):
+    '''Render the restored tclean image to a PNG. Best-effort: a failure here
+    (e.g. no display) is logged but never breaks the imaging pipeline.
+
+    mtmfs/nterms writes <name>.image.tt0; other deconvolvers write <name>.image.
+    '''
+    import os
+    image = next((image_base + ext for ext in ('.image.tt0', '.image')
+                  if os.path.isdir(image_base + ext)), None)
+    if image is None:
+      print(f"PNG export skipped: no restored image found for {image_base}")
+      return None
+    outfile = outfile or (image_base + '.png')
+    try:
+      import casaviewer
+      casaviewer.imview(raster={'file': image, 'colorwedge': True}, out=outfile)
+      print(f"Wrote image PNG: {outfile}")
+    except Exception as e:
+      print(f"PNG export failed ({image}): {e}")
+      return None
+    return outfile
 
   def find_cell_size(options:Options):
     '''

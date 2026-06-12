@@ -307,31 +307,43 @@ class DelosDownload:
 
     @classmethod
     def _archive_year(cls, entry):
-        """4-digit observation year for an entry (date field first, then YY in file name)."""
+        """4-digit observation year for an entry. Uses the date field first, then a
+        year embedded in the file name. Handles both the old 2-digit form (e.g.
+        '87-Aug-20' / VLA_XH87021...) and the newer 4-digit form (e.g. '2003-11-17'
+        / vla2003-11-17.dat)."""
         date = getattr(entry, 'date', None)
         if date:
-            year = cls._yy_to_year(str(date).split('-')[0])
+            year = cls._normalize_year(str(date).split('-')[0])
             if year:
                 return year
-        match = re.search(r'(\d{2})', str(cls._file_name(entry)))
-        year = cls._yy_to_year(match.group(1)) if match else None
+        name = str(cls._file_name(entry))
+        #prefer a full 4-digit year in the name, else fall back to a 2-digit year
+        match = re.search(r'(?:19|20)\d{2}', name) or re.search(r'\d{2}', name)
+        year = cls._normalize_year(match.group(0)) if match else None
         if not year:
             raise ValueError(f"Cannot determine observation year for {entry!r}")
         return year
 
     @staticmethod
-    def _yy_to_year(yy):
-        """Expand a 2-digit year to 4 digits (pivot 69: 69-99 -> 19xx, else 20xx)."""
-        yy = str(yy).strip()
-        if not (yy.isdigit() and len(yy) == 2):
+    def _normalize_year(token):
+        """Normalize a year token to a 4-digit year string: 4-digit (1900-2099) as-is;
+        2-digit via pivot 69 (69-99 -> 19xx, else 20xx). None if not a year."""
+        token = str(token).strip()
+        if not token.isdigit():
             return None
-        n = int(yy)
-        return str(1900 + n if n >= 69 else 2000 + n)
+        if len(token) == 4 and 1900 <= int(token) <= 2099:
+            return token
+        if len(token) == 2:
+            n = int(token)
+            return str(1900 + n if n >= 69 else 2000 + n)
+        return None
 
     def remote_url(self, entry, base_url=None):
-        """Build the Delos HTTP URL for an archive file entry."""
+        """Build the Delos HTTP URL for an archive file entry. The file name may be a
+        bare name (VLA_XH87021_file2.dat) or carry a subpath (VLA/2003-11/vla2003-11-17.dat);
+        Delos stores everything by year as {base}{year}/{basename}."""
         base = base_url or self._resolve_base_url()
-        return f"{base}{self._archive_year(entry)}/{self._file_name(entry)}"
+        return f"{base}{self._archive_year(entry)}/{Path(self._file_name(entry)).name}"
 
     def run(self):
         """Thread entry point: run download(), capturing any exception so the caller

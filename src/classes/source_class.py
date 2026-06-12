@@ -25,7 +25,7 @@ class source_info:
     if options.band == AUTO:
       self.find_bands(options)
 
-    if self.type == TYPE_FLUX_CAL and options.custom_amp_cal == AUTO:
+    if self.type == TYPE_FLUX_CAL and not options.custom_amp_cal:
       print(f"finding flux cal!!!!!!!!!!!!!")
       if not self.detect_flux_cal_first(options):
         raise Exception('No Calibrator was detected for setJy')
@@ -37,7 +37,7 @@ class source_info:
       #self.detect_by_nrows(options,self.type) outdated, does not fuction consitiently
 
       self.find_phase_cal_distance(options)
-    elif self.type == TYPE_FLUX_CAL and options.custom_amp_cal != AUTO: #Change to Phase Cal? AND or Add phase cla
+    elif self.type == TYPE_FLUX_CAL and options.custom_amp_cal: #Change to Phase Cal? AND or Add phase cla
       self.manual_amp_cal(options)
     elif self.type == TYPE_TARGET and (self.name is not None):
       #a source was specified

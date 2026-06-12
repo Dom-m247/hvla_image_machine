@@ -1,11 +1,32 @@
 #handles importing/exporting setting/data to json file
 #from .options_class import Options
 #from casatasks import casalog
-import json,sys
-from classes.constants import FOLDER_NAME, IMPORT_JSON, EXPORT_KEYS, RS_IMPORT
+import argparse, json, sys
+from classes.constants import FOLDER_NAME, IMPORT_JSON, RS_IMPORT
 from .options_class import Options
 import pprint
 
+
+def _json_default(obj):
+  """Fallback JSON encoder for non-serializable Options members (argparse Namespace,
+  nested data/source objects, numpy scalars, ...). Keeps export robust as new fields
+  are added to Options instead of failing on each newly-introduced type."""
+  if isinstance(obj, argparse.Namespace):
+    return vars(obj)
+  to_dict = getattr(obj, 'to_dict', None)
+  if callable(to_dict):
+    return to_dict()
+  try:
+    import numpy as np
+    if isinstance(obj, np.generic):
+      return obj.item()
+    if isinstance(obj, np.ndarray):
+      return obj.tolist()
+  except ImportError:
+    pass
+  if hasattr(obj, '__dict__'):
+    return vars(obj)
+  return str(obj)
 
 
 def add_path(archivePath):
@@ -40,16 +61,6 @@ def import_options():
     #print("An error occured trying to Import settings.")
     #sys.exit()
 
-def prepare_dict_export(data:Options):
-  """
-  extract and compile pertinante info from object for export
-  """
-  export_dict = data.to_dict()
-  for key in EXPORT_KEYS:
-    newDict = {key : data.get_dict_sp(key)}
-    export_dict.update(newDict)
-  return export_dict
-
 def generate_import(data_obj:Options,filename="import"):
   """
   generate the import.json file for another user.
@@ -63,9 +74,9 @@ def generate_import(data_obj:Options,filename="import"):
   
     dataToSerialize['archive_file'] = revmove_path(dataToSerialize['archive_file'])
     with open(filename+".json","w") as json_file: 
-       json.dump(dataToSerialize,json_file,indent=4)
-  except RuntimeError as e:
-    print("error exporting to json") 
+       json.dump(dataToSerialize,json_file,indent=4,default=_json_default)
+  except Exception as e:
+    print(f"error exporting to json: {e}")
 
 def generate_debug_export(data_obj,filename="debug_export"):
   """generates an importable options data class file"""
@@ -77,6 +88,6 @@ def generate_debug_export(data_obj,filename="debug_export"):
     dataToSerialize = data_obj.to_dict()
     dataToSerialize['archive_file'] = revmove_path(dataToSerialize['archive_file'])
     with open(filename+".json","w") as json_file: 
-       json.dump(dataToSerialize,json_file,indent=4)
-  except RuntimeError as e:
-    print("error exporting to json") 
+       json.dump(dataToSerialize,json_file,indent=4,default=_json_default)
+  except Exception as e:
+    print(f"error exporting to json: {e}")
