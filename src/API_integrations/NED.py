@@ -2,10 +2,12 @@ from astroquery.ipac.ned import Ned
 from classes.constants import BAND_MHZ_RANGES, MIN_FLUX_FOR_SELF_CAL
 from pprint import pp
 from requests.exceptions import Timeout, ConnectionError
+from typing import Any, cast
 
 
 class NED_API:
   '''functions for NED integration'''
+  @staticmethod
   def obj_exists(source_name):
     """
     Query NED to check a source exists under name
@@ -13,7 +15,8 @@ class NED_API:
     ned = Ned()
     try:
       ned.TIMEOUT = 10  # seconds
-      query = ned.query_object(object_name=source_name)
+      #astroquery is untyped: query_object returns an astropy Table at runtime
+      query = cast(Any, ned.query_object(object_name=source_name))
       if len(query) == 1:
         ra = float(query['RA'])
         decl = float(query['DEC'])
@@ -30,6 +33,7 @@ class NED_API:
       print(f"Error occurred while querying NED: {e}")
       return False
     
+  @staticmethod
   def get_photometry(source_name):
     """
     Query NED for photometry table, with one retry on failure.
@@ -38,7 +42,8 @@ class NED_API:
     ned = Ned()
     for attempt in range(2):
       try:
-        result = ned.get_table(object_name=source_name, table='photometry')
+        #astroquery is untyped: get_table returns an astropy Table at runtime
+        result = cast(Any, ned.get_table(object_name=source_name, table='photometry'))
         return result
       except Exception as e:
         if attempt == 0:
@@ -47,6 +52,7 @@ class NED_API:
           print(f"Error occurred while querying NED for Photometry: {e}")
     return False
 
+  @staticmethod
   def do_photonometry_check(source_name, band, alias=None):
     print("Checking self-calibration potential")
     photometry_table = NED_API.get_photometry(source_name)
@@ -72,6 +78,7 @@ class NED_API:
     return False
   
 
+  @staticmethod
   def check_self_cal_potential(source_name,band):
     """
     Check if a source has potential for self-calibration based on its photometry and the band of observation

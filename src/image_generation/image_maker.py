@@ -9,6 +9,7 @@ from classes.Loading_Animation import *
 #I(this script) am so FULL of magic numbers 🥰 that are absolutley pulled from thin Air 
 
 class Cleaner:
+  @staticmethod
   def initial_cycle(options:Options,
                    imagename='first_imamge',
                    vis = CALIBRATED_MS+'.ms',
@@ -41,7 +42,7 @@ class Cleaner:
                   savemodel=savemodel,
                   nterms=nterms,
                   scales=scales,
-                  cell=str(options.cell_size)+'arcsec',
+                  cell=options.cell_size,
                   imsize=options.image_size,
                   pblimit=-0.1
                   #mask='circle[[800pix,800pix],600pix]'
@@ -55,6 +56,7 @@ class Cleaner:
     #pbcor image (whose noise blows up toward the edges and would skew the RMS).
     return ct.imstat(imagename=options.image_filename+'.image.tt0')
   
+  @staticmethod
   def self_cal_cycle(options:Options,iter):#,solint):
     '''
     Runs a single automated cycle of self calibration
@@ -85,7 +87,7 @@ class Cleaner:
                   savemodel=savemodel,
                   nterms=nterms,
                   scales=scales,
-                  cell=str(options.cell_size)+'arcsec',
+                  cell=options.cell_size,
                   imsize=options.image_size,
                   pblimit = -0.01
     )
@@ -144,6 +146,7 @@ class Cleaner:
     #for each in images:
     #  pprint.pp(f"{each.__dict__}")
 
+  @staticmethod
   def find_solint_variations(options:Options):
     '''
     define different solints for self cal cycles, and run cycles with those solints to find the best one 
@@ -151,6 +154,7 @@ class Cleaner:
     obs_solint = options.solint
     
 
+  @staticmethod
   def manual_clean_calibration(options:Options):
     '''
     for doing manual calibration while also manual cleaning 
@@ -161,9 +165,15 @@ class Cleaner:
     print(f"----------------")
     casashell.start_casa('--logfile logfile.txt')  
 
+  @staticmethod
   def export_png(image_base, outfile=None):
-    '''Render the restored tclean image to a PNG. Best-effort: a failure here
-    (e.g. no display) is logged but never breaks the imaging pipeline.
+    '''Render the restored tclean image to a PNG via casaviewer, run under a
+    headless virtual X display (Xvfb) so no real monitor / $DISPLAY is needed and
+    it can't hang on "waiting for viewer process". Best-effort -- any failure is
+    logged but never breaks the imaging pipeline.
+
+    Requires the Xvfb binary (system package 'xvfb') and the 'xvfbwrapper' python
+    package (in requirements.txt).
 
     mtmfs/nterms writes <name>.image.tt0; other deconvolvers write <name>.image.
     '''
@@ -175,21 +185,85 @@ class Cleaner:
       return None
     outfile = outfile or (image_base + '.png')
     try:
+      import io, contextlib
+      from xvfbwrapper import Xvfb
       import casaviewer
-      casaviewer.imview(raster={'file': image, 'colorwedge': True}, out=outfile)
+      #Xvfb sets $DISPLAY for casaviewer's spawned viewer subprocess, then tears down
+      with Xvfb():
+        #casaviewer is chatty on stdout ("(N) waiting for viewer process...") -- swallow it
+        with contextlib.redirect_stdout(io.StringIO()):
+          casaviewer.imview(raster={'file': image, 'colorwedge': True}, out=outfile)
+          #Shut the persistent viewer process down while $DISPLAY is still alive, so it
+          #closes its own X11 connection cleanly instead of printing "The X11 connection
+          #broke (error 1)" when the `with Xvfb()` block tears the display down underneath it.
+          Cleaner._shutdown_casaviewer()
       print(f"Wrote image PNG: {outfile}")
     except Exception as e:
       print(f"PNG export failed ({image}): {e}")
       return None
     return outfile
 
+  @staticmethod
+  def _shutdown_casaviewer():
+    '''Gracefully stop the persistent casaviewer viewer subprocess that imview()
+    spawns and caches for reuse (it otherwise lingers until interpreter exit).
+
+    We render each PNG under a short-lived Xvfb display, so a viewer left running
+    when the display is torn down prints "The X11 connection broke (error 1)".
+    Calling this while $DISPLAY is still up asks the viewer to shut itself down
+    (graceful gRPC shutdown -> clean X11 close), removes it from the casatools
+    service registry, kills any leftover process, and clears viewertool's caches
+    so the next export_png() launches a fresh viewer instead of pinging a dead one.
+
+    Best-effort: reaches into casaviewer's private state, so any failure is ignored.'''
+    try:
+      from casaviewer.private import viewertool as vt
+    except Exception:
+      return
+    vdict = vt.__dict__
+    #ask each live viewer to shut itself down (casaviewer's own graceful shutdown)
+    try:
+      vdict['__shutdown_sans_casatools']()
+    except Exception:
+      pass
+    #drop the now-dead viewer(s) from the casatools registry so a relaunch can't
+    #rediscover a stale URI
+    try:
+      from casatools import ctsys
+      for uri in (vdict.get('__uri') or {}).values():
+        if uri:
+          try: ctsys.remove_service(uri)
+          except Exception: pass
+    except Exception:
+      pass
+    #make sure the subprocess is really gone
+    for proc in (vdict.get('__proc') or {}).values():
+      if proc is not None:
+        try: proc.kill()
+        except Exception: pass
+    #reset viewertool's per-server caches -> next call goes straight to a clean launch
+    for cache_name in ('__proc', '__uri', '__stub', '__channel', '__stub_id'):
+      cache = vdict.get(cache_name)
+      if isinstance(cache, dict):
+        for key in cache:
+          cache[key] = None
+
+  @staticmethod
   def find_cell_size(options:Options):
-    '''
-    IF not specified returns 1/10th of the corresponding band's max angular freq
-    '''
+    '''Return the tclean cell size as a clean '<N>arcsec' string. Uses the custom
+    value if set, else 1/10th of the band's angular resolution for the array config.'''
     if options.use_custom_cell_size:
-      #options selected as True, 
-      return options.cell_size
-    angular_res = BAND_ANGULAR_RESOLUTION[options.band][ARRAY_CONFIGURATION]
-    return (angular_res)/10
+      cell = options.cell_size
+    else:
+      cell = BAND_ANGULAR_RESOLUTION[options.band][ARRAY_CONFIGURATION] / 10
+    return Cleaner._as_arcsec(cell)
+
+  @staticmethod
+  def _as_arcsec(value):
+    '''Normalize a cell size (number, '0.03', or '0.03arcsec') to exactly one
+    'arcsec' suffix -- prevents the '0.03arcsecarcsec' double-suffix tclean error.'''
+    s = str(value).strip()
+    while s.endswith('arcsec'):
+      s = s[:-len('arcsec')].strip()
+    return f"{s}arcsec"
 

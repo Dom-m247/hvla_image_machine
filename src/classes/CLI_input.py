@@ -10,6 +10,7 @@ from API_integrations.NED import NED_API
 class CLI:
   
   '''Helper functions for terminal interactions, managing input'''
+  @staticmethod
   def getOptions(options:Options):
     '''
     get options from terminal input
@@ -30,7 +31,7 @@ class CLI:
     options.interactive_image = CLI.getYesNo("Enable interactive imaging?")
     options.use_custom_cell_size = CLI.getYesNo("Use a custom cell size?")
     if options.use_custom_cell_size:
-      options.cell_size = CLI.getCellSize()
+      options.cell_size = CLI.getCellSize(options.band)
     options.deconvolver = CLI.getDeconvolver()
     options.weighting = CLI.getWeighting()
     options.do_self_cal = CLI.getYesNo("Enable self-calibration?")
@@ -38,6 +39,7 @@ class CLI:
       options.self_cal_cycles = CLI.getSelfCalCycles()
 
 
+  @staticmethod
   def getCalibrationOptions(options:Options):
     '''Gather calibration/imaging options for radio_search mode.
     Source info is collected during the radio search and the archive files are
@@ -55,13 +57,14 @@ class CLI:
     options.interactive_image = CLI.getYesNo("Enable interactive imaging?")
     options.use_custom_cell_size = CLI.getYesNo("Use a custom cell size?")
     if options.use_custom_cell_size:
-      options.cell_size = CLI.getCellSize()
+      options.cell_size = CLI.getCellSize(options.band)
     options.deconvolver = CLI.getDeconvolver()
     options.weighting = CLI.getWeighting()
     options.do_self_cal = CLI.getYesNo("Enable self-calibration?")
     if options.do_self_cal:
       options.self_cal_cycles = CLI.getSelfCalCycles()
 
+  @staticmethod
   def getSourceInfo(options:Options):
     '''
     get options from terminal input
@@ -74,6 +77,7 @@ class CLI:
     options.search_alias = source_dict['alias']
     options.band = CLI.getBand()
 
+  @staticmethod
   def getBreakpoints():
     '''get the breakpoints to set for the script
       ie: data flagging, doing self-cal, manual clean, etc.
@@ -94,6 +98,7 @@ class CLI:
         print("Invalid input. Please enter valid breakpoints.")
     return breakpoints
 
+  @staticmethod
   def getBand():
     '''get band'''
     while True:
@@ -108,6 +113,7 @@ class CLI:
         print("Invalid input. Please enter a valid band.")
     return band
 
+  @staticmethod
   def getObservationArchive():
     '''get the data archive or MS'''
     while True:
@@ -121,6 +127,7 @@ class CLI:
       break
     return archive
   
+  @staticmethod
   def get_source():
     '''get source name'''
     while True:
@@ -136,6 +143,7 @@ class CLI:
     result.update({'source':source})
     return result
   
+  @staticmethod
   def getYesNo(prompt: str) -> bool:
     '''Generic yes/no prompt; defaults to No on empty input.'''
     while True:
@@ -148,11 +156,13 @@ class CLI:
         return False
       print("Please enter y or n.")
 
+  @staticmethod
   def getCustomAmpCal() -> str:
     '''Get amplitude calibrator; enter to use auto detection.'''
     val = input("Enter custom amplitude calibrator name (or press enter for auto): ").strip()
     return val if val else AUTO
 
+  @staticmethod
   def getPhaseCalibratorMethod() -> str:
     '''Choose phase calibrator selection method.'''
     options_list = ["auto", "force phase calibrator", "pick phase calibrator"]
@@ -172,11 +182,13 @@ class CLI:
           return val
       print(f"Invalid selection. Enter 1-{len(options_list)} or press enter.")
 
+  @staticmethod
   def getReferenceAntenna() -> str:
     '''Get reference antenna; enter to use auto selection.'''
     val = input("Enter reference antenna name (or press enter for auto): ").strip()
     return val if val else AUTO
 
+  @staticmethod
   def getMinSNR() -> float:
     '''Get minimum SNR for gaincal; enter for default 3.0.'''
     while True:
@@ -191,11 +203,13 @@ class CLI:
       except ValueError:
         print("Invalid input. Please enter a number.")
 
-  def getImageFilename() -> str:
-    '''Get output image filename; enter to auto-generate.'''
+  @staticmethod
+  def getImageFilename() -> str | None:
+    '''Get output image filename; enter (returns None) to auto-generate.'''
     val = input("Enter image filename (or press enter to auto-generate): ").strip()
     return val if val else None
 
+  @staticmethod
   def getImageSize() -> list:
     '''Get image size as a single side length (square); enter for default.'''
     default = DEFAULT_IMAGE_SIZE[0]
@@ -211,16 +225,24 @@ class CLI:
       except ValueError:
         print("Invalid input. Please enter a whole number, e.g. 2048.")
 
-  def getCellSize() -> str:
-    '''Get cell size in arcseconds.'''
+  @staticmethod
+  def getCellSize(band=None) -> str:
+    '''Get cell size in arcseconds. If a resolved band is given, the example in
+    the prompt uses the recommended cell (~1/10 of the band's angular resolution
+    for the current array config, matching Cleaner.find_cell_size). Any value is
+    accepted. Band may be 'auto' (not yet resolved), which uses a generic example.'''
+    example = '0.5'
+    if band and band != 'auto' and band in BAND_ANGULAR_RESOLUTION:
+      example = f"{BAND_ANGULAR_RESOLUTION[band][ARRAY_CONFIGURATION] / 10:g}"
     while True:
-      val = input("Enter cell size in arcseconds (e.g. 0.5arcsec or 0.5): ").strip()
+      val = input(f"Enter cell size in arcseconds (e.g. {example}arcsec or {example}): ").strip()
       if val:
         if not val.endswith('arcsec'):
           val = val + 'arcsec'
         return val
       print("Cell size is required when custom cell size is enabled.")
 
+  @staticmethod
   def getDeconvolver() -> str:
     '''Choose deconvolver algorithm.'''
     options_list = ["mtmfs", "hogbom", "clark", "multiscale", "mem", "clarkstokes", "asp"]
@@ -240,6 +262,7 @@ class CLI:
           return val
       print(f"Invalid selection. Enter 1-{len(options_list)} or press enter.")
 
+  @staticmethod
   def getWeighting() -> str:
     '''Choose imaging weighting scheme.'''
     options_list = ["briggs", "natural", "uniform", "superuniform", "radial", "briggsabs", "briggsbwtaper"]
@@ -259,6 +282,7 @@ class CLI:
           return val
       print(f"Invalid selection. Enter 1-{len(options_list)} or press enter.")
 
+  @staticmethod
   def getSelfCalCycles() -> int:
     '''Get number of self-calibration cycles.'''
     while True:
@@ -273,6 +297,7 @@ class CLI:
       except ValueError:
         print("Invalid input. Please enter an integer.")
 
+  @staticmethod
   def getOptionsFullCLI(options:Options):
     '''for organizing call order on full CLI no rs'''
     #get/unpack archive do listobs
@@ -282,6 +307,7 @@ class CLI:
     #else -> guess/choose calibrator
     pass
 
+  @staticmethod
   def getRSArchive():
     '''a function to get the archive name from radio search'''
     while True:
@@ -294,14 +320,38 @@ class CLI:
         print("something borked Please enter a valid name or press enter to canel.")
     return archive
   
+  @staticmethod
   def fullCLI(options:Options):
     """Handles the procession for input via cli ->
     will ask user if not self-cal 
     """
     pass
 
+  #Observations from this year onward are highlighted red in the selection table
+  #(radio_search2 dates are 'YY-Mon-DD', so 09 == 2009).
+  RADIO_SEARCH_HIGHLIGHT_YEAR = 2009
+  _RED = '\033[31m'
+  _RESET = '\033[0m'
+
+  @staticmethod
+  def _observation_year(date_str):
+    '''Parse the 4-digit year from a radio_search2 date. Dates come as 'YY-Mon-DD'
+    (e.g. '03-Dec-01'); a 4-digit 'YYYY-...' form is also accepted. 2-digit years
+    pivot at 69 (69-99 -> 19xx, else 20xx). Returns an int year, or None.'''
+    token = (date_str or '').split('-')[0].strip()
+    if not token.isdigit():
+      return None
+    if len(token) == 4:
+      return int(token)
+    if len(token) == 2:
+      n = int(token)
+      return 1900 + n if n >= 69 else 2000 + n
+    return None
+
+  @staticmethod
   def selectObservation(observations) -> object:
-    '''Display a table of nrao_observeration objects and prompt the user to select one.'''
+    '''Display a table of nrao_observeration objects and prompt the user to select one.
+    Rows observed in RADIO_SEARCH_HIGHLIGHT_YEAR or later are shown in red.'''
     if not observations:
       print("No observations found.")
       return None
@@ -312,11 +362,16 @@ class CLI:
     )
     print(header)
     print('-' * (len(header) + 8))
+    print(f"{CLI._RED}Red{CLI._RESET} = observed {CLI.RADIO_SEARCH_HIGHLIGHT_YEAR} or later")
     for i, obs in enumerate(observations, 1):
-      print(
+      row = (
         f"{i:>3}  {obs.date:<12} {obs.proj_code:<12} {obs.seg:<10} "
         f"{obs.band:<5} {obs.cfg:<5} {obs.sensitivity:<12} {obs.separation:<12} {obs.time:<8} {obs.name}"
       )
+      year = CLI._observation_year(obs.date)
+      if year is not None and year >= CLI.RADIO_SEARCH_HIGHLIGHT_YEAR:
+        row = f"{CLI._RED}{row}{CLI._RESET}"
+      print(row)
 
     while True:
       val = input(f"\nSelect an observation by number (1-{len(observations)}, or press enter to cancel): ").strip()
@@ -330,6 +385,7 @@ class CLI:
       except ValueError:
         print("Invalid input. Please enter a number.")
 
+  @staticmethod
   def getManualPhaseCalibrator(options:Options):
     '''get manual phase calibrator name from user by listobs'''
     #print listobs

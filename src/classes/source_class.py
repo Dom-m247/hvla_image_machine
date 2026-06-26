@@ -13,7 +13,7 @@ AUTO = 'auto'
 
 class source_info:
   #TODO: upgrade to utilize other 'better' claibrators
-  def __init__(self,options,type='',name='',listobs_name='',source_id='',field_id=''):
+  def __init__(self,options,type='',name: str | None='',listobs_name='',source_id='',field_id=''):
     self.type = type
     self.name = name
     self.listobs_name = listobs_name
@@ -49,7 +49,7 @@ class source_info:
       
       #check_self_phase_cal = 
     #extra members defined by initial ms split after initilization
-    self.initial_ms_fieldID = ''
+    self.initial_ms_fieldID: int | str | None = ''
   
   def find_fieldID(self,data_source):
     for field in data_source.fields:
@@ -67,6 +67,8 @@ class source_info:
     if(id is not False):
       return id
     possible_names = simbad.formatted_names_list(options.search_alias)
+    if possible_names is False:
+      raise Exception(f"Source name {self.name} not found in listobs and not resolvable by SIMBAD")
     #strip the B1950/J2000 epoch prefix from BOTH sides before comparing: listobs
     #names carry it (e.g. 'B0206+35') while SIMBAD aliases often don't ('0206+35').
     normalized_aliases = {self._normalize_name(name) for name in possible_names}
@@ -102,6 +104,8 @@ class source_info:
     if source_type == TYPE_PHASE_CAL:
       phase_cal_position = 1 #the location of the object to be used as a phase calibrator
       source_field_entry = fields[(sorted_nrows[phase_cal_position])[0]] # gets the field ID of the 2nd most observed field
+    if source_field_entry is None:
+      raise Exception(f"detect_by_nrows: unsupported source_type '{source_type}'")
     self.name = source_field_entry.name
     self.source_id = source_field_entry.src_id
     self.field_id = source_field_entry.id
@@ -199,8 +203,13 @@ class source_info:
     '''
     from astropy.coordinates import SkyCoord
     from classes.nrao_calibrators import NRAOCalibrators
-  
-    def _to_skycoord(ra_str, decl_str):
+    from typing import cast
+
+    def _sep_deg(a: SkyCoord, b: SkyCoord) -> float:
+      #astropy is untyped: .deg is a scalar float at runtime, narrow it for the checker
+      return cast(float, a.separation(b).deg)
+
+    def _to_skycoord(ra_str, decl_str) -> SkyCoord:
       # decl from listobs uses dot separators: +35.47.50.538 -> +35:47:50.538
       sign = decl_str[0] if decl_str[0] in '+-' else '+'
       parts = decl_str.lstrip('+-').split('.', 2)
@@ -221,7 +230,7 @@ class source_info:
     # sort closest -> furthest from target
     sorted_candidates = sorted(
       candidates.items(),
-      key=lambda item: source_coord.separation(item[1][1]).deg
+      key=lambda item: _sep_deg(source_coord, item[1][1])
     )
 
     nrao = NRAOCalibrators()
@@ -233,7 +242,7 @@ class source_info:
         self.field_id = field.id
         self.source_id = field.src_id
         self.set_RA_DECL(options)
-        sep = source_coord.separation(coord).deg
+        sep = _sep_deg(source_coord, coord)
         ct.casalog.post(f'Phase cal: {self.name} ({sep:.2f} deg from target)')
         if sep > 10:
           ct.casalog.post(f'WARNING: Phase calibrator {self.name} is {sep:.2f} deg from target — calibration may be degraded.', priority='WARN')
@@ -248,11 +257,13 @@ class source_info:
       self.field_id = field.id
       self.source_id = field.src_id
       self.set_RA_DECL(options)
-      sep = source_coord.separation(coord).deg
+      sep = _sep_deg(source_coord, coord)
       ct.casalog.post(f'Phase cal (NRAO unconfirmed): {self.name} ({sep:.2f} deg from target)')
       if sep > 10:
         ct.casalog.post(f'WARNING: Phase calibrator {self.name} is {sep:.2f} deg from target — calibration may be degraded.', priority='WARN')
         print(f"WARNING: Phase calibrator '{self.name}' is {sep:.2f} degrees from target source. Calibration quality may be degraded.")
+  
+  @staticmethod
   def verify_model(data):
     '''
       verify that the amp calibrator alligns with the selceted Band

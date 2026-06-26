@@ -9,6 +9,8 @@ class AmpCalWindow:
   def __init__(self, master, app):
     self.master = master
     self.app = app
+    self.band_var = tk.StringVar(value="auto")  #amp-cal band (no selector UI yet; defaults auto)
+    self.selected_file = None                   #optional pre-selected observation file
     #establish window properties (random af nums lol)
     master.title("Amp Calibrator Input")
     master.geometry("600x400")
@@ -55,7 +57,8 @@ class AmpCalWindow:
         text="Submit",
         command=self.submit_amp_cal,
         state="disabled"
-    ).pack(side="right", padx=5)
+    )
+    self.submit_source_button.pack(side="right", padx=5)
     
     ttk.Button(
         button_frame,

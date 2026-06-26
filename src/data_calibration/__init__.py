@@ -6,7 +6,6 @@ from data_calibration import target_aquisition as TA
 from data_calibration import main_calibrations
 
 __all__ = [
-  'parse_listobs',
   'cal_split',
   'TA',
   'parse',

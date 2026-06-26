@@ -1,4 +1,4 @@
-from casatasks import casalog # type: ignore
+from casatasks import casalog
 import pprint
 class Obs_information:
     def __init__(self,obs_info={}):

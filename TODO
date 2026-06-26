@@ -8,9 +8,54 @@
   - core subratraction
   - PlotMS breakpointing 
     - use a loop to wait for terminal input to continue (?)
--Calibration 
+-Calibration
   - add "dont do self phase calibration
   - add multiple solint's to selfCal -based on options.solint
+
+## Self-calibration (in-cleaning loop) — make it work well & properly
+  Code: Cleaner.image_gen / Cleaner.self_cal_cycle (image_generation/image_maker.py)
+        main_calibrations.self_cal_cycle (data_calibration/main_calibrations.py)
+
+ - Solution strategy
+   - Solint schedule: start long (scan / 'inf') and shorten each cycle (inf -> 60s -> 30s -> 'int')
+     as SNR/dynamic range improves. Today Cleaner.self_cal_cycle never passes solint, so
+     main_calibrations.self_cal_cycle always uses 'inf'. Wire options.solint -> per-cycle solint.
+   - Phase-then-amp progression: run several phase-only (calmode='p') cycles first, then a final
+     amp+phase (calmode='ap', solnorm=True to preserve the flux scale) ONLY once the model is good.
+     Doing 'ap' too early corrupts fluxes. (self_cal_cycle is phase-only right now.)
+   - Faint-source SNR: set minsnr on the self-cal gaincal (none set today); allow gaintype='T' and/or
+     combine='spw' to boost SNR when per-spw 'G' solutions fail.
+
+ - Convergence & safety (currently absent)
+   - Actually stop: image_gen computes improvement_score but the `break` is commented out, so it runs
+     every cycle even while diverging. Implement a real stop criterion.
+   - Keep-best / rollback: self-cal can make things worse — track the lowest-RMS cycle and revert
+     rather than always using the last cycle's image.
+   - Gating: only self-cal when the target is bright enough (use MIN_FLUX_FOR_SELF_CAL and the image
+     peak/RMS dynamic range, not just the NED check); skip/abort cleanly on faint targets.
+   - Flagged-fraction monitor: applymode='calflag' flags solution-less data; report % flagged per
+     cycle and bail if excessive.
+
+ - Reference antenna
+   - Replace "3rd closest by vibes" (find_refant -> anntennas_list[3]) with a principled pick:
+     central, low-flagging, present the whole track. Choose once and FIX it across all cycles.
+
+ - Solution bookkeeping / model
+   - Decide & document the scheme: each cycle re-solves from raw DATA vs the latest MODEL and applies
+     only the newest caltable (non-incremental). Either keep that consistently or go incremental
+     (gaincal gaintable=[prev...], applycal all accumulated tables). Confirm which column tclean
+     images each cycle (initial_cycle images DATA; self-cal cycles image CORRECTED after applycal).
+   - Inspect/record solutions: implement check_refant (currently pass); optionally plot gain phase/amp
+     vs time and save per-cycle stats for archiving.
+
+ - Code cleanup
+   - Consolidate duplicates/stubs: self_cal_solint_variation duplicates self_cal_cycle;
+     find_solint_variations (image_maker) and phase_self_calibration (main_calibrations) are empty.
+   - Wire find_solint_variations into the solint schedule above.
+
+ - Manual self-cal mode
+   - Implement the 'manual_self_cal' breakpoint: pause to let the user inspect image/gain solutions
+     and choose solint/calmode/continue-or-stop before each cycle (delineate from interactive clean).
 - Things to classify(turn to classes)
  - image (imstat) return for parsing -> new module Image analysis
  - sperate user options into options and per run *data* class (heirarcy?)

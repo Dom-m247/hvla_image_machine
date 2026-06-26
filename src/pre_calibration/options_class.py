@@ -1,7 +1,8 @@
-from casatasks import casalog  # type: ignore
+from casatasks import casalog
 import sys
+from typing import Any, cast
 from classes.observations_class import Obs_data
-#from classes.source_class import source_info
+from classes.source_class import source_info
 from classes.constants import *
 import pprint
 
@@ -10,7 +11,18 @@ class Options:
   '''values for Dictionary keys:
   source, bands, breakpoints'''
 
-  def __init__(self,sysArgs=None, 
+  #Single source of truth for what round-trips through import.json. NED-derived
+  #source_ra/source_decl/search_alias are intentionally excluded -- they're
+  #re-derived from `source` on import (process_input_dict defaults them with .get()).
+  #cell_size/self_cal_cycles are conditionally appended in generate_dict.
+  IMPORT_FIELDS = (
+    'source', 'archive_file', 'band', 'breakpoints', 'custom_amp_cal',
+    'phase_calibrator_method', 'reference_antenna', 'min_snr', 'image_filename',
+    'image_size', 'interactive_image', 'use_custom_cell_size', 'deconvolver',
+    'weighting', 'do_self_cal',
+  )
+
+  def __init__(self,sysArgs=None,
                source=None,
                archive_file = '',
                band='auto',
@@ -19,19 +31,20 @@ class Options:
                reference_antenna='auto',
                min_snr=3.0,):
     #default members
-    self.sysArgs = sysArgs
+    self.sysArgs: Any = sysArgs  #argparse.Namespace (dynamic dest attrs) -> Any
     self.source = source
     self.archive_file = archive_file
     self.band = band
     #normalize to a list so 'x in options.breakpoints' is always valid (never None)
     self.breakpoints = breakpoints if breakpoints is not None else []
-    self.custom_amp_cal = False if custom_amp_cal is AUTO else True # temp var, not yet implemented 
+    self.custom_amp_cal = False if custom_amp_cal == AUTO else True # temp var, not yet implemented
     self.reference_antenna = reference_antenna
     self.min_snr = min_snr
     self.source_ra = ''
     self.source_decl = ''
     self.search_alias = ''
     self.proj_code = ''            #project code of selected radio_search observation
+    self.proj_name = ''            #proj_code + suffix, used for MS/file naming (set in convert_to_ms)
     self.archive_files = []        #list of raw archive files downloaded via radio_search
   
     #other members 
@@ -40,14 +53,14 @@ class Options:
     self.calibrated_filename = '' #file name of calibrated source standalone MS
 
     self.observation_data = Obs_data() 
-    #source_classe objects
-    self.source_ids = None
-    self.amp_cal = None
+    #source_classe objects (deferred: populated by set_calibrators before use)
+    self.source_ids = cast(source_info, None)
+    self.amp_cal = cast(source_info, None)
     self.self_phase_cal = None #true/false
-    self.phase_cal = None
+    self.phase_cal = cast(source_info, None)
     self.init_data = Obs_data()
     #extra members added during processing for tracking 
-    self.ref_ant = None
+    self.ref_ant = cast(str, None)  #deferred: set by find_refant before gaincal/bandpass use
     self.split_observations = None
     self.solint = None
     self.best_image_base = '' #image_filename base of the best (lowest-RMS) self-cal cycle
@@ -63,13 +76,14 @@ class Options:
       self.source = dict_in['source']
       self.archive_file = dict_in['archive_file']
       self.band = dict_in['band']
-      self.source_ra = dict_in['source_ra'] #ADD ME TO IMPORT//EXPORT 
-      self.source_decl = dict_in['source_decl']
-      self.search_alias = dict_in['search_alias']
+      #NED-derived fields are not written to import.json; re-derived from `source`.
+      self.source_ra = dict_in.get('source_ra', '')
+      self.source_decl = dict_in.get('source_decl', '')
+      self.search_alias = dict_in.get('search_alias', '')
       self.breakpoints = dict_in['breakpoints'] or []
       #self.custom_amp_cal = dict_in['custom_amp_cal']
-      self.custom_amp_cal = False if dict_in['custom_amp_cal'] is AUTO else dict_in['custom_amp_cal'] # temp var, not yet implemented 
-      self.phase_calibrator_method = dict_in['phase_calibrator_method']
+      self.custom_amp_cal = False if dict_in['custom_amp_cal'] == AUTO else dict_in['custom_amp_cal'] # temp var, not yet implemented
+      self.phase_calibrator_method = dict_in.get('phase_calibrator_method', AUTO)
       print(f"Calibration Method: {self.phase_calibrator_method}")
       self.reference_antenna = dict_in['reference_antenna']
       self.min_snr = dict_in['min_snr']
@@ -103,26 +117,13 @@ class Options:
     return summary_dict
   
   def generate_dict(self):
-    '''generate a dictionarly to output to json for generating import'''
-    summary_dict = {}
-    summary_dict.update({'source':self.source})
-    summary_dict.update({'archive_file':self.archive_file})
-    summary_dict.update({'band':self.band})
-    summary_dict.update({'breakpoints':self.breakpoints})
-    summary_dict.update({'custom_amp_cal':self.custom_amp_cal})
-    summary_dict.update({'reference_antenna':self.reference_antenna})
-    summary_dict.update({'min_snr':self.min_snr})
-    summary_dict.update({'image_filename':self.image_filename})
-    summary_dict.update({'image_size':self.image_size})
-    summary_dict.update({'interactive_image':self.interactive_image})
-    summary_dict.update({'use_custom_cell_size':self.use_custom_cell_size})
+    '''Build the dict written to import.json. Source of truth is IMPORT_FIELDS,
+    plus two conditionally-present fields. process_input_dict reads these back.'''
+    summary_dict = {k: getattr(self, k) for k in self.IMPORT_FIELDS}
     if self.use_custom_cell_size:
-      summary_dict.update({'cell_size':self.cell_size})
-    summary_dict.update({'deconvolver':self.deconvolver})
-    summary_dict.update({'weighting':self.weighting})
-    summary_dict.update({'do_self_cal':self.do_self_cal})
+      summary_dict['cell_size'] = self.cell_size
     if self.do_self_cal:
-      summary_dict.update({'self_cal_cycles':self.self_cal_cycles})
+      summary_dict['self_cal_cycles'] = self.self_cal_cycles
     return summary_dict
 
 

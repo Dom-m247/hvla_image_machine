@@ -37,3 +37,4 @@ stack-data==0.6.3
 traitlets==5.14.3
 typing_extensions==4.15.0
 wcwidth==0.2.14
+xvfbwrapper==0.2.23

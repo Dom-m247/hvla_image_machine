@@ -7,6 +7,7 @@ from classes.constants import *
 from API_integrations.simbad import simbad
 
 class LoadingAnimation:
+  @staticmethod
   def performing_action(action: str, target=None, args=()):
     """
     Show an animated line showing an action is being performed with cycling dots.
@@ -18,8 +19,18 @@ class LoadingAnimation:
       args: Arguments to pass to target function
     """
     if target is not None:
+      # Capture any exception raised in the worker so it can be re-raised on the
+      # main thread. Without this, a failing target dies silently in the thread
+      # and the pipeline carries on, surfacing a misleading downstream error.
+      worker_error = []
+      def _run():
+        try:
+          target(*args)
+        except BaseException as e:
+          worker_error.append(e)
+
       # Run target in a thread and animate while it's running
-      thread = threading.Thread(target=target, args=args)
+      thread = threading.Thread(target=_run)
       thread.start()
 
       # Animate the dots while thread is alive
@@ -33,6 +44,10 @@ class LoadingAnimation:
         dot_index += 1
 
       thread.join()
+      if worker_error:
+        sys.stdout.write(f'\rPerforming {action}... Failed!\n')
+        sys.stdout.flush()
+        raise worker_error[0]
       sys.stdout.write(f'\rPerforming {action}... Done!\n')
       sys.stdout.flush()
     else:
@@ -47,6 +62,7 @@ class LoadingAnimation:
       #sys.stdout.write('\n')
       #sys.stdout.flush()
 
+  @staticmethod
   def plotMS_wait():
     """
     Create an infinite loop that waits till user presses enter on termincal

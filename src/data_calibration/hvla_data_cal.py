@@ -5,7 +5,6 @@ from classes import CLI_input
 from data_calibration import *
 from classes.source_class import source_info
 from classes.Loading_Animation import LoadingAnimation
-import pprint as pp
 from classes.constants import *
 from classes import *
 from pre_calibration.options_class import Options #self referential problem/
@@ -84,8 +83,7 @@ def pre_data_calibration(options:Options):
   
   #find calibrators TODO: add phase calibration option
   set_calibrators(options)
-  pp.pprint(options.source_ids.__dict__)
-  pp.pprint(options.amp_cal.__dict__)
+  print_calibration_summary(options)
   generate_file_names(options)
   #generate Naming Schemese for files
   LoadingAnimation.performing_action(" ms split on science target and calibrator(s)", target=cal_split.amp_cal_split, args=(options,))
@@ -137,6 +135,44 @@ def generate_file_names(options:Options):
 #def determine_self_calibrator(options:Options,):
 #  '''attempt to determine calibrator or self-cal'''
 #  options.source_ids  = source_info(options,type="target",name=options.source)
+
+def print_calibration_summary(options:Options):
+  '''Pretty-print the resolved science target and calibrators.
+  The phase calibrator is only shown when the target is not self phase calibrated.'''
+  width = 60
+
+  def _source_block(title, src):
+    print('-' * width)
+    print(f" {title}")
+    if src is None:
+      print("   (none)")
+      return
+    rows = [
+      ("Name",         getattr(src, 'name', '')),
+      ("Listobs name", getattr(src, 'listobs_name', '')),
+      ("Field ID",     getattr(src, 'field_id', '')),
+      ("Source ID",    getattr(src, 'source_id', '')),
+      ("RA / Dec",     f"{getattr(src, 'ra', '')} / {getattr(src, 'decl', '')}"),
+    ]
+    #amp/flux calibrator carries band + setjy model info
+    if getattr(src, 'band', None):
+      rows.append(("Band", src.band))
+    if getattr(src, 'model', None):
+      rows.append(("Model", src.model))
+    for label, value in rows:
+      print(f"   {label:<13}: {value}")
+
+  print('=' * width)
+  print(" Calibration Summary")
+  _source_block("Science Target", options.source_ids)
+  _source_block("Flux Calibrator", options.amp_cal)
+  if options.self_phase_cal:
+    print('-' * width)
+    print(" Phase Calibrator")
+    print("   Self phase calibrated")
+  else:
+    _source_block("Phase Calibrator", getattr(options, 'phase_cal', None))
+  print('=' * width)
 
 def set_calibrators(options:Options):
   '''set calibrator objects in options'''

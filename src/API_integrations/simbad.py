@@ -8,6 +8,7 @@ import re
 
 class simbad:
   '''functions for simbad integration'''
+  @staticmethod
   def validate_source(source_name):
     if (simbad.get_all_names(source_name)) is False:
       return False
@@ -26,6 +27,7 @@ class simbad:
   #  print(result)
   #  print(f"{type(result)}")
 
+  @staticmethod
   def get_all_names(source_name):
     """
     Get all names for a source from Simbad
@@ -38,6 +40,7 @@ class simbad:
       #raise ValueError(f"Source {source_name} not found in Simbad.")
     return result
 
+  @staticmethod
   def check_result(result):
     """
     Check if the result from Simbad is valid
@@ -46,6 +49,7 @@ class simbad:
       return False
     return True
 
+  @staticmethod
   def formatted_names_list(source_name):
     '''given a resolvable source name, returns list into format'''
     result = Simbad.query_objectids(source_name)

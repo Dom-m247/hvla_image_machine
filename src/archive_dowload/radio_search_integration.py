@@ -9,6 +9,7 @@ import subprocess
 import paramiko
 import getpass
 from pathlib import Path
+from typing import Optional, cast
 
 CREDS_FILE = 'nraoCreds.json' #JSON creds next to this module: host/user/password/delos_url
 
@@ -34,11 +35,29 @@ def load_nrao_creds(required=('host', 'user', 'password')):
 
 class nrao_observeration:
     """
-    Class to handle NRAO observations. 
+    Class to handle NRAO observations.
     """
     FIELDS = ['date', 'proj_code', 'seg', 'band', 'cfg', 'resln',
                'las', 'frequency', 'bandwidth', 'time', 'nants',
                'sensitivity', 'nscans_hours', 'separation', 'name']
+
+    #attributes set dynamically from FIELDS in __init__; declared here so the
+    #type checker knows them (all parsed as strings from the radio_search2 table)
+    date: str
+    proj_code: str
+    seg: str
+    band: str
+    cfg: str
+    resln: str
+    las: str
+    frequency: str
+    bandwidth: str
+    time: str
+    nants: str
+    sensitivity: str
+    nscans_hours: str
+    separation: str
+    name: str
 
     def __init__(self, fields):
         #Date      |ProjCode  |Seg    |Band |Cfg |Resln	|LAS	|Frequency	|Bandwidth	|Time	|NAnts	|Sensitivity	|Nscans/Hours	|Separation	|Name
@@ -147,15 +166,22 @@ def parseArchFileInfo(results):
         if '#' in line and 'File' in line and 'Start' in line:
             continue
         parts = line.split()
+        #data rows begin with a numeric file number; skip headers/footers
         if not parts or not parts[0].isdigit():
             continue
-        # parts: [file_number, file_name, band, date, time, size]
+        # columns: file_number, file_name, band, date, time(start), size
+        # radio_search2 can emit short rows (a trailing "N files" summary line, or
+        # a file row missing its time/size columns) that still start with a digit.
+        # Guard the positional access so one short line doesn't abort the whole
+        # import; only file_name and date are actually used downstream.
+        if len(parts) < 4:
+            continue  #not a real file row (file_number, file_name, band, date min)
         file_number = int(parts[0])
         file_name = parts[1]
         band = parts[2]
         date = parts[3]
-        start = parts[4]
-        size = parts[5]
+        start = parts[4] if len(parts) > 4 else ''
+        size = parts[5] if len(parts) > 5 else ''
         current_files.append(nrao_archfile(file_number, file_name, band, date, start, size))
 
     if current_segment_name is not None:
@@ -196,6 +222,7 @@ def parseObservations(results):
 class RadioSearchIntegration:
   """Class to handle integration of radio_search into the HVLA Image Machine workflow."""
 
+  @staticmethod
   def perform_radio_search(options:Options):
     """Perform the radio search and download archives based on user input."""
     # This is a placeholder for the actual implementation of the radio search.
@@ -207,26 +234,38 @@ class RadioSearchIntegration:
     creds = load_nrao_creds(required=('host', 'user', 'password', 'radio_search_path'))
     with RadioSearch2(host=creds['host'], user=creds['user'], password=creds['password'],
                       remote_path=creds['radio_search_path']) as rs:
-        rs_results = rs(options.search_alias, 'BANDS', options.band)
+        #'auto' (or empty) means "all bands": radio_search2 wants NO 'BANDS' keyword
+        #in that case. Passing 'BANDS auto' makes the wrapper look up a non-existent
+        #band, drop the (empty) bandno token, and shift a config-group string into the
+        #int bandno slot -> "invalid literal for int()". Only pass BANDS for a real band.
+        if options.band and options.band != 'auto':
+            rs_results = rs(options.search_alias, 'BANDS', options.band)
+        else:
+            rs_results = rs(options.search_alias)
         #process unformatted RS return, get user input
         observations = parseObservations(rs_results)
 
-        selected_obs = CLI.selectObservation(observations)
+        #selectObservation returns one of the nrao_observeration objects we passed in (or None)
+        selected_obs = cast(Optional[nrao_observeration], CLI.selectObservation(observations))
         if selected_obs is None:
             print("No observation selected.")
             return
         print(f"\nSelected: {selected_obs.proj_code}  segment {selected_obs.seg}  ({selected_obs.date})")
 
-        archfiles = parseArchFileInfo(rs('--archfileinfo', selected_obs.proj_code))
+        raw_archfileinfo = rs('--archfileinfo', selected_obs.proj_code)
+        #capture the raw output so the actual column layout is inspectable when a
+        #row fails to parse (the print previously claimed this without writing it).
         archfiles_file = Path(__file__).resolve().parent / 'archfiles.txt'
-        
+        archfiles_file.write_text(raw_archfileinfo)
         print(f"Archive file info written to {archfiles_file}")
+        archfiles = parseArchFileInfo(raw_archfileinfo)
 
         options.proj_code = selected_obs.proj_code
         #return the file(s) to download to the caller (radio_search), which will
         #hand them to DelosDownload on a separate thread.
         return RadioSearchIntegration.select_segment_files(archfiles, selected_obs)
 
+  @staticmethod
   def select_segment_files(archfiles, selected_obs):
     """Select the archive file(s) belonging to the selected observation's segment.
 

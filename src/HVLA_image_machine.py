@@ -1,6 +1,6 @@
 import sys,os,argparse
 import casaviewer
-import casatasks
+import casatasks 
 import casaconfig
 from classes.CLI_input import CLI
 from pre_calibration.options_class import Options
@@ -93,7 +93,7 @@ def main(): #argv
     casatasks.casalog.post(f"Imaging Time taken: {elapsed_time:.4f} seconds")
   else:
     print(f"Starting Manual Clean and self_cal")
-    image = Cleaner.manual_clean(options=source)
+    image = Cleaner.manual_clean_calibration(options=source)
 
   #output options obj as json! #CHANGE TO IMPORT
   if not source.sysArgs.noexport:

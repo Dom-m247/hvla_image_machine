@@ -1,4 +1,4 @@
-import casatasks as ct # type: ignore
+import casatasks as ct
 import re
 #from ..pre_calibration import options
 import pprint as pp
@@ -16,6 +16,7 @@ return value for listobs()
 '''
 
 class parseListObs:
+  @staticmethod
   def populate_Obs_data(listObsFile):
     '''
     parses the List_obs File for infomration, which is added to options
@@ -35,6 +36,7 @@ class parseListObs:
     #except ValueError as e:
     print(f'An error occured parsing the list_obs {e} section. ')
   
+  @staticmethod
   def log_listobs(ms,options):
     '''
     generates a listobs and post to log
@@ -48,6 +50,7 @@ class parseListObs:
     ct.casalog.post(read_listobs)
     return read_listobs
   
+  @staticmethod
   def log_listobs_precalib(ms,options):
     '''also utilized to determine solint for t-clean self-cal'''
     listobs_file = ms + '-listobs.txt'
@@ -57,11 +60,13 @@ class parseListObs:
     ct.casalog.post(read_listobs)
     return read_listobs
 
+  @staticmethod
   def log_listobs_final_split(ms,options):
     '''make and log a listobs for a given .ms file'''#never used
     listobs_file = ms + '-listobs.txt'
     options.split_observations = ct.listobs(vis = ms, listfile = listobs_file, overwrite = True)
-    options.solint = int(getscan_solint(options,options.split_observations))
+    sol = getscan_solint(options, options.split_observations)
+    options.solint = int(sol) if sol is not None else None
     read_listobs = open(listobs_file, 'r').read()
     ct.casalog.post(read_listobs)
     return read_listobs
