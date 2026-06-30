@@ -23,18 +23,17 @@ class parseListObs:
       Note: line # are hard coded, see parsing examples if I break
     '''
     #prime realestate to parrallelize in the future
-    #try:
-    return Obs_data(
-        parse_antennas(listObsFile),
-        parse_fields(listObsFile),
-        parse_sources(listObsFile),
-        parse_observations(listObsFile),
-        parse_spw(listObsFile),
-        parse_obs_info(listObsFile)
-      )
-      
-    #except ValueError as e:
-    print(f'An error occured parsing the list_obs {e} section. ')
+    try:
+      return Obs_data(
+          parse_antennas(listObsFile),
+          parse_fields(listObsFile),
+          parse_sources(listObsFile),
+          parse_observations(listObsFile),
+          parse_spw(listObsFile),
+          parse_obs_info(listObsFile)
+        )
+    except (ValueError, KeyError, IndexError, AttributeError) as e:
+      raise RuntimeError(f'Error parsing the listobs file (format may have changed; see parsing_examples): {e}') from e
   
   @staticmethod
   def log_listobs(ms,options):
@@ -161,14 +160,15 @@ def parse_observations(listobs_text):
     raise ValueError('Observations')
 
   # Lines with full date prefix: "DD-Mon-YYYY/HH:MM:SS.s - HH:MM:SS.s  scan fld name nrows [spw] [intv]"
+  # The average-interval bracket can be fractional (e.g. [3.33, 3.33]), so allow '.'
   FULL_RE = re.compile(
     r'(\d{2}-\w+-\d{4})/(\d{2}:\d{2}:\d{2}\.\d+)\s*-\s*(\d{2}:\d{2}:\d{2}\.\d+)\s+'
-    r'(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+(\[[\d,\s]+\])\s+(\[[\d,\s]+\])'
+    r'(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+(\[[\d,\s]+\])\s+(\[[\d,\s.]+\])'
   )
   # Continuation lines with time only (date carried forward from previous full line)
   TIME_RE = re.compile(
     r'(\d{2}:\d{2}:\d{2}\.\d+)\s*-\s*(\d{2}:\d{2}:\d{2}\.\d+)\s+'
-    r'(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+(\[[\d,\s]+\])\s+(\[[\d,\s]+\])'
+    r'(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+(\[[\d,\s]+\])\s+(\[[\d,\s.]+\])'
   )
 
   observations = []

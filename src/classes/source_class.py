@@ -21,9 +21,6 @@ class source_info:
     self.field_id = field_id
     self.ra = ''
     self.decl = ''
-    #a premtive determination if band is set to auto
-    if options.band == AUTO:
-      self.find_bands(options)
 
     if self.type == TYPE_FLUX_CAL and not options.custom_amp_cal:
       print(f"finding flux cal!!!!!!!!!!!!!")
@@ -46,8 +43,10 @@ class source_info:
       self.source_id = self.find_source_id(options) #find source ID from source name may not work if given source name is doesn't match name in field.
       self.field_id = self.find_fieldID(options.observation_data)
       self.set_RA_DECL(options)
-      
-      #check_self_phase_cal = 
+      #resolve the observing band from THIS target's spws (or honor a user-set band)
+      self.determine_band(options)
+
+      #check_self_phase_cal =
     #extra members defined by initial ms split after initilization
     self.initial_ms_fieldID: int | str | None = ''
   
@@ -57,9 +56,11 @@ class source_info:
         return field.id
       
   def _normalize_name(self, name):
-    '''Strip B1950/J2000 epoch prefix (b/B/j/J) from a source name'''
+    '''Normalize a source name for comparison: strip any leading B1950/J2000
+    epoch prefix (b/B/j/J) and casefold, so matching is case-insensitive
+    (e.g. user-entered '3c15' vs listobs '3C15').'''
     import re
-    return re.sub(r'^[BbJj](?=\d)', '', name).strip()
+    return re.sub(r'^[BbJj](?=\d)', '', name).strip().casefold()
 
   def find_source_id(self, options):
     '''find source_id from source name'''
@@ -81,8 +82,9 @@ class source_info:
   def check_name_in_list_obs(self, options):
     normalized = self._normalize_name(self.name)
     for sources in options.observation_data.sources:
-      if sources.name == self.name or self._normalize_name(sources.name) == normalized:
-        self.listobs_name = sources.name
+      #case-insensitive, epoch-prefix-agnostic match (via _normalize_name)
+      if self._normalize_name(sources.name) == normalized:
+        self.listobs_name = sources.name  #keep the original listobs casing for field lookup
         return sources.id
     return False
   
@@ -117,34 +119,66 @@ class source_info:
         self.ra = field.ra
         self.decl = field.decl
 
-  def find_bands(self,options):
+  def spws_for_field(self, options, field_id):
     '''
-    Detects the bands for the source based on the spectral windows in the observation data.
+    Collect the set of spw ids actually used by this field, read from its scans.
+    The day-long archive MS holds spws from many bands; a given source only uses
+    a subset (e.g. 3C15 -> {22, 23}), so band detection must be scoped this way.
     '''
-    detected_bands = []
-    if options.band == AUTO:
-      for each_spw in options.observation_data.spectral_windows:
-        for test_band,value in BAND_MHZ_RANGES.items():
-          if self.in_spw(each_spw.ch0_mhz,value):
-            if test_band not in detected_bands:
-              detected_bands.append(test_band)
-    else: 
-      return options.band
-    return detected_bands
-  
-  def asses_spw(self,options):
-    '''checks if the SPW matches the input *and* define for model if auto'''
-    band_option = options.band
-    detected_bands = self.find_bands(options)
+    import re
+    spw_ids = set()
+    for scan in options.observation_data.observations:
+      if scan.field_id == field_id:
+        spw_ids.update(int(x) for x in re.findall(r'\d+', str(scan.spw_ids)))
+    return spw_ids
 
-    if len(detected_bands) > 1:
-      raise Exception('More than one band detected, Not yet implemented.')
-    if band_option == 'auto':
-      options.band = detected_bands[0] 
-      return detected_bands[0]
-    if band_option != detected_bands[0]:
-      ct.casalog.post(f"The selected band: \'{band_option}\' doesn't match detected bands: {detected_bands}")
-    return options.band
+  def bands_for_spws(self, options, spw_ids):
+    '''Map a set of spw ids to the list of bands those spws fall in.'''
+    bands = []
+    for each_spw in options.observation_data.spectral_windows:
+      if each_spw.id in spw_ids:
+        for test_band, value in BAND_MHZ_RANGES.items():
+          if self.in_spw(each_spw.ch0_mhz, value) and test_band not in bands:
+            bands.append(test_band)
+    return bands
+
+  def determine_band(self, options):
+    '''
+    Resolve the observing band for THIS source and record it on self.band.
+      - If the user fixed options.band, honor it (warning if this source has no
+        spw in that band).
+      - If auto, derive the band from the spws this source is actually observed
+        in. Raise (listing the available bands) if those spws span >1 band.
+    options.band is only mutated when it was auto.
+    '''
+    source_spws = self.spws_for_field(options, self.field_id)
+    source_bands = self.bands_for_spws(options, source_spws)
+
+    if options.band != AUTO:
+      if source_bands and options.band not in source_bands:
+        msg = (f"Requested band '{options.band}' but source '{self.name}' is only "
+               f"observed in {source_bands} (spws {sorted(source_spws)}).")
+        ct.casalog.post(msg, priority='WARN')
+        print(f"WARNING: {msg}")
+      self.band = options.band
+      return options.band
+
+    if not source_bands:
+      raise Exception(
+        f"Could not determine a band for source '{self.name}': no spectral "
+        f"windows found for its scans (spws {sorted(source_spws)}).")
+    if len(source_bands) > 1:
+      raise Exception(
+        f"Source '{self.name}' spans multiple bands {source_bands}; "
+        f"re-run specifying a single band. (spws {sorted(source_spws)})")
+
+    options.band = source_bands[0]
+    self.band = source_bands[0]
+    return source_bands[0]
+
+  def asses_spw(self, options):
+    '''Resolve/validate this source's band (delegates to determine_band).'''
+    return self.determine_band(options)
 
   def in_spw(self,listobs_spw,test_band):
     '''checks if a spw is within a range'''

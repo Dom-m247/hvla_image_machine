@@ -75,7 +75,7 @@ def self_phase_cal(options:options_class.Options):
                             transfer=[options.source_ids.listobs_name], #nodder,
                             incremental=False
     )
-  if not Path(CALIBRATED_MS+'ms').is_dir():  
+  if not Path(options.calibrated_filename+'.ms').is_dir():
     apply_cal_out = ct.applycal(vis=options.initial_calibration_filename+'.ms',
            field= options.amp_cal.listobs_name ,
            gaintable=[options.initial_calibration_filename+FLUXSCALE_X+'1',options.initial_calibration_filename+BANDPASS_B0],
@@ -164,7 +164,7 @@ def amp_phase_cal(options:options_class.Options):
                             incremental=False
    )
   
-  if not Path(CALIBRATED_MS+'ms').is_dir():
+  if not Path(options.calibrated_filename+'.ms').is_dir():
     print(f"applying calibrations to {options.initial_calibration_filename+'.ms'}'s name : {options.source_ids.listobs_name} field ID: {options.source_ids.initial_ms_fieldID}")
     apply_cal_out = ct.applycal(vis=options.initial_calibration_filename+'.ms',
            field= options.amp_cal.listobs_name ,

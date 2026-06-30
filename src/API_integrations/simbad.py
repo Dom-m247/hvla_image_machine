@@ -51,15 +51,29 @@ class simbad:
 
   @staticmethod
   def formatted_names_list(source_name):
-    '''given a resolvable source name, returns list into format'''
+    '''Given a SIMBAD-resolvable source name, return a list of candidate alias
+    strings to compare against listobs field names.
+
+    listobs names have no internal spaces and are either catalog designations
+    ('3C15') or coordinate strings ('0034-014'); SIMBAD aliases are spaced and
+    often prefixed ('3C 15', 'PKS 0034-01', '[HB89] 0034-014'). For each alias
+    we therefore emit two candidates so either style can match:
+      - compact:    bracketed tags + whitespace removed, letters kept
+                    ('3C 15' -> '3C15')
+      - coordinate: keep only digits, '+', '-', '.'
+                    ('PKS 0034-01' -> '0034-01')
+    Returns False if SIMBAD cannot resolve the name.
+    '''
     result = Simbad.query_objectids(source_name)
-    all_names = []
     if (simbad.check_result(result) is False):
       return False
-    else:
-      for each_id in result:
-        name = str(each_id)
-        name = re.sub(r'[^0-9+\-.]', '', name) #this may not work for *alllllll sources, but it should work for most. It removes all characters except numbers, +, -, and .
-        name = name.strip('-')
-        all_names.append(name)
-      return all_names
+    all_names = []
+    for each_id in result:
+      raw = str(each_id)
+      cleaned = re.sub(r'[\[\{].*?[\]\}]', '', raw)            # drop [HB89]/{...} catalog tags
+      compact = re.sub(r'\s+', '', cleaned).strip()            # '3C 15' -> '3C15'
+      coord = re.sub(r'[^0-9+\-.]', '', cleaned).strip('+-.')  # 'PKS 0034-01' -> '0034-01'
+      for candidate in (compact, coord):
+        if candidate and candidate not in all_names:
+          all_names.append(candidate)
+    return all_names

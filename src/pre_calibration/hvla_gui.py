@@ -124,7 +124,11 @@ class SourceInputWindow:
         
         self.selected_file = None
         self.source_validated = False
-    
+        #set later by validate_source; init here so proceed_to_breakpoints never AttributeErrors
+        self.source_ra = ''
+        self.source_decl = ''
+        self.search_alias = ''
+
     def on_source_change(self, *args):
         """Disable Get Observations button when source text changes"""
         self.source_validated = False
@@ -234,7 +238,7 @@ class SourceInputWindow:
             "band": band,
             "file": self.selected_file,
             "source_ra":self.source_ra,
-            "source_ra":self.source_decl,
+            "source_decl":self.source_decl,
             "search_alias": self.search_alias,
         }
         # Close this window and open breakpoints window
@@ -381,7 +385,7 @@ class BreakpointsWindow:
 
         ttk.Label(image_frame, text="Deconvolver", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
         self.deconvolver = tk.StringVar(value="mtmfs")
-        self.deconvolver_options = ["mtmfs","hogbom", "clark", "multisclae","mem","clarkstokes","asp"]
+        self.deconvolver_options = ["mtmfs","hogbom", "clark", "multiscale","mem","clarkstokes","asp"]
         self.deconvolver_choice = ttk.Combobox(
             image_frame,
             textvariable=self.deconvolver,
@@ -550,7 +554,7 @@ class BreakpointsWindow:
             "archive_file": source_info['file'],
             "band": source_info['band'],
             "source_ra": source_info['source_ra'],
-            "source_decl": source_info['source_ra'],
+            "source_decl": source_info['source_decl'],
             "search_alias": source_info['search_alias'],
             "breakpoints": selected_breakpoints,
             "phase_calibrator_method": self.calibration_method.get(),

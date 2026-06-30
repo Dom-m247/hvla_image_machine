@@ -112,15 +112,11 @@ def calibrated_split(options:Options):
 
 def build_setjy(options):
   visfile = MS_SUB_PATH + options.proj_name +'.ms'
-  amp_field = options.amp_cal.initial_ms_fieldID
-  obs = options.split_observations 
-  #extract field ID for amp cal from listobs output
-  for section in obs:
-    if (section)[0:5] == 'field':
-      if obs[section]['name'] == options.amp_cal.name:
-        amp_field = str(section[len(section)-1:])
-  amp_field = options.amp_cal.name
-  use_model = options.amp_cal.model 
+  #setjy runs on the full pre-split MS, so select the amp cal by name: names are stable
+  #across the calibrator split, unlike field IDs (which renumber). initial_ms_fieldID
+  #retains the split-MS id for main_calibrations; it is not valid against this full MS.
+  amp_field = options.amp_cal.listobs_name
+  use_model = options.amp_cal.model
   ct.setjy(vis=visfile,field=amp_field,standard='Perley-Butler 2013',model=use_model,usescratch= True,scalebychan=True,spw='')
 
 def generate_file_names(options:Options):
@@ -182,8 +178,10 @@ def set_calibrators(options:Options):
     ##ampCal = CLI_input.getAmpCal(options) not yet implemented
     #phaseCal = CLI_input.getPhaseCal(options)
     pass
-  options.amp_cal = source_info(options,type="flux_calibrator")
+  #build the target first: it resolves the observing band (from its own spws,
+  #or honors a user-set band), which the flux-cal assessment then relies on.
   options.source_ids = source_info(options,type="target",name=options.source)
+  options.amp_cal = source_info(options,type="flux_calibrator")
   options.source_ids.check_self_phase_cal(options)
   if not options.self_phase_cal:
     if options.phase_calibrator_method == "pick phase calibrator":
