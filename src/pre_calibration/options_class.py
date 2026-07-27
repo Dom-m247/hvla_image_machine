@@ -19,7 +19,7 @@ class Options:
     'source', 'archive_file', 'band', 'breakpoints', 'custom_amp_cal',
     'phase_calibrator_method', 'reference_antenna', 'min_snr', 'image_filename',
     'image_size', 'interactive_image', 'use_custom_cell_size', 'deconvolver',
-    'weighting', 'do_self_cal',
+    'weighting', 'do_self_cal', 'mask',
   )
 
   def __init__(self,sysArgs=None,
@@ -44,6 +44,7 @@ class Options:
     self.source_decl = ''
     self.search_alias = ''
     self.proj_code = ''            #project code of selected radio_search observation
+    self.array_config = ''         #VLA config (A/B/C/D, incl. hybrids like BnA) of the selected observation; sizes the imaging cell in find_cell_size
     self.proj_name = ''            #proj_code + suffix, used for MS/file naming (set in convert_to_ms)
     self.archive_files = []        #list of raw archive files downloaded via radio_search
   
@@ -62,7 +63,13 @@ class Options:
     #extra members added during processing for tracking 
     self.ref_ant = cast(str, None)  #deferred: set by find_refant before gaincal/bandpass use
     self.split_observations = None
+    self.spw_selection = '' #CSV of spw ids to keep for the split, derived from the target's own scans (set in source_info.resolve_run_band)
     self.solint = None
+    #path to a saved clean mask (a tclean .mask image or a region file) to replay the
+    #interactively-drawn regions; '' = none. Set from a saved run and round-trips
+    #through import.json so --import can reproduce the mask non-interactively.
+    self.mask = ''
+    self.results_dir = '' #populated by Cleaner.collect_results; where replay.py is written
     self.best_image_base = '' #image_filename base of the best (lowest-RMS) self-cal cycle
     self.val = 0 #debugging variable
     # validate inputs below; else throw err 
@@ -98,6 +105,8 @@ class Options:
       self.do_self_cal = dict_in['do_self_cal']
       if self.do_self_cal:
         self.self_cal_cycles = dict_in['self_cal_cycles']
+      #saved clean-mask path (older import.json files won't have it -> '')
+      self.mask = dict_in.get('mask', '')
       casalog.post(f"Information added to obj: {dict_in}") #logging values added to data_set object
       return True
     except ValueError as e:
