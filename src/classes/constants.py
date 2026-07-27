@@ -24,14 +24,32 @@ CALIBRATED_MS = 'source' #final calibrated ms for imaging
 
 GAINCAL_G2 = '.G2'
 SELF_CAL= '.selfcal'
+BLCAL_P = '.blcal_p'   #per-baseline phase caltable (final blcal polish)
+BLCAL_AP = '.blcal_ap' #per-baseline amp+phase caltable
 
 #Defualts/ Thresholds
 DEFAULT_IMAGE_SIZE = [1080,1080] # keep me a perfect Square!
 INITIAL_NITER = 250 # half of niter from tutorial
 MIN_SNR = 3.0 #a default min SNR for gaincal
 FIRST_IMAGE = 'image'
-MIN_FLUX_FOR_SELF_CAL = 0.02 #Jy,
-SELF_CAL_MIN_IMPROVEMENT_PCT = 10 #stop self-cal once an improving cycle gains < this % in RMS
+MIN_FLUX_FOR_SELF_CAL = 0.02 #Jy/beam; skip self-cal below this peak (too faint to solve on)
+#Baseline (blcal) calibration solves ~N^2/2 per-baseline terms, so it needs far more
+#SNR than antenna-based self-cal and can absorb real structure -> higher peak floor.
+MIN_FLUX_FOR_BASELINE_CAL = 0.1 #Jy/beam; opt-in blcal only runs on bright sources above this
+#--- self-calibration during imaging ---
+#Phase-only solint schedule. Normally built per-observation by
+#Cleaner._build_solint_schedule ('inf' -> geometric halving from ~half a scan down to
+#the integration time -> 'int'); this fixed ladder is the FALLBACK when the scan /
+#integration times can't be read from the MS. Padded with 'int' if more cycles are asked.
+SELF_CAL_SOLINTS = ['inf', '60s', '30s', 'int']
+SELF_CAL_SOLINT_FACTOR = 2  #solint shortening ratio per cycle (2 = halve each step)
+SELF_CAL_FINAL_AP = True            #run one calmode='ap' pass after the phase cycles converge
+SELF_CAL_NSIGMA = 3.0               #tclean stop threshold (both modes); replaces a blind niter
+SELF_CAL_MIN_IMPROVEMENT_PCT = 10   #stop self-cal once an improving cycle gains < this % in dynamic range
+SELF_CAL_AP_MAX_FLUX_LOSS_PCT = 5   #reject the a&p pass if integrated flux drops more than this %
+#--- gaincal solution failure rate (flagged fraction of a caltable) ---
+GAINCAL_APPLYMODE_CUTOFF_PCT = 5    #primary applycal: > this failure rate -> 'calonly' (don't flag), else 'calflag'
+GAINCAL_WARN_PCT = 10               #warn (solint likely too short / SNR too low / bad refant) above this failure rate
 
 #class Band:
   #band name, GHZ range, MHZ range, Angular res, Solint?
@@ -75,7 +93,7 @@ BAND_LARGEST_SCALE = {'4': [800,2200,20000,20000],
                            'P': [155,515,4150,4150],
                            'L': [36,120,970,970],
                            'S': [18,58,490,490],
-                           'C': [9.9,29,240,240],
+                           'C': [8.9,29,240,240],
                            'X': [5.3,17,145,145],
                            'Ku':[3.6,12,97,97],
                            'K': [2.4,7.9,66,66],
@@ -83,6 +101,12 @@ BAND_LARGEST_SCALE = {'4': [800,2200,20000,20000],
                            'Q': [1.2,3.9,32,32]
 }
 ARRAY_CONFIGURATION = 1
+#Multiscale clean scale ladder, as multiples of the synthesized beam (converted to
+#pixels at imaging time). A 0 (point-source) term plus a short ladder. The largest
+#scale is additionally capped by the band/config LAS (BAND_LARGEST_SCALE) -- cleaning
+#structure larger than the array's Largest Angular Scale just fits noise -- and by the
+#image size. Only used by scale-sensitive deconvolvers (multiscale/mtmfs).
+MULTISCALE_BEAM_MULTIPLIERS = [0, 2, 5]
 
 BAND_SOLINT = {'4':'900', 'P':'900', 'L':'450', 'S':'450', 'C':'240', 'X':'240', 'Ku':'180', 'U':'180', 'K':'120', 'Ka':'90', 'Q':'60'}
 
@@ -104,6 +128,7 @@ BREAKPOINTS = {
             "manual_flagging": "Manual Data Flagging",
             "pick_calibrator": "Pick Calibrator",
             "manual_self_cal": "Manual Self-Cal",
+            "baseline_cal": "Baseline Calibration (blcal)",
             "display_image":"Display Image After"
         }
 
