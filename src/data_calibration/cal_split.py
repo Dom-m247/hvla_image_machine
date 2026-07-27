@@ -1,9 +1,6 @@
-from token import OP
-
 import casatasks as ct
-import casaplotms
 from . import parse_listobs as parse
-from . import target_aquisition as TA
+
 from classes.source_class import source_info
 #from ..data_class import data
 from classes.constants import *
@@ -28,12 +25,10 @@ def amp_cal_split(options:Options):
     ct.split(vis= MS_SUB_PATH + options.proj_name+'.ms',outputvis=options.initial_calibration_filename+'.ms',datacolumn = 'data', field=fields, spw=spwID)
   #if options.get_dict_sp('breakpoints')['verify_scans']:
     #pause, show listobs(vis='init.ms') and continue if correct, else END
-
-
-  if "manual_flagging" in options.breakpoints:
-    print("Manual Data Flagging! ### NOT YET IMPLEMENTED")
-    #open_plotms_thread(AMP_CAL_MS+".ms")
-    print("Resuming Calibration Process...")
+  #NOTE: the manual_flagging breakpoint is intentionally NOT run here -- amp_cal_split
+  #executes inside a LoadingAnimation worker thread, and the flagging step is
+  #interactive (plotms + accept/revert prompt). It is invoked from
+  #hvla_data_cal.pre_data_calibration on the main thread, after this split finishes.
 
 
 def get_command(options:Options):
@@ -43,14 +38,15 @@ def get_command(options:Options):
   return fields,spwID
  
 def build_spwID(options:Options):
-  """build the spwID for splitting
+  """spw selection for the split: the science target's own spws (resolved in
+  source_info.determine_band from the target's scans), so a multi-band archive MS is
+  reduced to the band/spws the target was actually observed in.
   TODO: ADD BREAKPOINT CUSTOM SPW?
   """
-  spwIDs = ''
-  for spw in options.observation_data.spectral_windows:
-    spwIDs = spwIDs + str(spw.id)
-    spwIDs += ','
-  return spwIDs[:-1] #remove last comma
+  if options.spw_selection:
+    return options.spw_selection
+  #fallback (single-band MS, or selection not resolved): keep every spw
+  return ','.join(str(spw.id) for spw in options.observation_data.spectral_windows)
   
 
 def define_split_fields_phase_cal(options:Options):
@@ -77,9 +73,3 @@ def define_split_fields_phase_cal(options:Options):
   return split_fields
 
 
-def open_plotms_thread(visfile):
-  """
-  call Plotms, find a way to cause a break :/
-  """
-
-  
