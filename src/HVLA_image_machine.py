@@ -8,6 +8,7 @@ from pre_calibration import *
 from image_generation.image_maker import Cleaner
 from archive_dowload.radio_search_integration import RadioSearchIntegration, DelosDownload
 from data_calibration import hvla_data_cal
+from classes import call_recorder
 #from archive_dowload import *
 import pprint
 import threading
@@ -42,14 +43,25 @@ def main(): #argv
   #token = gmail_options_fetch.generateToken()
 
   delete_logs()
-  
+  #record every CASA task call so we can emit a standalone replay.py of the exact
+  #process at the end (parameters resolved to literals; no decision logic).
+  call_recorder.start()
+
   if source.sysArgs.importRun:
     print("importingWorks???")
     # Import mode - skip GUI
     try:
       imported_setting = import_settings.import_options()
-      
+
       source.process_input_dict(imported_setting)
+      #If the imported run used interactive cleaning but carries no saved mask (e.g. an
+      #older import.json), offer to supply one so the drawn regions can be replayed.
+      if getattr(source, 'interactive_image', False) and not getattr(source, 'mask', ''):
+        resp = input("Imported run used interactive cleaning but has no saved mask.\n"
+                     "Enter a path to a .mask (or region file) to replay it, "
+                     "or press enter to clean interactively: ").strip()
+        if resp:
+          source.mask = resp
     except FileNotFoundError as error:
       print(f"The import does not exist.{error}")
   elif source.sysArgs.cli and not source.sysArgs.cliCalib:
@@ -83,7 +95,9 @@ def main(): #argv
 
   #tcleaning!
   cleaner = Cleaner()
-  if 'manual_clean' not in source.breakpoints:
+  #'manual_self_cal' breakpoint (BREAKPOINTS key) -> hand-driven clean/self-cal in a
+  #CASA shell; otherwise run the automated image_gen self-cal loop.
+  if 'manual_self_cal' not in source.breakpoints:
     print(f"Starting Clean")
     start_time = time.perf_counter()
     cleaner.image_gen(source)
@@ -99,8 +113,16 @@ def main(): #argv
   if not source.sysArgs.noexport:
     import_settings.generate_import(source)
   import_settings.generate_debug_export(source,filename="export_for_testing")
-  #if 'display_image' in source.breakpoints and not 'manual_clean' in source.breakpoints:
-  # casaviewer.imview(raster=(source.image_filename)+'.image.tt0')   
+  #emit the replay script of the exact CASA calls this run made -> results folder if
+  #one was created (collect_results), else the working directory. Best-effort.
+  try:
+    replay_dir = getattr(source, 'results_dir', '') or '.'
+    replay_path = call_recorder.write_replay(Path(replay_dir) / 'replay.py')
+    print(f"Wrote replay script: {replay_path}")
+  except Exception as e:
+    print(f"Could not write replay script: {e}")
+  #if 'display_image' in source.breakpoints and not 'manual_self_cal' in source.breakpoints:
+  # casaviewer.imview(raster=(source.image_filename)+'.image.tt0')
   print("Completed Successfuly. Exiting...")
   
   
