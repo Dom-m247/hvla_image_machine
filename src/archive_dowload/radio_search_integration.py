@@ -3,6 +3,7 @@ from classes.CLI_input import CLI
 from classes.constants import DATA_ARCHIVE, FOLDER_NAME
 from pre_calibration.options_class import Options
 import json
+import os
 import pprint
 import re
 import subprocess
@@ -310,6 +311,12 @@ class DelosDownload:
     CURL_BASE = ['curl', '-fsS', '--retry', '3', '--create-dirs',
                  '--connect-timeout', '30', '--max-time', '600']
 
+    #curl exit codes that mean "couldn't establish a connection at all" (as opposed
+    #to an HTTP error like 403/404). Used by the reachability pre-check to tell a
+    #dead/unreachable host apart from one that answered with an error status.
+    #6=DNS, 7=connection refused, 28=connect timeout, 35=TLS connect error.
+    CONNECT_FAIL_CODES = {6, 7, 28, 35}
+
     def __init__(self, download_files, options, local_dir=None, base_url=None, verbose=False):
         self.download_files = download_files or []
         self.options = options
@@ -394,9 +401,36 @@ class DelosDownload:
         except Exception as exc:
             self.error = exc
 
+    def _check_reachable(self, base_url):
+        """Pre-poke the Delos host before downloading anything.
+
+        Without this, an offline/unreachable Delos makes every per-file curl burn
+        --connect-timeout * (--retry + 1) seconds of silent retries in a row, which
+        looks like a hang (this runs on a worker thread with verbose=False while the
+        CLI prompts run in parallel). A single short probe up front lets us fail fast
+        with a clear message instead.
+
+        We deliberately do NOT pass -f here: an HTTP error (e.g. 403 on a directory
+        with listing disabled) still proves the host is up and answering, so only a
+        connection-level failure (CONNECT_FAIL_CODES) counts as unreachable.
+        """
+        probe = subprocess.run(
+            ['curl', '-sS', '-o', os.devnull, '--head',
+             '--connect-timeout', '10', '--max-time', '15', base_url],
+            capture_output=True, text=True,
+        )
+        if probe.returncode in self.CONNECT_FAIL_CODES:
+            raise RuntimeError(
+                f"Delos NAS is not reachable at {base_url} (curl exit {probe.returncode}: "
+                f"{probe.stderr.strip() or 'connection failed'}).\n"
+                f"The host may be offline, or this machine may not be on the "
+                f"NRAO/UMBC network / VPN. Aborting before download."
+            )
+
     def download(self):
         """Fetch each archive file from Delos into local_dir; record the local paths."""
         base_url = self._resolve_base_url()
+        self._check_reachable(base_url)
         self.local_dir.mkdir(parents=True, exist_ok=True)
         local_paths = []
         for entry in self.download_files:
