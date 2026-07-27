@@ -441,7 +441,7 @@ class BreakpointsWindow:
         
         #self.cell_size_var = tk.DoubleVar(value=0.0)
         ttk.Label(image_frame, text="Self Calibration Cycles:", font=("Arial", 10)).pack(anchor="w", pady=(0, 5))
-        self.self_cal_cycle_var = tk.IntVar(value=1)
+        self.self_cal_cycle_var = tk.IntVar(value=4)  #match CLI default: full inf->60s->30s->int ladder
         self.self_cal_cycle_spinbox = ttk.Spinbox(
             image_frame,
             from_=0,
