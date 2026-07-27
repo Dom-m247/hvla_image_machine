@@ -1,99 +1,94 @@
 
 # TODO
-- GUI improvments + features todo
-  - delineate "manual self-cal + cleaning" from interactive cleaning
-- Automatic Features to implement 
-  - Input of 
-  - Gaussian fitting
-  - core subratraction
-  - PlotMS breakpointing 
-    - use a loop to wait for terminal input to continue (?)
--Calibration
-  - add "dont do self phase calibration
-  - add multiple solint's to selfCal -based on options.solint
 
-## Self-calibration (in-cleaning loop) — make it work well & properly
-  Code: Cleaner.image_gen / Cleaner.self_cal_cycle (image_generation/image_maker.py)
-        main_calibrations.self_cal_cycle (data_calibration/main_calibrations.py)
+## Imaging / science features still to implement
+- Gaussian fitting (imfit) -> extract beam major/minor/PA, integrated & peak flux,
+  residual RMS, fit frequency; log it (from 1.99 auto_gaussian).
+- Core subtraction: clean -> copy MS -> uvsub -> re-clean the core-subtracted ("jet")
+  image -> pbcor + FITS (from 1.99 core_subtract).
+- Outlier fields: generate outliers.txt and feed outlier regions to tclean.
+- Off-source RMS box for the self-cal metric. Cleaner._dynamic_range currently uses
+  whole-image RMS (contaminated by the source); an off-source annulus/box is more rigorous.
+- Optional: drop the .residual.tt0 (as FITS) into the results folder next to image/pbcor.
 
- - Solution strategy
-   - Solint schedule: start long (scan / 'inf') and shorten each cycle (inf -> 60s -> 30s -> 'int')
-     as SNR/dynamic range improves. Today Cleaner.self_cal_cycle never passes solint, so
-     main_calibrations.self_cal_cycle always uses 'inf'. Wire options.solint -> per-cycle solint.
-   - Phase-then-amp progression: run several phase-only (calmode='p') cycles first, then a final
-     amp+phase (calmode='ap', solnorm=True to preserve the flux scale) ONLY once the model is good.
-     Doing 'ap' too early corrupts fluxes. (self_cal_cycle is phase-only right now.)
-   - Faint-source SNR: set minsnr on the self-cal gaincal (none set today); allow gaintype='T' and/or
-     combine='spw' to boost SNR when per-spw 'G' solutions fail.
+## Calibration
+- Reference antenna: replace "3rd closest by vibes" (find_refant -> anntennas_list[3])
+  with a principled central / low-flagging / present-the-whole-track pick, chosen once
+  and fixed across cycles. (Array-config detection from antenna layout is done; refant
+  selection itself is not.)
+- fluxscale-failure retry: when fluxscale fails, try alternate refants with a
+  checkpoint backup/restore of the data folder (from 1.99 refant retry loop).
+- Manual flux calibration: setjy standard='manual' with user flux/freq, for odd/missing
+  amplitude calibrators (Perley-Butler is the only path today).
+- "Don't do self phase calibration" toggle.
+- Solution bookkeeping: decide & document incremental vs non-incremental self-cal;
+  implement check_refant (currently `pass`); optionally save per-cycle gain phase/amp
+  plots + stats for archiving.
 
- - Convergence & safety (currently absent)
-   - Actually stop: image_gen computes improvement_score but the `break` is commented out, so it runs
-     every cycle even while diverging. Implement a real stop criterion.
-   - Keep-best / rollback: self-cal can make things worse — track the lowest-RMS cycle and revert
-     rather than always using the last cycle's image.
-   - Gating: only self-cal when the target is bright enough (use MIN_FLUX_FOR_SELF_CAL and the image
-     peak/RMS dynamic range, not just the NED check); skip/abort cleanly on faint targets.
-   - Flagged-fraction monitor: applymode='calflag' flags solution-less data; report % flagged per
-     cycle and bail if excessive.
+## Manual self-cal mode
+- Flesh out the 'manual_self_cal' breakpoint beyond dropping into a CASA shell: pause to
+  let the user inspect the image / gain solutions and choose solint/calmode/continue-or-stop
+  per cycle. (Breakpoint routing is fixed; the guided experience is not built.)
 
- - Reference antenna
-   - Replace "3rd closest by vibes" (find_refant -> anntennas_list[3]) with a principled pick:
-     central, low-flagging, present the whole track. Choose once and FIX it across all cycles.
+## Reproducibility / archiving
+- Portable replay bundle: the .mask images that replay.py references live in
+  measurement_sets/. Copy the per-cycle masks next to replay.py (or rewrite the paths)
+  so a results folder replays on its own.
+- Provenance/integrity in import.json: software versions + git commit + input/mask
+  checksums (replay.py already carries a provenance header).
+- Archiving metadata collection:
+  - from user: email, name, reason for reducing; # knots + lobes and notes on the result
+  - automatic: calibration problems/statistics, redshift, # of calibration rounds
+  - NRAO archive tool: https://data.nrao.edu/archive-service/
 
- - Solution bookkeeping / model
-   - Decide & document the scheme: each cycle re-solves from raw DATA vs the latest MODEL and applies
-     only the newest caltable (non-incremental). Either keep that consistently or go incremental
-     (gaincal gaintable=[prev...], applycal all accumulated tables). Confirm which column tclean
-     images each cycle (initial_cycle images DATA; self-cal cycles image CORRECTED after applycal).
-   - Inspect/record solutions: implement check_refant (currently pass); optionally plot gain phase/amp
-     vs time and save per-cycle stats for archiving.
+## GUI
+- Delineate "manual self-cal + cleaning" from interactive cleaning.
+- Source-selection GUI: close/submit requires pressing it twice (bug).
+- Expanded features.
 
- - Code cleanup
-   - Consolidate duplicates/stubs: self_cal_solint_variation duplicates self_cal_cycle;
-     find_solint_variations (image_maker) and phase_self_calibration (main_calibrations) are empty.
-   - Wire find_solint_variations into the solint schedule above.
+## Code cleanup / maintainability
+- Remove dead stubs: self_cal_solint_variation (duplicate of self_cal_cycle);
+  find_solint_variations (image_maker) and phase_self_calibration (main_calibrations)
+  are empty and superseded by _build_solint_schedule / self_cal_cycle.
+- Turn imstat parsing into an Image-analysis module (classes/image_data.Image is a start).
+- Separate user *options* from per-run *data* (hierarchy).
+- Remove autopep8, fabric from requirements.
+- Excessive-commenting pass.
+- Keep example copies of parsed external data (email formats, web-page layouts, casa log
+  formatting) for when those formats drift.
 
- - Manual self-cal mode
-   - Implement the 'manual_self_cal' breakpoint: pause to let the user inspect image/gain solutions
-     and choose solint/calmode/continue-or-stop before each cycle (delineate from interactive clean).
-- Things to classify(turn to classes)
- - image (imstat) return for parsing -> new module Image analysis
- - sperate user options into options and per run *data* class (heirarcy?)
-
-- Outlier Fields!!!!!!!
-  - genereate outliers.txt!
-- Archiving
-  - info from user:
-    - email, name, reason for reducting
-    - num knots + lobes, and notes about result
-  - implement data collection for:
-    - problems encountered while calibrating (statistics?)
-    - (m) redshift
-    - () # of any calibration round 
- - Nrao tool -> https://data.nrao.edu/archive-service/
-- remove autopep8, fabric from packages
+### Race conditions
+- Split / import don't pause. (plotms now has an accept/revert catch in the flagging
+  breakpoint, so that specific race is handled.)
 
 ### Testing
--decide on number of observations from 2008
+- Choose the set of pre-2008 observations to validate against (working ONLY with
+  pre-2008 / classic-VLA data -> nterms stays 1, narrow fractional bandwidth).
+- listobs format robustness (epoch/srcID columns running together; scan data read-in).
 
-### maintainability steps
- - Excessive commenting!
- - maintin example copies of parsed external data 
-  - I.e Email formats, web page layouts, casa log formatting
+## Possible issues
+- Path access when the script is launched from outside the active dir (set cwd at runtime).
 
-### Bugs 
-- in ~~Breakpoint~~ source selection gui, ~~submit~~ close requires it being pressed twice.
-- ##### Race Conditions present
-  - plotms doesn't pause,
-  - Split/import don't pause either
-- if list-obs formating is inconsitient  (ex. epoch and srcID running into each other) 
-- observation/scan data does not get red in properly?
+## Tech - Exploration
+- EC2 web-server endpoint: accept a request, ssh from NRAO -> user as the response (pysocket).
+- Import the NRAO calibrator list to auto-fill many more calibrators.
 
-# Possible issues
-- Any instances of path access messed up by calling script from outside active dir?
-  - (at runtime, set path to correct folder)
 
-# Tech - Exploration
-EC2 instance for web-server to Open an endpoint \
-accept request, w/ pysocket, pass ssh from nrao to user as request response 
- - import nrao calibrator list to automatically find and fill many more calibrators
+## Recently completed (for reference)
+- Self-cal loop rewrite: data-driven solint ladder ('inf' -> geometric halving down to the
+  integration time -> 'int', for any n cycles; fixed fallback ladder logged as WARN),
+  phase-only cycles + one guarded final amp+phase pass (solnorm), dynamic-range metric,
+  keep-best, convergence/divergence early-stop, faint-source flux gate, minsnr, calonly.
+- Mode-aware auto-masking (auto-multithresh automatic / nsigma interactive); LAS-bounded
+  multiscale scales (fixes multiscale-deconvolver no-op); array config + cell size derived
+  from the antenna layout (not a hardcoded config index).
+- gaincal failure rate (read from the caltable FLAG column) -> adaptive applymode
+  (calflag/calonly) on primary cal + per-cycle self-cal diagnostic.
+- Data-flagging breakpoint: tfcrop autoflag + flagmanager backup + plotms check + accept/revert.
+- Baseline calibration (blcal): opt-in breakpoint, flux-gated, DR/flux-guarded.
+- Results folder per run: FITS (exportfits), pbcor.tt0, PNG, clean mask, listobs, casa.log.
+- Replay: call_recorder emits a standalone replay.py of the exact CASA calls (provenance
+  header; tclean rewritten to reuse the saved mask non-interactively).
+- Clean-mask save + replay through import.json, carried across cycles, with an --import prompt.
+- Fixes: manual_self_cal breakpoint routing, array-config index, LAS C-band typo (8.9),
+  Delos reachability pre-check (fail fast instead of a silent curl-retry hang).
