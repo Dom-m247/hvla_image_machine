@@ -309,6 +309,42 @@ def parse_antennas(listobs_text):
       antennas.append(antenna)
   return antennas
 
+#VLA configuration inferred from the maximum baseline. Boundaries are the geometric
+#means of the nominal max baselines (A=36.4, B=11.1, C=3.4, D=1.03 km), so each
+#observed max baseline maps to its closest standard config.
+_VLA_CONFIG_BY_MAX_BASELINE_KM = (
+  (20.1, 'A'),   # >= 20.1 km
+  (6.14, 'B'),   # >= 6.14 km
+  (1.87, 'C'),   # >= 1.87 km
+  (0.0,  'D'),   # everything shorter
+)
+
+def vla_config_from_antennas(antennas):
+  """Infer the VLA array configuration (A/B/C/D) from the antenna layout.
+
+  Uses the maximum baseline between antennas (from the East/North offsets in
+  listobs, in metres) and maps it to the closest standard config. Hybrid configs
+  (BnA/CnB/DnC) fall to whichever standard config their longest baseline is
+  nearest, which is what matters for sizing the imaging cell. Returns '' if the
+  layout is unavailable (too few antennas / missing offsets)."""
+  if not antennas or len(antennas) < 2:
+    return ''
+  try:
+    coords = [(a.east_offset, a.north_offset) for a in antennas]
+  except AttributeError:
+    return ''
+  max_baseline = 0.0
+  for i in range(len(coords)):
+    for j in range(i + 1, len(coords)):
+      baseline = math.hypot(coords[i][0] - coords[j][0], coords[i][1] - coords[j][1])
+      if baseline > max_baseline:
+        max_baseline = baseline
+  max_baseline_km = max_baseline / 1000.0
+  for threshold, config in _VLA_CONFIG_BY_MAX_BASELINE_KM:
+    if max_baseline_km >= threshold:
+      return config
+  return ''
+
 def antennas_distance(options:Options):
   """calculate and sort antenna distances"""
   antennas:list = options.observation_data.antennas

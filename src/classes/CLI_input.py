@@ -183,6 +183,26 @@ class CLI:
       print(f"Invalid selection. Enter 1-{len(options_list)} or press enter.")
 
   @staticmethod
+  def selectBand(bands, requested=None) -> str:
+    '''Prompt the user to choose one band from the bands the target was actually
+    observed in. Used when a requested band is not among them.'''
+    while True:
+      if requested:
+        print(f"Requested band '{requested}' is not available for this target.")
+      print("Bands observed for the target:")
+      for i, b in enumerate(bands, 1):
+        print(f"  {i}: {b}")
+      val = input(f"Select a band (1-{len(bands)}): ").strip()
+      try:
+        idx = int(val) - 1
+        if 0 <= idx < len(bands):
+          return bands[idx]
+      except ValueError:
+        if val in bands:
+          return val
+      print(f"Invalid selection. Enter 1-{len(bands)} or a band name.")
+
+  @staticmethod
   def getReferenceAntenna() -> str:
     '''Get reference antenna; enter to use auto selection.'''
     val = input("Enter reference antenna name (or press enter for auto): ").strip()
@@ -284,11 +304,13 @@ class CLI:
 
   @staticmethod
   def getSelfCalCycles() -> int:
-    '''Get number of self-calibration cycles.'''
+    '''Get number of self-calibration cycles. Default 4 so the full phase-only
+    solint ladder (SELF_CAL_SOLINTS: inf -> 60s -> 30s -> int) can run before the
+    a&p pass; fewer cycles just use the leading entries.'''
     while True:
-      val = input("Enter number of self-calibration cycles (default 3): ").strip()
+      val = input("Enter number of self-calibration cycles (default 4): ").strip()
       if val == '':
-        return 3
+        return 4
       try:
         n = int(val)
         if n > 0:

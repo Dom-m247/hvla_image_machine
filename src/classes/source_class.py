@@ -44,7 +44,11 @@ class source_info:
       self.field_id = self.find_fieldID(options.observation_data)
       self.set_RA_DECL(options)
       #resolve the observing band from THIS target's spws (or honor a user-set band)
-      self.determine_band(options)
+      self.determine_band(options, interactive=True)
+      #restrict the split/calibration to the spws THIS target uses in the resolved band,
+      #so a multi-band archive MS is reduced to just the target's band (e.g. 3C15 -> "22,23")
+      target_spws = self.spws_in_band(options, self.spws_for_field(options, self.field_id), options.band)
+      options.spw_selection = ','.join(str(s) for s in target_spws)
 
       #check_self_phase_cal =
     #extra members defined by initial ms split after initilization
@@ -142,7 +146,15 @@ class source_info:
             bands.append(test_band)
     return bands
 
-  def determine_band(self, options):
+  def spws_in_band(self, options, spw_ids, band):
+    '''Sorted subset of spw_ids whose center frequency falls within `band`.'''
+    rng = BAND_MHZ_RANGES.get(band)
+    if rng is None:
+      return sorted(spw_ids)
+    return sorted(s.id for s in options.observation_data.spectral_windows
+                  if s.id in spw_ids and self.in_spw(s.ch0_mhz, rng))
+
+  def determine_band(self, options, interactive=False):
     '''
     Resolve the observing band for THIS source and record it on self.band.
       - If the user fixed options.band, honor it (warning if this source has no
@@ -156,6 +168,15 @@ class source_info:
 
     if options.band != AUTO:
       if source_bands and options.band not in source_bands:
+        #requested band isn't one the target was observed in: in an interactive run,
+        #ask the user to pick from the target's actual bands; otherwise warn + proceed.
+        import sys
+        if interactive and sys.stdin.isatty():
+          from classes.CLI_input import CLI  #lazy: options_class<-CLI_input<-source_class cycle
+          chosen = CLI.selectBand(source_bands, requested=options.band)
+          options.band = chosen
+          self.band = chosen
+          return chosen
         msg = (f"Requested band '{options.band}' but source '{self.name}' is only "
                f"observed in {source_bands} (spws {sorted(source_spws)}).")
         ct.casalog.post(msg, priority='WARN')

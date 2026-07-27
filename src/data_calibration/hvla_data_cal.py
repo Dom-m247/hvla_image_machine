@@ -88,6 +88,12 @@ def pre_data_calibration(options:Options):
   #generate Naming Schemese for files
   LoadingAnimation.performing_action(" ms split on science target and calibrator(s)", target=cal_split.amp_cal_split, args=(options,))
 
+  #data-flagging breakpoint: interactive (plotms + accept/revert prompt), so it runs
+  #here on the main thread AFTER the split animation finishes -- not inside
+  #amp_cal_split, which executes on a LoadingAnimation worker thread.
+  if "manual_flagging" in options.breakpoints:
+    data_flagging.manual_flagging(options)
+
   #split off the calibrators and target's to make cleaning and calibration more efficient
   split_list_obs = parse.log_listobs_precalib(options.initial_calibration_filename,options)
   options.init_data = parse.populate_Obs_data(split_list_obs) 
