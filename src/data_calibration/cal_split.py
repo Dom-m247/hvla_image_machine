@@ -10,7 +10,7 @@ import sys,pprint
 from pathlib import Path
 
 
-def amp_cal_split(options:Options):
+def calibrator_split(options:Options):
   '''
   split off amp and target(?) fields for calibration
   #split(vis =  msfile+".ms", outputvis = "init.ms", datacolumn = 'data', field = (source_id, ampcal_id), spw = used_spws)
@@ -18,17 +18,16 @@ def amp_cal_split(options:Options):
   fields,spwID = get_command(options)
 
   if Path(options.initial_calibration_filename+".ms").is_dir():
-    #raise Exception(f"{AMP_CAL_MS}.ms already exists, please move,delete, or rename it")
+    #raise Exception(f"{PRIMARY_CAL_MS}.ms already exists, please move,delete, or rename it")
     ct.casalog.post(f"{options.proj_name+'.ms'} -> {options.initial_calibration_filename+'.ms'} | fields: {fields} | spw: {spwID}")
   else:
     ct.casalog.post(f"{options.proj_name+'.ms'} -> {options.initial_calibration_filename+'.ms'} | fields: {fields} | spw: {spwID}")
     ct.split(vis= MS_SUB_PATH + options.proj_name+'.ms',outputvis=options.initial_calibration_filename+'.ms',datacolumn = 'data', field=fields, spw=spwID)
   #if options.get_dict_sp('breakpoints')['verify_scans']:
     #pause, show listobs(vis='init.ms') and continue if correct, else END
-  #NOTE: the manual_flagging breakpoint is intentionally NOT run here -- amp_cal_split
-  #executes inside a LoadingAnimation worker thread, and the flagging step is
-  #interactive (plotms + accept/revert prompt). It is invoked from
-  #hvla_data_cal.pre_data_calibration on the main thread, after this split finishes.
+  #NOTE: manual_flagging is deliberately NOT run here -- this executes inside a
+  #LoadingAnimation worker thread and flagging is interactive. It runs from
+  #hvla_data_cal.pre_data_calibration on the main thread, after this split.
 
 
 def get_command(options:Options):
@@ -51,11 +50,11 @@ def build_spwID(options:Options):
 
 def define_split_fields_phase_cal(options:Options):
   #needs multiple MS integration
-  #(label, field_id) for each field that must be in the split. self-phase-cal needs
-  #no separate phase calibrator (the target self-calibrates).
+  #(label, field_id) for each field that must be in the split. A target acting as
+  #its own phase calibrator needs no separate one in the split.
   required = [('target', options.source_ids.field_id),
-              ('flux calibrator', options.amp_cal.field_id)]
-  if not options.self_phase_cal:
+              ('flux calibrator', options.flux_cal.field_id)]
+  if not options.target_is_phase_cal:
     required.append(('phase calibrator', options.phase_cal.field_id))
 
   #fail loudly if an id is missing rather than emitting malformed CASA syntax like "59,".
@@ -68,7 +67,7 @@ def define_split_fields_phase_cal(options:Options):
     )
 
   split_fields = ','.join(str(fid) for _, fid in required)
-  mode = 'self-phase-cal (src,amp)' if options.self_phase_cal else 'src,amp,phase'
+  mode = 'target as its own phase cal (src,flux)' if options.target_is_phase_cal else 'src,flux,phase'
   print(f"Splitting on fields [{mode}]: {split_fields}")
   return split_fields
 

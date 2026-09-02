@@ -11,6 +11,8 @@ import casatasks as ct
 from casaplotms import plotms
 
 from classes.CLI_input import CLI
+from classes import decisions, run_log
+from classes.constants import VERIFY
 from pre_calibration.options_class import Options
 
 #named flag version saved before tfcrop so the pass is fully reversible
@@ -41,24 +43,35 @@ def manual_flagging(options: Options):
     ct.flagdata(vis=vis, mode='tfcrop', datacolumn='data',
                 field='', correlation='', action='apply', flagbackup=False)
 
-    #3) plotms visual check. Show a GUI when a display exists (non-blocking), and
-    #   always write a PNG so there is a durable artifact even headless.
-    _show_plotms(vis, options.initial_calibration_filename + '_tfcrop_check.png')
+    #3) plotms check. Only 'verify' opens the GUI -- there is nobody watching an
+    #   'auto' run, and a window it never closes would just sit there. The PNG is
+    #   written either way, so the pass is reviewable after the fact.
+    review = decisions.mode(options, 'flagging') == VERIFY
+    _show_plotms(vis, options.initial_calibration_filename + '_tfcrop_check.png', gui=review)
 
     #4) Catch: block until the user accepts the flagging or reverts to the pre-flag
     #   state. Without this the pipeline would race past the non-blocking plotms.
-    if CLI.getYesNo("Keep this flagging? (n = revert to the pre-flag state)"):
+    #   'auto' keeps the pass unreviewed; the backup is still taken either way.
+    if not review:
+        print("Flagging applied (auto); resuming calibration.")
+        run_log.note('CALIBRATION', 'Flagging', 'tfcrop applied automatically (not reviewed)')
+    elif CLI.getYesNo("Keep this flagging? (n = revert to the pre-flag state)"):
         print("Flagging accepted; resuming calibration.")
+        run_log.note('CALIBRATION', 'Flagging', 'tfcrop applied and accepted by the user')
+        run_log.event(f"tfcrop autoflagging accepted on {vis}")
     else:
         ct.flagmanager(vis=vis, mode='restore', versionname=FLAG_BACKUP_VERSION)
         print(f"Reverted: restored flags from '{FLAG_BACKUP_VERSION}'; resuming calibration.")
+        run_log.note('CALIBRATION', 'Flagging',
+                     f"tfcrop applied then REVERTED (restored '{FLAG_BACKUP_VERSION}')")
+        run_log.event(f"tfcrop autoflagging reverted on {vis}")
 
 
-def _show_plotms(vis, plotfile):
-    """Open a plotms amp-vs-time check coloured by field. GUI only when $DISPLAY is
-    set (so a headless run doesn't hang waiting on X); the PNG is written either way.
-    Any plotms failure is non-fatal -- the user can still accept/revert below."""
-    have_display = bool(os.environ.get('DISPLAY'))
+def _show_plotms(vis, plotfile, gui=True):
+    """plotms amp-vs-time check coloured by field. The GUI opens only when `gui` is
+    set AND $DISPLAY exists (so a headless run doesn't hang waiting on X); the PNG is
+    written either way. Any plotms failure is non-fatal."""
+    have_display = gui and bool(os.environ.get('DISPLAY'))
     try:
         plotms(vis=vis, xaxis='time', yaxis='amp', coloraxis='field',
                plotfile=plotfile, overwrite=True, highres=True, showgui=have_display)

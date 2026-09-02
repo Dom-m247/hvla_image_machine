@@ -53,14 +53,6 @@ class LoadingAnimation:
     else:
       # Just show the animation cycling
       pass
-      #dot_states = ['', '.', '..', '...']
-      #for dot_index in range(12):  # Cycle through dots 3 times
-      #  dots = dot_states[dot_index % len(dot_states)]
-      #  sys.stdout.write(f'\rPerforming {action}' + dots.ljust(3))
-      #  sys.stdout.flush()
-      #  time.sleep(0.5)
-      #sys.stdout.write('\n')
-      #sys.stdout.flush()
 
   @staticmethod
   def plotMS_wait():

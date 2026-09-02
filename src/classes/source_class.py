@@ -22,20 +22,15 @@ class source_info:
     self.ra = ''
     self.decl = ''
 
-    if self.type == TYPE_FLUX_CAL and not options.custom_amp_cal:
-      print(f"finding flux cal!!!!!!!!!!!!!")
-      if not self.detect_flux_cal_first(options):
+    if self.type == TYPE_FLUX_CAL:
+      if not self.resolve_flux_cal(options):
         raise Exception('No Calibrator was detected for setJy')
-    elif self.type == TYPE_PHASE_CAL and 'pick_calibrator' in options.breakpoints:
-      pass
     elif self.type == TYPE_PHASE_CAL or (self.type == TYPE_TARGET and self.name is None): #would specifying a phase cal impede this logic?
       #search through fullset observation data and find 2nd most observed field?
       #also does source picking off most observed
       #self.detect_by_nrows(options,self.type) outdated, does not fuction consitiently
 
       self.find_phase_cal_distance(options)
-    elif self.type == TYPE_FLUX_CAL and options.custom_amp_cal: #Change to Phase Cal? AND or Add phase cla
-      self.manual_amp_cal(options)
     elif self.type == TYPE_TARGET and (self.name is not None):
       #a source was specified
       self.name = options.source
@@ -50,7 +45,7 @@ class source_info:
       target_spws = self.spws_in_band(options, self.spws_for_field(options, self.field_id), options.band)
       options.spw_selection = ','.join(str(s) for s in target_spws)
 
-      #check_self_phase_cal =
+      #check_target_as_phase_cal =
     #extra members defined by initial ms split after initilization
     self.initial_ms_fieldID: int | str | None = ''
   
@@ -206,53 +201,83 @@ class source_info:
                 #lower range      upper range
     return True if (listobs_spw >= test_band[0]) and (listobs_spw <= test_band[1]) else False
     
-  def detect_flux_cal_first(self,options):
-    '''
-    Finds the (first) Flux density calibrator in the full ms
-    **** NEEDS TO BE UPDATED TO FIND CLOSEST FLUX 
-    '''
+  def find_flux_cal_candidates(self,options):
+    '''Every field in the MS that is a known flux calibrator, in listobs order.'''
+    return [f for f in options.observation_data.fields
+            if f.name in FLUX_CAL_ALIASES or f.name in FLUX_CAL_ALIASES.values()]
+
+  def resolve_flux_cal(self,options):
+    '''Pick the flux calibrator per the flux_cal decision: auto takes the first known
+    calibrator, verify lets the user confirm or swap it, manual takes any field plus a
+    user flux/reffreq for setjy standard="manual". False = nothing usable found.'''
+    from classes import decisions
     fields = options.observation_data.fields
-    for i in range(len(fields)):
-      for amp_cal in COMMON_AMPCALS_DICT:
-        if fields[i].name == amp_cal or fields[i].name == COMMON_AMPCALS_DICT[amp_cal] :
-          ct.casalog.post(f'Amp Cal found, ID:{amp_cal}, {COMMON_AMPCALS_DICT[amp_cal]}')
-          self.name3c = COMMON_AMPCALS_DICT[amp_cal]
-          self.name = fields[i].name
-          self.listobs_name = fields[i].name
-          self.field_id = fields[i].id 
-          self.source_id = fields[i].src_id
-          band = self.asses_spw(options) 
-          options.band = band
-          self.band = band
-          self.model = self.name3c + '_' + self.band  +'.im'
-          return True
-    return False
+    mode = decisions.mode(options, 'flux_cal')
+    candidates = self.find_flux_cal_candidates(options)
+
+    #a name recorded by an earlier run wins over any prompt, so --importRun replays
+    if recorded := decisions.resolved(options, 'flux_cal_name'):
+      chosen = next((f for f in fields if f.name == recorded), None)
+      if chosen is None:
+        raise Exception(f'Recorded flux calibrator {recorded!r} is not in this MS')
+    elif mode == MANUAL:
+      chosen = decisions.pick('Flux calibrator -- choose a field:', fields,
+                              formatter=lambda f: f"{f.name} (field {f.id})")
+      if chosen is None:
+        return False   #no fields at all -- nothing to calibrate against
+      options.flux_cal_manual = self._ask_manual_flux(options, chosen)
+    elif not candidates:
+      return False
+    elif mode == VERIFY:
+      chosen = decisions.pick('Flux calibrator -- detected candidates:', candidates,
+                              formatter=lambda f: f"{f.name} (field {f.id})")
+    else:
+      chosen = candidates[0]
+    if chosen is None:
+      return False
+
+    cal_name = str(chosen.name)
+    ct.casalog.post(f'Flux calibrator: {cal_name} (field {chosen.id})')
+    self.name = self.listobs_name = cal_name
+    self.field_id = chosen.id
+    self.source_id = chosen.src_id
+    options.flux_cal_name = cal_name
+    self.set_RA_DECL(options)
+    band = self.asses_spw(options)
+    options.band = band
+    self.band = band
+    #a manual calibrator has no Perley-Butler model; setjy uses the user's flux instead
+    self.name3c = FLUX_CAL_ALIASES.get(cal_name, cal_name)
+    self.model = '' if options.flux_cal_manual else f"{self.name3c}_{self.band}.im"
+    decisions.announce('flux_cal', cal_name,
+                       'user flux' if options.flux_cal_manual else self.model)
+    return True
+
+  def _ask_manual_flux(self,options,field):
+    '''Flux density + reference frequency for setjy standard="manual".'''
+    from classes import decisions
+    if existing := decisions.resolved(options, 'flux_cal_manual'):
+      return existing
+    print(f"\n{field.name} has no Perley-Butler model; enter its flux density.")
+    return {'flux': decisions.value('Flux density (Jy)', 1.0, float),
+            'reffreq': decisions.value('Reference frequency (e.g. 5GHz)', '')}
   
-  def check_self_phase_cal(self,options):
-    '''checks ned  if self phase cal is doable'''
+  def check_target_as_phase_cal(self,options):
+    '''ask NED whether the target is bright enough in band to serve as its own
+    phase calibrator, so no separate one is needed'''
     if options.band == 'auto':
       self.asses_spw(options)
     #call NED by name, and RA DEC, check >=50mjy with 20% of band
-    if options.phase_calibrator_method == 'auto':
-      options.self_phase_cal = NED_API.check_self_cal_potential(self.name,options.band)
-    else: 
-      options.self_phase_cal = False #set self-calable to false to force phase calibrator usage.
-    pass
-  def manual_amp_cal(self,options):
-    pass
-  #def check_source_manual(data,source_id):
-  #  '''checks that the manually entered source_id is in the observation'''
-  #  for source in data.get_dict()['sources']:
-  #    if source['name'] == source_id:
-  #      ct.casalog.post('Amp Cal found, ID:{source_id}')
-  #      data.add_dict({'amp_cal_source':'{source_id}'})
-  #      return True
-  #    else:
-  #      return None
+    from classes import decisions
+    if decisions.mode(options, 'phase_cal') == AUTO:
+      options.target_is_phase_cal = NED_API.check_self_cal_potential(self.name,options.band)
+    else:
+      options.target_is_phase_cal = False #force/manual both require a separate calibrator
+
   def find_phase_cal_distance(self, options):
     '''
     Builds a dict of {field_id: (Fields, SkyCoord)} for all fields except the
-    amp_cal and source target, sorts them by angular separation from the target,
+    flux_cal and source target, sorts them by angular separation from the target,
     then picks the closest one that appears in the NRAO calibrator list for the
     current band.  Falls back to the closest field if none match.
     '''
@@ -271,7 +296,7 @@ class source_info:
       decl_colon = f"{sign}{parts[0]}:{parts[1]}:{parts[2]}"
       return SkyCoord(ra_str, decl_colon, unit=('hourangle', 'deg'))
 
-    exclude_ids = {options.amp_cal.field_id, options.source_ids.field_id}
+    exclude_ids = {options.flux_cal.field_id, options.source_ids.field_id}
 
     # {field_id: (Fields object, SkyCoord)}
     candidates = {}
@@ -289,34 +314,53 @@ class source_info:
     )
 
     nrao = NRAOCalibrators()
+
+    def adopt(field, coord, note=''):
+      self.name = self.listobs_name = field.name
+      self.field_id = field.id
+      self.source_id = field.src_id
+      self.set_RA_DECL(options)
+      if self.type == TYPE_PHASE_CAL:
+        options.phase_cal_name = field.name   #recorded so a replay reuses this exact field
+      sep = _sep_deg(source_coord, coord)
+      ct.casalog.post(f'Phase cal{note}: {self.name} ({sep:.2f} deg from target)')
+      if sep > 10:
+        ct.casalog.post(f'WARNING: Phase calibrator {self.name} is {sep:.2f} deg from target — calibration may be degraded.', priority='WARN')
+        print(f"WARNING: Phase calibrator '{self.name}' is {sep:.2f} degrees from target source. Calibration quality may be degraded.")
+
+    #manual pick / recorded answer, for the phase cal only -- the target also lands
+    #here (name is None) and must never prompt
+    if self.type == TYPE_PHASE_CAL:
+      from classes import decisions
+      if recorded := decisions.resolved(options, 'phase_cal_name'):
+        for field_id, (field, coord) in sorted_candidates:
+          if field.name == recorded:
+            adopt(field, coord, ' (recorded)')
+            return
+        raise Exception(f'Recorded phase calibrator {recorded!r} is not in this MS')
+      if decisions.mode(options, 'phase_cal') == MANUAL:
+        def _describe(item):
+          field, coord = item[1]
+          entry = nrao.find_by_name(field.name)
+          known = 'NRAO' if entry and entry.get_band(options.band) else 'unlisted'
+          return f"{field.name:<15} {_sep_deg(source_coord, coord):6.2f} deg  {known}"
+        if picked := decisions.pick('Phase calibrator -- nearest fields first:',
+                                    sorted_candidates, formatter=_describe):
+          field, coord = picked[1]
+          adopt(field, coord, ' (picked)')
+          decisions.announce('phase_cal', field.name)
+          return
+
     for field_id, (field, coord) in sorted_candidates:
       cal_entry = nrao.find_by_name(field.name)
       if cal_entry is not None and cal_entry.get_band(options.band) is not None:
-        self.name = field.name
-        self.listobs_name = field.name
-        self.field_id = field.id
-        self.source_id = field.src_id
-        self.set_RA_DECL(options)
-        sep = _sep_deg(source_coord, coord)
-        ct.casalog.post(f'Phase cal: {self.name} ({sep:.2f} deg from target)')
-        if sep > 10:
-          ct.casalog.post(f'WARNING: Phase calibrator {self.name} is {sep:.2f} deg from target — calibration may be degraded.', priority='WARN')
-          print(f"WARNING: Phase calibrator '{self.name}' is {sep:.2f} degrees from target source. Calibration quality may be degraded.")
+        adopt(field, coord)
         return
 
     # fallback: closest field even if not confirmed in NRAO list
     if sorted_candidates:
       field_id, (field, coord) = sorted_candidates[0]
-      self.name = field.name
-      self.listobs_name = field.name
-      self.field_id = field.id
-      self.source_id = field.src_id
-      self.set_RA_DECL(options)
-      sep = _sep_deg(source_coord, coord)
-      ct.casalog.post(f'Phase cal (NRAO unconfirmed): {self.name} ({sep:.2f} deg from target)')
-      if sep > 10:
-        ct.casalog.post(f'WARNING: Phase calibrator {self.name} is {sep:.2f} deg from target — calibration may be degraded.', priority='WARN')
-        print(f"WARNING: Phase calibrator '{self.name}' is {sep:.2f} degrees from target source. Calibration quality may be degraded.")
+      adopt(field, coord, ' (NRAO unconfirmed)')
   
   @staticmethod
   def verify_model(data):

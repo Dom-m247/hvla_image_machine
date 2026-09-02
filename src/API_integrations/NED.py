@@ -1,5 +1,7 @@
 from astroquery.ipac.ned import Ned
 from classes.constants import BAND_MHZ_RANGES, MIN_FLUX_FOR_SELF_CAL
+import math
+import numpy
 from pprint import pp
 from requests.exceptions import Timeout, ConnectionError
 from typing import Any, cast
@@ -20,9 +22,9 @@ class NED_API:
       if len(query) == 1:
         ra = float(query['RA'])
         decl = float(query['DEC'])
-        #Redshift check here?
         ra_decl = {"ra": ra, "decl": decl}
-        result = {'ra_decl':ra_decl, 'alias':str(query[0]['Object Name'])}
+        result = {'ra_decl':ra_decl, 'alias':str(query[0]['Object Name']),
+                  'redshift': NED_API._redshift(query)}
         return result
       else:
         return False
@@ -33,6 +35,27 @@ class NED_API:
       print(f"Error occurred while querying NED: {e}")
       return False
     
+  @staticmethod
+  def _redshift(query):
+    """Redshift from a NED object query, or '' when NED has none.
+
+    Plenty of radio sources have no measured redshift, so an absent value is
+    normal and must not fail the lookup. NED returns a masked float column, and
+    an unmeasured redshift comes back as the masked constant rather than as a
+    missing key or None.
+    """
+    try:
+      value = query['Redshift'][0]
+    except Exception:
+      return ''
+    try:
+      if value is None or numpy.ma.is_masked(value):
+        return ''
+      value = float(value)
+      return '' if math.isnan(value) else value
+    except (TypeError, ValueError):
+      return ''
+
   @staticmethod
   def get_photometry(source_name):
     """

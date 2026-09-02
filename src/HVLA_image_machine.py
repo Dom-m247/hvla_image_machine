@@ -3,12 +3,15 @@ import casaviewer
 import casatasks 
 import casaconfig
 from classes.CLI_input import CLI
+from classes.constants import GUIDED
 from pre_calibration.options_class import Options
 from pre_calibration import *
 from image_generation.image_maker import Cleaner
 from archive_dowload.radio_search_integration import RadioSearchIntegration, DelosDownload
 from data_calibration import hvla_data_cal
 from classes import call_recorder
+from classes import run_log
+from archive import form_submission, results_package
 #from archive_dowload import *
 import pprint
 import threading
@@ -26,6 +29,7 @@ def argumentManager():
   parser.add_argument('--cli','-c','-t', action='store_true', help='run whole script in cli mode without GUI')
   parser.add_argument('--cliCalib','-tc', action='store_true', help='run cli for calibration and imaging, allows user over-ride on calibrators')
   parser.add_argument('--archive','-a', action='store_true', help='run archiving routine')
+  parser.add_argument('--no-ms-tar', action='store_true', help='skip taring the calibrated MS (the large bundle); the products tarball is still written')
   arguments = parser.parse_args()
   if arguments.radio_search:
     arguments.cli = True
@@ -36,19 +40,27 @@ def main(): #argv
   print("Welcome to the HVLA Image Machine!")
   source = Options()
   source.sysArgs = argumentManager()
-  #update casa_config measurments 
-  #update_config()  ####UNCOMMENT HERE ON FIRST USE###
+  #--archive: either archive a finished results folder and stop, or fall through
+  #and archive this run once it has one.
+  if source.sysArgs.archive:
+    folder = form_submission.prompt_for_folder()
+    if folder:
+      form_submission.archive_existing(folder)
+      return
 
-  #sign in to gmail and get token
-  #token = gmail_options_fetch.generateToken()
+  #===========================================================================================  
+  #update casa_config measurments
+  #update_config()  ####UNCOMMENT HERE ON FIRST USE###
+  #===========================================================================================
 
   delete_logs()
   #record every CASA task call so we can emit a standalone replay.py of the exact
   #process at the end (parameters resolved to literals; no decision logic).
   call_recorder.start()
+  #accumulate the human-readable report of what this run decided (see classes/run_log)
+  run_log.start()
 
   if source.sysArgs.importRun:
-    print("importingWorks???")
     # Import mode - skip GUI
     try:
       imported_setting = import_settings.import_options()
@@ -92,12 +104,13 @@ def main(): #argv
   end_time = time.perf_counter()
   elapsed_time = end_time - start_time
   print(f"Calibration Time taken: {elapsed_time:.4f} seconds")
+  run_log.timing('Calibration', elapsed_time)
 
   #tcleaning!
   cleaner = Cleaner()
-  #'manual_self_cal' breakpoint (BREAKPOINTS key) -> hand-driven clean/self-cal in a
-  #CASA shell; otherwise run the automated image_gen self-cal loop.
-  if 'manual_self_cal' not in source.breakpoints:
+  #self_cal 'guided' -> hand-driven clean/self-cal in a CASA shell; every other mode
+  #runs the automated image_gen loop (which no-ops the cycles when self_cal is off).
+  if source.decision('self_cal') != GUIDED:
     print(f"Starting Clean")
     start_time = time.perf_counter()
     cleaner.image_gen(source)
@@ -105,6 +118,7 @@ def main(): #argv
     elapsed_time = end_time - start_time
     print(f"Imaging Time taken: {elapsed_time:.4f} seconds")
     casatasks.casalog.post(f"Imaging Time taken: {elapsed_time:.4f} seconds")
+    run_log.timing('Imaging', elapsed_time)
   else:
     print(f"Starting Manual Clean and self_cal")
     image = Cleaner.manual_clean_calibration(options=source)
@@ -112,7 +126,8 @@ def main(): #argv
   #output options obj as json! #CHANGE TO IMPORT
   if not source.sysArgs.noexport:
     import_settings.generate_import(source)
-  import_settings.generate_debug_export(source,filename="export_for_testing")
+  if source.sysArgs.debug:
+    import_settings.generate_debug_export(source,filename="export_for_testing")
   #emit the replay script of the exact CASA calls this run made -> results folder if
   #one was created (collect_results), else the working directory. Best-effort.
   try:
@@ -121,8 +136,24 @@ def main(): #argv
     print(f"Wrote replay script: {replay_path}")
   except Exception as e:
     print(f"Could not write replay script: {e}")
-  #if 'display_image' in source.breakpoints and not 'manual_self_cal' in source.breakpoints:
-  # casaviewer.imview(raster=(source.image_filename)+'.image.tt0')
+  #the human-readable report of the run: what was chosen, and why. Written last so
+  #it can describe everything above it, and beside replay.py in the results folder.
+  try:
+    log_dir = getattr(source, 'results_dir', '') or '.'
+    log_name = getattr(source, 'results_name', '') or 'run'
+    log_path = run_log.write(source, Path(log_dir) / f"{log_name}.log")
+    if log_path:
+      print(f"Wrote run log: {log_path}")
+  except Exception as e:
+    print(f"Could not write run log: {e}")
+  #tar the results for the archive form -- after the log and replay, so they are in it
+  try:
+    results_package.package(source, include_ms=not source.sysArgs.no_ms_tar)
+  except Exception as e:
+    print(f"Could not package results: {e}")
+  #opt-in (--archive): open the archive submission form, prefilled from this run.
+  if source.sysArgs.archive:
+    form_submission.submit(source)
   print("Completed Successfuly. Exiting...")
   
   
@@ -190,32 +221,3 @@ def radio_search(options:Options):
 if __name__ == "__main__":
   main()#sys.argv
 
-
-  #casatasks.tclean(vis='3c391_ctm_mosaic_spw0.ms',imagename='3c391_ctm_spw0_ms_I',
-  #    field='',spw='',
-  #    specmode='mfs',
-  #    niter=500,
-  #    gain=0.1,threshold='1mJy',
-  #    gridder='mosaic',
-  #    deconvolver='multiscale',
-  #    scales=[0, 5, 15, 45],smallscalebias=0.9,
-  #    interactive=True,
-  #    imsize=[480,480],cell=['2.5arcsec','2.5arcsec'],
-  #    stokes='I',
-  #    weighting='briggs',robust=0.5,
-  #    pbcor=False,
-  #    savemodel='modelcolumn')
-  #casatasks.tclean(vis='3c391_ctm_mosaic_spw0.ms',imagename='3c391_ctm_spw0_multiscale',
-  #    field='',spw='',
-  #    specmode='mfs',
-  #    niter=20000,
-  #    gain=0.1, threshold='1.0mJy',
-  #    gridder='mosaic',
-  #    deconvolver='multiscale',
-  #    scales=[0, 5, 15, 45], smallscalebias=0.9,
-  #    interactive=True,
-  #    imsize=[480,480], cell=['2.5arcsec','2.5arcsec'],
-  #    stokes='I',
-  #    weighting='briggs',robust=0.5,
-  #    pbcor=False,
-  #    savemodel='modelcolumn')

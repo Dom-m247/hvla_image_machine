@@ -14,17 +14,16 @@ class CLI:
   def getOptions(options:Options):
     '''
     get options from terminal input
-    i.e breakpoints, min_snr, image info.
+    i.e decisions, min_snr, image info.
     '''
 
     print("For any Options, pressing enter will select an Auto option")
     CLI.getSourceInfo(options)
-    options.archive_file = CLI.getObservationArchive()
-    options.breakpoints = CLI.getBreakpoints()
-    #options.custom_amp_cal = CLI.getCustomAmpCal()
-    options.custom_amp_cal = False
-    options.phase_calibrator_method = CLI.getPhaseCalibratorMethod()
-    options.reference_antenna = CLI.getReferenceAntenna()
+    options.set_archive(CLI.getObservationArchive())
+    options.decisions = CLI.getDecisions()
+    #only worth asking when the user wants a say; 'auto' picks its own
+    if options.decision('refant') != AUTO:
+      options.reference_antenna = CLI.getReferenceAntenna()
     options.min_snr = CLI.getMinSNR()
     options.image_filename = CLI.getImageFilename()
     options.image_size = CLI.getImageSize()
@@ -34,8 +33,8 @@ class CLI:
       options.cell_size = CLI.getCellSize(options.band)
     options.deconvolver = CLI.getDeconvolver()
     options.weighting = CLI.getWeighting()
-    options.do_self_cal = CLI.getYesNo("Enable self-calibration?")
-    if options.do_self_cal:
+    options.test_image = CLI.getYesNo("Make a test image first (to check cell/image size)?")
+    if options.do_self_cal:   #set by the self_cal decision above
       options.self_cal_cycles = CLI.getSelfCalCycles()
 
 
@@ -47,10 +46,10 @@ class CLI:
     are skipped here. Intended to run on its own thread alongside DelosDownload.
     '''
     print("For any Options, pressing enter will select an Auto option")
-    options.breakpoints = CLI.getBreakpoints()
-    options.custom_amp_cal = False
-    options.phase_calibrator_method = CLI.getPhaseCalibratorMethod()
-    options.reference_antenna = CLI.getReferenceAntenna()
+    options.decisions = CLI.getDecisions()
+    #only worth asking when the user wants a say; 'auto' picks its own
+    if options.decision('refant') != AUTO:
+      options.reference_antenna = CLI.getReferenceAntenna()
     options.min_snr = CLI.getMinSNR()
     options.image_filename = CLI.getImageFilename()
     options.image_size = CLI.getImageSize()
@@ -60,8 +59,8 @@ class CLI:
       options.cell_size = CLI.getCellSize(options.band)
     options.deconvolver = CLI.getDeconvolver()
     options.weighting = CLI.getWeighting()
-    options.do_self_cal = CLI.getYesNo("Enable self-calibration?")
-    if options.do_self_cal:
+    options.test_image = CLI.getYesNo("Make a test image first (to check cell/image size)?")
+    if options.do_self_cal:   #set by the self_cal decision above
       options.self_cal_cycles = CLI.getSelfCalCycles()
 
   @staticmethod
@@ -75,28 +74,34 @@ class CLI:
     options.source_ra = source_dict['ra_decl']['ra']
     options.source_decl = source_dict['ra_decl']['decl']
     options.search_alias = source_dict['alias']
+    options.redshift = source_dict.get('redshift', '')
     options.band = CLI.getBand()
 
   @staticmethod
-  def getBreakpoints():
-    '''get the breakpoints to set for the script
-      ie: data flagging, doing self-cal, manual clean, etc.
-    '''
+  def _select(label, options_list, default) -> str:
+    '''Numbered choice from a list; enter takes `default`. The shape every
+    list-valued prompt here uses.'''
     while True:
+      print(f"{label}:")
+      for i, opt in enumerate(options_list, 1):
+        print(f"  {i}: {opt}")
+      val = input(f"Select (or press enter for {default}): ").strip()
+      if val == '':
+        return default
       try:
-        counter = 1
-        for bp in BREAKPOINTS:
-          print(f"{counter}: {BREAKPOINTS[bp]}")
-          counter += 1
-        selected = input("Enter the numbers of the breakpoints you want to set, separated by commas (e.g., 1,2,3): ")
-        if selected == '':
-          return []
-        selected_indices = [int(x.strip()) for x in selected.split(',')]
-        breakpoints = [list(BREAKPOINTS.keys())[i-1] for i in selected_indices if i-1 < len(BREAKPOINTS)]
-        break 
+        idx = int(val) - 1
+        if 0 <= idx < len(options_list):
+          return options_list[idx]
       except ValueError:
-        print("Invalid input. Please enter valid breakpoints.")
-    return breakpoints
+        if val in options_list:
+          return val
+      print(f"Invalid selection. Enter 1-{len(options_list)} or press enter.")
+
+  @staticmethod
+  def getDecisions():
+    '''Pick a mode for each decision point (see DECISIONS).'''
+    return {name: CLI._select(spec['label'], list(spec['modes']), spec['default'])
+            for name, spec in DECISIONS.items()}
 
   @staticmethod
   def getBand():
@@ -115,31 +120,77 @@ class CLI:
 
   @staticmethod
   def getObservationArchive():
-    '''get the data archive or MS'''
+    '''Get the observation archive(s) or MS, as a list of paths.
+
+    A VLA segment is often held locally as several raw archive files that
+    importvla concatenates into one MS, so more than one may be given: separate
+    the paths with commas, or name the folder holding them. A single archive or
+    MS comes back as a one-entry list.
+    '''
     while True:
-      archive = input("Enter Path for Observation Archive or MS: ").strip()
-      if not (archive.endswith('.ms') or archive.endswith('.exp')):
-        print("Invalid input. Path must end in .ms or .exp.")
+      raw = input("Enter Path for Observation Archive or MS "
+                  "(comma-separated for a multi-file segment, or a folder of archive files): ").strip()
+      if not raw:
+        print("Please enter a path.")
         continue
-      if not Path(archive).is_dir() and not Path(archive).is_file():
-        print(f"Path not found: {archive}")
-        continue
-      break
-    return archive
+      if paths := CLI._resolve_archive_paths(raw):
+        return paths
+
+  @staticmethod
+  def _resolve_archive_paths(raw):
+    '''One archive selection -> list of paths, or [] with the reason printed.
+
+    A lone folder that is not itself an MS is expanded to the archive files
+    inside it, which is how a downloaded segment sits on disk
+    (data_archive/<proj_code>/).
+    '''
+    entries = [Path(part.strip()).expanduser() for part in raw.split(',') if part.strip()]
+    if not entries:
+      return []
+    if len(entries) == 1 and entries[0].is_dir() and entries[0].suffix != '.ms':
+      found = sorted(p for p in entries[0].iterdir() if p.suffix in ARCHIVE_SUFFIXES)
+      if not found:
+        print(f"No archive files ({', '.join(ARCHIVE_SUFFIXES)}) in {entries[0]}")
+        return []
+      print(f"Found {len(found)} archive file(s) in {entries[0]}:")
+      for path in found:
+        print(f"  {path.name}")
+      return [str(p) for p in found]
+    paths = []
+    for entry in entries:
+      if not (entry.is_dir() or entry.is_file()):
+        print(f"Path not found: {entry}")
+        return []
+      if entry.is_dir() and entry.suffix != '.ms':
+        #only expanded when it is the whole selection, so it cannot be mixed with files
+        print(f"Give the folder {entry.name} on its own to import the segment inside it.")
+        return []
+      if entry.suffix == '.ms':
+        #an MS is already imported data; it cannot be concatenated with raw archives
+        if len(entries) > 1:
+          print("An MS must be given on its own, not alongside other files.")
+          return []
+      elif entry.suffix not in ARCHIVE_SUFFIXES:
+        print(f"Invalid input. {entry.name} must end in .ms or {' / '.join(ARCHIVE_SUFFIXES)}.")
+        return []
+      paths.append(str(entry))
+    return paths
   
   @staticmethod
   def get_source():
     '''get source name'''
     while True:
       try:
-        source = input("Enter Source Name: ")
-        if not (result := NED_API.obj_exists(source)):
-          raise ValueError(f"Source {source} not found by NED. Please enter a valid source.")
+        source = input("Enter Source Name (or press enter to quit): ").strip()
+        #test for the cancel BEFORE the lookup: NED does not resolve '', so an
+        #empty name would otherwise come back "not found" and re-prompt forever
         if(source == ''):
           sys.exit() #maybe auto/hold off till after import?
+        if not (result := NED_API.obj_exists(source)):
+          raise ValueError(f"Source {source} not found by NED. Please enter a valid source.")
         break
       except ValueError:
-        print("source not found. Please enter a valid name or press enter to canel.")
+        print("source not found. Please enter a valid name or press enter to cancel.")
     result.update({'source':source})
     return result
   
@@ -155,32 +206,6 @@ class CLI:
       if val in ('n', 'no'):
         return False
       print("Please enter y or n.")
-
-  @staticmethod
-  def getCustomAmpCal() -> str:
-    '''Get amplitude calibrator; enter to use auto detection.'''
-    val = input("Enter custom amplitude calibrator name (or press enter for auto): ").strip()
-    return val if val else AUTO
-
-  @staticmethod
-  def getPhaseCalibratorMethod() -> str:
-    '''Choose phase calibrator selection method.'''
-    options_list = ["auto", "force phase calibrator", "pick phase calibrator"]
-    while True:
-      print("Phase calibrator method:")
-      for i, opt in enumerate(options_list, 1):
-        print(f"  {i}: {opt}")
-      val = input("Select (or press enter for auto): ").strip()
-      if val == '':
-        return AUTO
-      try:
-        idx = int(val) - 1
-        if 0 <= idx < len(options_list):
-          return options_list[idx]
-      except ValueError:
-        if val in options_list:
-          return val
-      print(f"Invalid selection. Enter 1-{len(options_list)} or press enter.")
 
   @staticmethod
   def selectBand(bands, requested=None) -> str:
@@ -204,8 +229,9 @@ class CLI:
 
   @staticmethod
   def getReferenceAntenna() -> str:
-    '''Get reference antenna; enter to use auto selection.'''
-    val = input("Enter reference antenna name (or press enter for auto): ").strip()
+    '''Name a reference antenna outright. Only asked in 'manual' mode; enter defers
+    to the run-time picker, which lists the ranked antennas once the MS is read.'''
+    val = input("Enter reference antenna name (or press enter to pick one at run time): ").strip()
     return val if val else AUTO
 
   @staticmethod
@@ -407,11 +433,3 @@ class CLI:
       except ValueError:
         print("Invalid input. Please enter a number.")
 
-  @staticmethod
-  def getManualPhaseCalibrator(options:Options):
-    '''get manual phase calibrator name from user by listobs'''
-    #print listobs
-    print(f"List of potential phase calibrators from listobs: ")
-    #fields_list = options.observation_data.fields
-    for field in (fields_list:=options.observation_data.fields):
-      print(f"  {field['name']}")

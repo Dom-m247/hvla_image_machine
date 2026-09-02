@@ -48,6 +48,9 @@ def import_options():
       # Use json.load() to parse the file content into a Python object (usually a dictionary or a list)
       data_dict = json.load(file)
       data_dict['archive_file'] = add_path(data_dict['archive_file'])
+      #a multi-file segment is stored the same way, one localized path per file
+      if data_dict.get('archive_files'):
+        data_dict['archive_files'] = [add_path(p) for p in data_dict['archive_files']]
       print("options imported Sucessfully")
       return data_dict
   except FileNotFoundError:
@@ -73,6 +76,8 @@ def generate_import(data_obj:Options,filename="import"):
     dataToSerialize = data_obj.generate_dict()
   
     dataToSerialize['archive_file'] = revmove_path(dataToSerialize['archive_file'])
+    if dataToSerialize.get('archive_files'):
+      dataToSerialize['archive_files'] = [revmove_path(p) for p in dataToSerialize['archive_files']]
     with open(filename+".json","w") as json_file: 
        json.dump(dataToSerialize,json_file,indent=4,default=_json_default)
   except Exception as e:
@@ -87,6 +92,8 @@ def generate_debug_export(data_obj,filename="debug_export"):
     #de-pathify archive.file
     dataToSerialize = data_obj.to_dict()
     dataToSerialize['archive_file'] = revmove_path(dataToSerialize['archive_file'])
+    if dataToSerialize.get('archive_files'):
+      dataToSerialize['archive_files'] = [revmove_path(p) for p in dataToSerialize['archive_files']]
     with open(filename+".json","w") as json_file: 
        json.dump(dataToSerialize,json_file,indent=4,default=_json_default)
   except Exception as e:

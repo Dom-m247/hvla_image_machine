@@ -1,18 +1,17 @@
 """Records the CASA task calls a run makes, then emits a standalone `replay.py`.
 
-The replay script is the run's decisions *flattened*: the exact, ordered CASA task
-calls that executed, with every parameter resolved to a literal -- no options, no
-loops, no pipeline decision logic. Re-running it reproduces the process (assuming the
-same input MS and CASA version; pair with the provenance header for the environment).
+The replay script is the run's decisions *flattened*: the exact, ordered CASA
+task calls that executed, every parameter resolved to a literal -- no options,
+no loops, no decision logic. Re-running it reproduces the process, given the
+same input MS and CASA version.
 
-Usage:
-    call_recorder.start()          # monkeypatch the recorded tasks (once, at startup)
+    call_recorder.start()              # monkeypatch the recorded tasks, at startup
     ... run the pipeline ...
     call_recorder.write_replay(path)   # dump replay.py
 
-Implementation: every module calls the tasks as `ct.<task>(...)` (attribute lookup on
-the shared casatasks module at call time), so patching the module attributes here
-intercepts all callers without touching any call site.
+Every module calls tasks as `ct.<task>(...)`, looked up on the shared casatasks
+module at call time, so patching the module attributes intercepts all callers
+without touching any call site.
 """
 import sys
 import subprocess
@@ -28,6 +27,7 @@ import casatasks as ct
 _RECORDED_TASKS = (
   'importvla', 'listobs', 'flagdata', 'flagmanager', 'setjy', 'gaincal', 'bandpass',
   'fluxscale', 'applycal', 'blcal', 'split', 'tclean', 'impbcor', 'exportfits',
+  'uvsub',
   'rmtables', 'delmod',
 )
 
@@ -123,19 +123,32 @@ def _git_commit():
     return '?'
 
 
+def provenance():
+  """What pins this run's environment: timestamp, interpreter, CASA versions, commit.
+  Shared by replay.py's header and the run log, so the two can never disagree."""
+  return {
+    'generated': datetime.datetime.now().isoformat(timespec='seconds'),
+    'python': sys.version.split()[0],
+    'casatasks': _version('casatasks'),
+    'casatools': _version('casatools'),
+    'git_commit': _git_commit(),
+  }
+
+
 def write_replay(path):
   """Write the recorded calls as a runnable replay.py at `path`, with a provenance
   header (versions + git commit) so the run's environment is pinned alongside it."""
+  info = provenance()
   header = [
     '"""Auto-generated replay script.',
     '',
     'The exact CASA task calls this run executed, parameters resolved to literals.',
     'Re-running reproduces the process (assumes the same input MS and CASA version).',
     '',
-    f"generated : {datetime.datetime.now().isoformat(timespec='seconds')}",
-    f"python    : {sys.version.split()[0]}",
-    f"casatasks : {_version('casatasks')}    casatools: {_version('casatools')}",
-    f"git commit: {_git_commit()}",
+    f"generated : {info['generated']}",
+    f"python    : {info['python']}",
+    f"casatasks : {info['casatasks']}    casatools: {info['casatools']}",
+    f"git commit: {info['git_commit']}",
     '"""',
     'import casatasks as ct',
     '',

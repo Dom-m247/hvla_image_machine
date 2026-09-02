@@ -1,5 +1,26 @@
 from casatasks import casalog
 import pprint
+import re
+
+
+#Antennas retrofitted during the EVLA transition appear as 'EA##' while the rest
+#of the same array is still 'VA##'. The observation is pre-upgrade data either
+#way, so anything shown to the user names every antenna the VLA way.
+_EVLA_NAME = re.compile(r'[eE][aA](\d+)')
+
+
+def vla_antenna_name(name):
+  """An antenna name under VLA conventions ('EA01' -> 'VA01').
+
+  DISPLAY ONLY. Antenna.name keeps the spelling the measurement set uses,
+  because that is what CASA resolves antenna selections against and what
+  flagdata reports back -- normalising it would break both.
+  """
+  text = str(name or '').strip()
+  match = _EVLA_NAME.fullmatch(text)
+  return f"VA{match.group(1)}" if match else text
+
+
 class Obs_information:
     def __init__(self,obs_info={}):
       self.observer = obs_info['observer'] #will likeley be empty
@@ -50,34 +71,15 @@ class Fields:
     self.id = field['id']
     self.code = field['code']
     self.name = field['name']
-    self.ra = self.parse_RA(field['ra'])
-    self.decl = self.parse_DECL(field['decl'])
+    #as listobs writes them: RA 'hh:mm:ss.ss', decl '+dd.mm.ss.ss' (dot-separated).
+    #source_class._to_skycoord does the conversion where coordinates are needed.
+    self.ra = field['ra']
+    self.decl = field['decl']
     self.epoch = field['epoch']
     self.src_id = field['src_id']
     self.nrows = field['nrows']
   def to_dict(self):
-    return self.__dict__    
-  def parse_RA(self,ra_string):
-    '''parse RA string from listobs into degrees'''
-    #RA is in format HH:MM:SS.SS
-    #ra_parts = ra_string.split(':')
-    #ra_hours = float(ra_parts[0])
-    #ra_minutes = float(ra_parts[1])
-    #ra_seconds = float(ra_parts[2])
-    #ra_degrees = (ra_hours + (ra_minutes/60) + (ra_seconds/3600)) * 15 #convert to degrees
-    return ra_string
-  def parse_DECL(self,decl_string):
-    '''parse DECL string from listobs into degrees'''
-    #DECL is in format DD:MM:SS.SS
-    #decl_parts = decl_string.split(':')
-    #decl_degrees = float(decl_parts[0])
-    #decl_minutes = float(decl_parts[1])
-    #decl_seconds = float(decl_parts[2])
-    #if decl_degrees < 0:
-    #  decl_total_degrees = decl_degrees - (decl_minutes/60) - (decl_seconds/3600)
-    #else:
-    #  decl_total_degrees = decl_degrees + (decl_minutes/60) + (decl_seconds/3600)
-    return decl_string
+    return self.__dict__
 
 class Antenna:
   def __init__(self, antenna={}):
@@ -93,7 +95,15 @@ class Antenna:
     self.x = antenna['x']
     self.y = antenna['y']
     self.z = antenna['z']
+
+  @property
+  def vla_name(self):
+    """This antenna under VLA naming, for display. See vla_antenna_name."""
+    return vla_antenna_name(self.name)
+
   def to_dict(self):
+    #a property is not in __dict__, so exports keep the measurement set's own
+    #spelling -- which is what makes them reproducible
     return self.__dict__
 
 class Obs_data:

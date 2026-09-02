@@ -9,25 +9,25 @@ import pprint
 class Options:
   """contains all the parameters, and options"""
   '''values for Dictionary keys:
-  source, bands, breakpoints'''
+  source, bands, decisions'''
 
   #Single source of truth for what round-trips through import.json. NED-derived
   #source_ra/source_decl/search_alias are intentionally excluded -- they're
   #re-derived from `source` on import (process_input_dict defaults them with .get()).
   #cell_size/self_cal_cycles are conditionally appended in generate_dict.
   IMPORT_FIELDS = (
-    'source', 'archive_file', 'band', 'breakpoints', 'custom_amp_cal',
-    'phase_calibrator_method', 'reference_antenna', 'min_snr', 'image_filename',
+    'source', 'archive_file', 'archive_files', 'band', 'decisions',
+    'reference_antenna', 'flux_cal_name', 'flux_cal_manual', 'phase_cal_name',
+    'min_snr', 'image_filename',
     'image_size', 'interactive_image', 'use_custom_cell_size', 'deconvolver',
-    'weighting', 'do_self_cal', 'mask',
+    'weighting', 'robust', 'test_image', 'mask',
   )
 
   def __init__(self,sysArgs=None,
                source=None,
                archive_file = '',
                band='auto',
-               breakpoints: list | None = None,
-               custom_amp_cal='auto',
+               decisions: dict | None = None,
                reference_antenna='auto',
                min_snr=3.0,):
     #default members
@@ -35,18 +35,26 @@ class Options:
     self.source = source
     self.archive_file = archive_file
     self.band = band
-    #normalize to a list so 'x in options.breakpoints' is always valid (never None)
-    self.breakpoints = breakpoints if breakpoints is not None else []
-    self.custom_amp_cal = False if custom_amp_cal == AUTO else True # temp var, not yet implemented
+    #mode per decision point; always complete, so decision() never misses a key
+    self.decisions = {k: v['default'] for k, v in DECISIONS.items()}
+    if decisions:
+      self.decisions.update(decisions)
+    #answers recorded from an earlier run: these pre-empt prompting on --importRun
+    self.flux_cal_name = ''        #chosen flux calibrator field name
+    self.flux_cal_manual = None    #{'flux': Jy, 'reffreq': str} for setjy standard='manual'
+    self.phase_cal_name = ''       #chosen phase calibrator field name
     self.reference_antenna = reference_antenna
     self.min_snr = min_snr
     self.source_ra = ''
     self.source_decl = ''
     self.search_alias = ''
+    self.redshift = ''             #from NED; '' when NED has no measured redshift
     self.proj_code = ''            #project code of selected radio_search observation
     self.array_config = ''         #VLA config (A/B/C/D, incl. hybrids like BnA) of the selected observation; sizes the imaging cell in find_cell_size
     self.proj_name = ''            #proj_code + suffix, used for MS/file naming (set in convert_to_ms)
-    self.archive_files = []        #list of raw archive files downloaded via radio_search
+    self.archive_files = []        #every raw archive file of a multi-file segment
+                                   #(radio_search download, or picked locally); importvla
+                                   #concatenates them into one MS. Empty for a single archive/MS.
   
     #other members 
     #fileNames
@@ -56,8 +64,8 @@ class Options:
     self.observation_data = Obs_data() 
     #source_classe objects (deferred: populated by set_calibrators before use)
     self.source_ids = cast(source_info, None)
-    self.amp_cal = cast(source_info, None)
-    self.self_phase_cal = None #true/false
+    self.flux_cal = cast(source_info, None)
+    self.target_is_phase_cal = None #true/false
     self.phase_cal = cast(source_info, None)
     self.init_data = Obs_data()
     #extra members added during processing for tracking 
@@ -65,12 +73,18 @@ class Options:
     self.split_observations = None
     self.spw_selection = '' #CSV of spw ids to keep for the split, derived from the target's own scans (set in source_info.resolve_run_band)
     self.solint = None
+    self.self_cal_cycles = SELF_CAL_DEFAULT_CYCLES #overridden by the GUI/CLI when self-cal is on
+    self.robust = CLEAN_ROBUST #briggs robust; run-level, so scored cycles stay comparable
+    self.test_image = False #shallow throwaway clean to judge cell/imsize/robust first
     #path to a saved clean mask (a tclean .mask image or a region file) to replay the
     #interactively-drawn regions; '' = none. Set from a saved run and round-trips
     #through import.json so --import can reproduce the mask non-interactively.
     self.mask = ''
     self.results_dir = '' #populated by Cleaner.collect_results; where replay.py is written
+    self.results_name = '' #<proj>_<source>_<band>; basename of every file in results_dir
+    self.fit_record = {} #source_fit's measurements + Gaussian fit of the best image
     self.best_image_base = '' #image_filename base of the best (lowest-RMS) self-cal cycle
+    self.coresub_base = '' #image base of the core-subtracted (jet) image, when it ran
     self.val = 0 #debugging variable
     # validate inputs below; else throw err 
        
@@ -81,17 +95,28 @@ class Options:
       return False
     try:
       self.source = dict_in['source']
-      self.archive_file = dict_in['archive_file']
+      #a saved multi-file segment round-trips through archive_files; older
+      #import.json files carry only the single archive_file path
+      self.set_archive(dict_in.get('archive_files') or dict_in['archive_file'])
       self.band = dict_in['band']
       #NED-derived fields are not written to import.json; re-derived from `source`.
       self.source_ra = dict_in.get('source_ra', '')
       self.source_decl = dict_in.get('source_decl', '')
       self.search_alias = dict_in.get('search_alias', '')
-      self.breakpoints = dict_in['breakpoints'] or []
-      #self.custom_amp_cal = dict_in['custom_amp_cal']
-      self.custom_amp_cal = False if dict_in['custom_amp_cal'] == AUTO else dict_in['custom_amp_cal'] # temp var, not yet implemented
-      self.phase_calibrator_method = dict_in.get('phase_calibrator_method', AUTO)
-      print(f"Calibration Method: {self.phase_calibrator_method}")
+      self.redshift = dict_in.get('redshift', '')
+      #set when the observation came from an archive search; absent from older exports
+      self.proj_code = dict_in.get('proj_code', '')
+      if 'decisions' not in dict_in:
+        raise ValueError(
+          "this import.json predates Breakpoints 2.0: 'breakpoints' and "
+          "'phase_calibrator_method' were replaced by a single 'decisions' map "
+          f"({', '.join(DECISIONS)}). Re-run the GUI/CLI to produce a current file.")
+      self.decisions.update(dict_in['decisions'] or {})
+      print(f"Decisions: {self.decisions}")
+      #recorded answers -- present only when an earlier run resolved them
+      self.flux_cal_name = dict_in.get('flux_cal_name', '')
+      self.flux_cal_manual = dict_in.get('flux_cal_manual')
+      self.phase_cal_name = dict_in.get('phase_cal_name', '')
       self.reference_antenna = dict_in['reference_antenna']
       self.min_snr = dict_in['min_snr']
       self.image_filename = dict_in['image_filename']
@@ -102,7 +127,8 @@ class Options:
         self.cell_size = dict_in['cell_size']
       self.deconvolver = dict_in['deconvolver']
       self.weighting = dict_in['weighting']
-      self.do_self_cal = dict_in['do_self_cal']
+      self.robust = dict_in.get('robust', CLEAN_ROBUST)
+      self.test_image = dict_in.get('test_image', False)
       if self.do_self_cal:
         self.self_cal_cycles = dict_in['self_cal_cycles']
       #saved clean-mask path (older import.json files won't have it -> '')
@@ -115,6 +141,32 @@ class Options:
     except KeyError as ke:
       print(f"Key Error processing options: {ke}")
       sys.exit()
+
+  @property
+  def do_self_cal(self) -> bool:
+    '''Derived from the self_cal decision, which is the single source of truth.'''
+    return self.decision('self_cal') != OFF
+
+  def decision(self, name) -> str:
+    '''Mode chosen for decision `name`, falling back to the registry default so a
+    newly-added decision never breaks an existing options object.'''
+    return self.decisions.get(name, DECISIONS[name]['default'])
+
+  def set_archive(self, paths):
+    '''Record the archive selection. `paths` may be one path or a list of them.
+
+    archive_file stays the single str every other consumer expects (the MS, or
+    the first file of a segment); archive_files carries the whole segment for
+    importvla, and is empty when there is only one file to import.
+    '''
+    if isinstance(paths, (list, tuple)):
+      paths = [str(p) for p in paths]
+      self.archive_files = paths if len(paths) > 1 else []
+      self.archive_file = paths[0] if paths else ''
+    else:
+      self.archive_files = []
+      #'' rather than None for an empty pick: every consumer does string work on it
+      self.archive_file = str(paths) if paths else ''
 
   def to_dict(self):
     '''Snapshot of all members for export. Nested objects (source_info, Obs_data,

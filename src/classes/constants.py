@@ -5,16 +5,12 @@ IMAGES_PATH = 'images/ '
 IMPORT_JSON = 'import.json'
 RS_IMPORT = 'radio_search_results.json'
 DATA_ARCHIVE = 'data_archive/' #local dir for raw archives downloaded from Delos (per-project subdir)
+#raw VLA archive file extensions accepted for import; an MS is a '.ms' directory,
+#handled separately. A segment is often several of these, which importvla concatenates.
+ARCHIVE_SUFFIXES = ('.exp', '.dat')
 #Measurment set Name Defaults
 FULLMS = 'fullset' # for the full MS before splitting
-AMP_CAL_MS = 'initial' #'amp_cal_set'
-#GAINCAL_G0ALL = AMP_CAL_MS + '.G0all'
-#BANDPASS_B0 = AMP_CAL_MS + '.B0'
-#GAINCAL_G1 = AMP_CAL_MS + '.G1'
-#FLUXSCALE_X = AMP_CAL_MS + '.fluxscale' # + '1','2' ..etc
-#CALIBRATED_MS = 'source' #final calibrated ms for imaging
-#
-#GAINCAL_G2 = AMP_CAL_MS +'.G2'
+PRIMARY_CAL_MS = 'initial'
 
 GAINCAL_G0ALL =  '.G0all'
 BANDPASS_B0 = '.B0'
@@ -36,6 +32,31 @@ MIN_FLUX_FOR_SELF_CAL = 0.02 #Jy/beam; skip self-cal below this peak (too faint 
 #Baseline (blcal) calibration solves ~N^2/2 per-baseline terms, so it needs far more
 #SNR than antenna-based self-cal and can absorb real structure -> higher peak floor.
 MIN_FLUX_FOR_BASELINE_CAL = 0.1 #Jy/beam; opt-in blcal only runs on bright sources above this
+#--- imaging (tclean) ---
+#Shared by every clean in a run; cycles are scored against each other by dynamic range,
+#so they must match. Applied in Cleaner._tclean_kwargs.
+CLEAN_ROBUST = 0.5             #briggs robust
+CLEAN_SMALL_SCALE_BIAS = 0.7   #multiscale small-scale bias
+CLEAN_NTERMS = 1               #jvla = 2, HVLA = 1
+CLEAN_NITER = 9999             #safety cap; SELF_CAL_NSIGMA is the real stop
+#negative = no T/F blanking, |value| is still the cutoff; small so the corner RMS
+#boxes hold noise, not un-normalized zeros
+CLEAN_PBLIMIT = -0.01
+SELF_CAL_INITIAL_NITER = 1000  #initial clean is shallow: it only feeds the first gaincal
+#--- core subtraction ---
+#Clean only the compact core into the model, uvsub it out, then image what is left
+#(the jet). 'auto' masks a circle this many synthesized beams around the fitted peak;
+#'manual' has the user draw the core mask, as 1.99 did.
+CORE_MASK_BEAMS = 2
+#Below this peak the auto mask is likely sitting on noise rather than a core, so the
+#subtraction is warned about (not skipped -- it is a product the user asked for).
+MIN_FLUX_FOR_CORE_SUBTRACT = 0.02 #Jy/beam
+CORE_SUBTRACT_SUFFIX = '_coresub'  #image name; the subtracted MS is <calibrated>_sub.ms
+#--- test image ---
+#A quick, shallow clean shown before the real imaging so cell/image size/robust can be
+#judged on this data rather than guessed. Cheap on purpose: it is thrown away.
+TEST_IMAGE_NITER = 200
+TEST_IMAGE_SUFFIX = '_test'
 #--- self-calibration during imaging ---
 #Phase-only solint schedule. Normally built per-observation by
 #Cleaner._build_solint_schedule ('inf' -> geometric halving from ~half a scan down to
@@ -43,13 +64,32 @@ MIN_FLUX_FOR_BASELINE_CAL = 0.1 #Jy/beam; opt-in blcal only runs on bright sourc
 #integration times can't be read from the MS. Padded with 'int' if more cycles are asked.
 SELF_CAL_SOLINTS = ['inf', '60s', '30s', 'int']
 SELF_CAL_SOLINT_FACTOR = 2  #solint shortening ratio per cycle (2 = halve each step)
+SELF_CAL_DEFAULT_CYCLES = 4 #enough for the full inf -> 60s -> 30s -> int ladder
 SELF_CAL_FINAL_AP = True            #run one calmode='ap' pass after the phase cycles converge
 SELF_CAL_NSIGMA = 3.0               #tclean stop threshold (both modes); replaces a blind niter
+#Phase-cycle clean depth, keyed on the cycle's solint not its index, so a user-chosen
+#solint gets the matching depth: long solint = poorer model -> clean shallower.
+SELF_CAL_NSIGMA_INF = 5.0           #solint='inf'
+SELF_CAL_NSIGMA_LONG = 4.0          #solint longer than SELF_CAL_LONG_SOLINT_S
+SELF_CAL_LONG_SOLINT_S = 60         #seconds; above this a solint counts as long
 SELF_CAL_MIN_IMPROVEMENT_PCT = 10   #stop self-cal once an improving cycle gains < this % in dynamic range
 SELF_CAL_AP_MAX_FLUX_LOSS_PCT = 5   #reject the a&p pass if integrated flux drops more than this %
 #--- gaincal solution failure rate (flagged fraction of a caltable) ---
 GAINCAL_APPLYMODE_CUTOFF_PCT = 5    #primary applycal: > this failure rate -> 'calonly' (don't flag), else 'calflag'
 GAINCAL_WARN_PCT = 10               #warn (solint likely too short / SNR too low / bad refant) above this failure rate
+#--- image measurement (classes/image_data.py) ---
+#Off-source noise: the RMS is measured in four corner boxes and the median taken,
+#so one corner holding a sidelobe or a field source can't drag the estimate. Boxes
+#are inset from the very edge, where gridding artifacts live.
+RMS_CORNER_BOX_FRACTION = 0.25      #corner box side, as a fraction of the shorter image side
+RMS_EDGE_MARGIN_FRACTION = 0.02     #inset from the image edge, same units
+MAD_TO_SIGMA = 1.4826               #robust fallback estimator: sigma = 1.4826 * MAD
+#--- 2D Gaussian source fit (image_generation/source_fit.py) ---
+FIT_BOX_BEAMS = 10                  #imfit box half-side, in synthesized beams, around the peak
+FIT_BOX_MIN_PIXELS = 32             #...but never smaller than this
+FIT_BOX_MAX_IMAGE_FRACTION = 0.25   #...and never more than this fraction of the shorter image
+                                    #side, so an over-sampled image (many pixels per beam)
+                                    #can't grow the box back to the whole frame
 
 #class Band:
   #band name, GHZ range, MHZ range, Angular res, Solint?
@@ -110,7 +150,7 @@ MULTISCALE_BEAM_MULTIPLIERS = [0, 2, 5]
 
 BAND_SOLINT = {'4':'900', 'P':'900', 'L':'450', 'S':'450', 'C':'240', 'X':'240', 'Ku':'180', 'U':'180', 'K':'120', 'Ka':'90', 'Q':'60'}
 
-COMMON_AMPCALS_DICT = {'1331+305': '3C286', 
+FLUX_CAL_ALIASES = {'1331+305': '3C286', 
                       '1328+307': '3C286', 
                       '0542+4951': '3C147', 
                       '0137+3309': '3C48', 
@@ -119,18 +159,24 @@ COMMON_AMPCALS_DICT = {'1331+305': '3C286',
                       '0521+1638': '3C138'} #upgrade with calibrator list, and pull flux data for 'custom' callibrators
 
 
-#defunct
-EXPORT_KEYS = ['source','archive_file', 'band', 'breakpoints', 
-               'solint','custom_amp_cal', 'reference_antenna', 
-               'amp_cal_source','model'] #amp_cal_source + model import not supported (over written)
+#--- decision points (Breakpoints 2.0) ---
+#Every point where the pipeline picks something the user may want to see or override.
+#Modes are uniform: off = skip the stage, auto = decide silently, verify = decide then
+#show and let the user accept/override, manual = the user supplies the value.
+#force (phase cal) and guided (self-cal) are the two point-specific modes.
+OFF, VERIFY, MANUAL = 'off', 'verify', 'manual'
+FORCE, GUIDED = 'force', 'guided'
 
-BREAKPOINTS = {
-            "manual_flagging": "Manual Data Flagging",
-            "pick_calibrator": "Pick Calibrator",
-            "manual_self_cal": "Manual Self-Cal",
-            "baseline_cal": "Baseline Calibration (blcal)",
-            "display_image":"Display Image After"
-        }
+#'gui' groups the dropdown into the GUI's calibration or image frame.
+DECISIONS = {
+  'flux_cal':     {'label': 'Flux calibrator',      'modes': (AUTO, VERIFY, MANUAL), 'default': AUTO, 'gui': 'calibration'},
+  'phase_cal':    {'label': 'Phase calibrator',     'modes': (AUTO, FORCE, MANUAL),  'default': AUTO, 'gui': 'calibration'},
+  'refant':       {'label': 'Reference antenna',    'modes': (AUTO, MANUAL),         'default': AUTO, 'gui': 'calibration'},
+  'flagging':     {'label': 'Data flagging',        'modes': (OFF, AUTO, VERIFY),    'default': OFF,  'gui': 'calibration'},
+  'self_cal':     {'label': 'Self-calibration',     'modes': (OFF, AUTO, GUIDED),    'default': OFF,  'gui': 'image'},
+  'baseline_cal': {'label': 'Baseline cal (blcal)', 'modes': (OFF, AUTO, VERIFY),    'default': OFF,  'gui': 'image'},
+  'core_subtract':{'label': 'Core subtraction',     'modes': (OFF, AUTO, MANUAL),    'default': OFF,  'gui': 'image'},
+}
 
 
 

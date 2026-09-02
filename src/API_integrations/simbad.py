@@ -14,19 +14,6 @@ class simbad:
       return False
     return True
 
-  #def query_simbad():
-  #  """
-  #  Query Simbad to check a source exists 
-  #  """
-  #  print("Querying Simbad for source")
-  #  source4c = "4c35.03"
-  #  sourceB1950 = ""
-  #  result = Simbad.query_objectids(source4c)#options.source_name)
-  #  for row in range(len(result)):
-  #    print(result[row])
-  #  print(result)
-  #  print(f"{type(result)}")
-
   @staticmethod
   def get_all_names(source_name):
     """
@@ -51,17 +38,13 @@ class simbad:
 
   @staticmethod
   def formatted_names_list(source_name):
-    '''Given a SIMBAD-resolvable source name, return a list of candidate alias
-    strings to compare against listobs field names.
+    '''Candidate alias strings for a source, to match against listobs field names.
 
     listobs names have no internal spaces and are either catalog designations
-    ('3C15') or coordinate strings ('0034-014'); SIMBAD aliases are spaced and
-    often prefixed ('3C 15', 'PKS 0034-01', '[HB89] 0034-014'). For each alias
-    we therefore emit two candidates so either style can match:
-      - compact:    bracketed tags + whitespace removed, letters kept
-                    ('3C 15' -> '3C15')
-      - coordinate: keep only digits, '+', '-', '.'
-                    ('PKS 0034-01' -> '0034-01')
+    ('3C15') or coordinate strings ('0034-014'), while SIMBAD aliases are spaced
+    and often prefixed ('[HB89] 0034-014'), so each alias yields two candidates:
+      - compact:    bracketed tags + whitespace removed ('3C 15' -> '3C15')
+      - coordinate: digits, '+', '-', '.' only ('PKS 0034-01' -> '0034-01')
     Returns False if SIMBAD cannot resolve the name.
     '''
     result = Simbad.query_objectids(source_name)

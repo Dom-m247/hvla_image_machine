@@ -1,37 +1,30 @@
 #for doing a RADIO_SEARCH based Download
 from classes.CLI_input import CLI
-from classes.constants import DATA_ARCHIVE, FOLDER_NAME
+from classes.constants import DATA_ARCHIVE
+from classes.Loading_Animation import LoadingAnimation
+from classes import creds
 from pre_calibration.options_class import Options
-import json
 import os
 import pprint
 import re
+import socket
 import subprocess
 import paramiko
 import getpass
 from pathlib import Path
 from typing import Optional, cast
 
-CREDS_FILE = 'nraoCreds.json' #JSON creds next to this module: host/user/password/delos_url
+#radio_search2 runs remotely over SSH and prints nothing until it finishes, so an
+#unbounded call is indistinguishable from a dead prompt. Wall-clock seconds.
+SSH_CONNECT_TIMEOUT = 30
+RADIO_SEARCH_TIMEOUT = 300
 
-
-def load_nrao_creds(required=('host', 'user', 'password')):
-    """Load JSON credentials from nraoCreds.json (host/user/password/delos_url).
+def load_creds(required=('host', 'user', 'password')):
+    """Credentials, via classes.creds which owns the file's location.
 
     `required` lists the keys that must be present and non-empty; raises otherwise.
     """
-    creds_path = Path(__file__).resolve().with_name(CREDS_FILE)
-    if not creds_path.exists():
-        raise FileNotFoundError(f"Credentials file not found: {creds_path}")
-    try:
-        with open(creds_path, 'r') as creds_file:
-            creds = json.load(creds_file)
-    except json.JSONDecodeError as err:
-        raise ValueError(f"Credentials file {creds_path} is not valid JSON: {err}")
-    for key in required:
-        if not creds.get(key):
-            raise ValueError(f"Missing or empty '{key}' in credentials file {creds_path}.")
-    return creds
+    return creds.load(required=required)
 
 
 class nrao_observeration:
@@ -111,9 +104,10 @@ class RadioSearch2:
     def __init__(self, host, user, password=None, key_filename=None, remote_path=None):
         self.client = paramiko.SSHClient()
         self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        self.remote_path = remote_path #radio_search2 dir on the host; from nraoCreds.json
+        self.remote_path = remote_path #radio_search2 dir on the host
 
-        connect_kwargs = {"hostname": host, "username": user}
+        connect_kwargs = {"hostname": host, "username": user,
+                          "timeout": SSH_CONNECT_TIMEOUT}
         if key_filename:
             connect_kwargs["key_filename"] = key_filename
         elif password:
@@ -123,20 +117,24 @@ class RadioSearch2:
         
         self.client.connect(**connect_kwargs)
     
-    def __call__(self, *args):
+    def __call__(self, *args, timeout=RADIO_SEARCH_TIMEOUT):
         quoted_args = " ".join(f"'{a}'" for a in args)
         remote_cmd = (
             f"cd {self.remote_path} "
             f"&& ./radio_search2 {quoted_args}"
         )
-        
-        stdin, stdout, stderr = self.client.exec_command(remote_cmd)
-        out = stdout.read().decode()
-        err = stderr.read().decode()
-        
+
+        stdin, stdout, stderr = self.client.exec_command(remote_cmd, timeout=timeout)
+        try:
+            out = stdout.read().decode()
+            err = stderr.read().decode()
+        except socket.timeout:
+            raise TimeoutError(
+                f"radio_search2 did not respond within {timeout}s: {quoted_args}")
+
         if err:
             print(f"radio_search2 stderr:\n{err}")
-        
+
         return out
     
     def __enter__(self):
@@ -191,9 +189,43 @@ def parseArchFileInfo(results):
     return segments
 
 
+#sensitivity is reported with its unit attached and the unit varies between
+#searches ('4.92 uJy', '1.2 mJy'), so rows have to be compared numerically: a
+#string sort puts '10.56 uJy' ahead of '4.92 uJy'.
+SENSITIVITY_UNITS = {'jy': 1.0, 'mjy': 1e-3, 'ujy': 1e-6, 'njy': 1e-9}
+
+
+def sensitivity_jy(observation):
+    """An observation's sensitivity in Jy, or None when it cannot be read."""
+    match = re.match(r'([0-9]*\.?[0-9]+)\s*([a-zA-Z]*)',
+                     str(getattr(observation, 'sensitivity', '') or '').strip())
+    if match is None:
+        return None
+    try:
+        value = float(match.group(1))
+    except ValueError:
+        return None
+    #an unrecognised unit is left unscaled rather than dropped -- the row still
+    #sorts among its own kind, which beats banishing it to the bottom
+    return value * SENSITIVITY_UNITS.get(match.group(2).lower(), 1.0)
+
+
+def sortBySensitivity(observations):
+    """Ascending by sensitivity, so the deepest observation is first.
+
+    Rows whose sensitivity will not parse go last: they are the ones a user most
+    needs to see, and putting them first would misreport them as the best.
+    """
+    def key(observation):
+        value = sensitivity_jy(observation)
+        return (value is None, value if value is not None else 0.0)
+    return sorted(observations, key=key)
+
+
 def parseObservations(results):
     """
-    Parse the output of radio_search2 into a list of nrao_observeration objects.
+    Parse the output of radio_search2 into a list of nrao_observeration objects,
+    sorted by sensitivity (deepest first).
     """
     observations = []
     separator_count = 0
@@ -216,12 +248,24 @@ def parseObservations(results):
         if parts[1].upper() == 'SYSTEM':
             continue
         observations.append(nrao_observeration(parts[:15]))
-    return observations
+    return sortBySensitivity(observations)
 
 
 
 class RadioSearchIntegration:
   """Class to handle integration of radio_search into the HVLA Image Machine workflow."""
+
+  @staticmethod
+  def connect():
+    """An open search session, built from the credentials file.
+
+    The only place that turns credentials into a connection, so callers -- the
+    CLI flow below, the GUI -- never handle them.
+    """
+    values = load_creds(required=('host', 'user', 'password', 'radio_search_path'))
+    return RadioSearch2(host=values['host'], user=values['user'],
+                        password=values['password'],
+                        remote_path=values['radio_search_path'])
 
   @staticmethod
   def perform_radio_search(options:Options):
@@ -232,25 +276,10 @@ class RadioSearchIntegration:
     CLI.getSourceInfo(options)
     #DO radio_search with options.source and options.band
 
-    creds = load_nrao_creds(required=('host', 'user', 'password', 'radio_search_path'))
-    with RadioSearch2(host=creds['host'], user=creds['user'], password=creds['password'],
-                      remote_path=creds['radio_search_path']) as rs:
-        #'auto' (or empty) means "all bands": radio_search2 wants NO 'BANDS' keyword
-        #in that case. Passing 'BANDS auto' makes the wrapper look up a non-existent
-        #band, drop the (empty) bandno token, and shift a config-group string into the
-        #int bandno slot -> "invalid literal for int()". Only pass BANDS for a real band.
-        if options.band and options.band != 'auto':
-            rs_results = rs(options.search_alias, 'BANDS', options.band)
-        else:
-            rs_results = rs(options.search_alias)
-        #process unformatted RS return, get user input
-        observations = parseObservations(rs_results)
-
-        #selectObservation returns one of the nrao_observeration objects we passed in (or None)
-        selected_obs = cast(Optional[nrao_observeration], CLI.selectObservation(observations))
+    with RadioSearchIntegration.connect() as rs:
+        selected_obs = RadioSearchIntegration.select_observation(rs, options)
         if selected_obs is None:
-            print("No observation selected.")
-            return
+            return []
         print(f"\nSelected: {selected_obs.proj_code}  segment {selected_obs.seg}  ({selected_obs.date})")
 
         raw_archfileinfo = rs('--archfileinfo', selected_obs.proj_code)
@@ -265,6 +294,59 @@ class RadioSearchIntegration:
         #return the file(s) to download to the caller (radio_search), which will
         #hand them to DelosDownload on a separate thread.
         return RadioSearchIntegration.select_segment_files(archfiles, selected_obs)
+
+  @staticmethod
+  def run_search(rs, options):
+    """One radio_search2 query for the current source/band -> [nrao_observeration].
+
+    'auto' (or empty) band means "all bands": radio_search2 wants NO 'BANDS'
+    keyword in that case. Passing 'BANDS auto' makes the wrapper look up a
+    non-existent band, drop the (empty) bandno token, and shift a config-group
+    string into the int bandno slot -> "invalid literal for int()". Only pass
+    BANDS for a real band.
+    """
+    band = options.band if options.band and options.band != 'auto' else ''
+    args = (options.search_alias, 'BANDS', band) if band else (options.search_alias,)
+    #the remote search prints nothing until it finishes, so animate rather than
+    #leaving a silent terminal that reads as a hang
+    results = []
+    LoadingAnimation.performing_action(
+      f"archive search for {options.search_alias}" + (f" in band {band}" if band else ""),
+      target=lambda: results.append(rs(*args)))
+    return parseObservations(results[0]) if results else []
+
+  @staticmethod
+  def select_observation(rs, options):
+    """Search, and keep re-prompting until the user picks an observation.
+
+    A name NED resolves can still have no VLA archive data (or none in the chosen
+    band), which is a mistyped source far more often than a real absence -- so an
+    empty result re-asks for the source rather than dropping through into a run
+    with nothing to download. Enter at the source prompt quits.
+    """
+    while True:
+      observations, failed = [], False
+      try:
+        observations = RadioSearchIntegration.run_search(rs, options)
+      except (TimeoutError, socket.timeout) as exc:
+        failed = True
+        print(f"\nArchive search timed out: {exc}")
+      except Exception as exc:
+        failed = True
+        print(f"\nArchive search failed: {exc!r}")
+      if observations:
+        #selectObservation returns one of the nrao_observeration objects we passed in (or None)
+        selected = cast(Optional[nrao_observeration], CLI.selectObservation(observations))
+        if selected is not None:
+          return selected
+        print("No observation selected.")
+      elif not failed:
+        #a search that worked and came back empty, said plainly -- a failure above
+        #has already printed its own reason
+        band = '' if options.band in ('', 'auto') else f" in band {options.band}"
+        print(f"No observations found for '{options.search_alias}'{band}.")
+      print("Try another source (or press enter at the source prompt to quit).")
+      CLI.getSourceInfo(options)
 
   @staticmethod
   def select_segment_files(archfiles, selected_obs):
@@ -293,18 +375,13 @@ class RadioSearchIntegration:
 class DelosDownload:
     """Downloads the selected archive files from the Delos NAS over HTTP (curl).
 
-    The Delos 'oldstyle' archive is laid out by observation year:
-        {base_url}{year}/{file_name}
-    e.g. 
+    The 'oldstyle' archive is laid out by observation year, {base_url}{year}/
+    {file_name}; the base URL comes from the credentials file and the year from
+    each file's --archfileinfo entry (falling back to the YY in the file name).
 
-    The base URL is read from nraoCreds.json ('delos_url' key). The 4-digit year is taken
-    from each file's --archfileinfo entry (its observation date, falling back to the
-    YY embedded in the file name).
-
-    Files are saved under <repo>/data_archive/<proj_code>/ and the resulting local
-    paths are written to options.archive_files for do_vla_import/importvla.
-
-    Designed to run on its own thread while CLI calibration info is gathered in parallel.
+    Files land in <repo>/data_archive/<proj_code>/ and their paths are written to
+    options.archive_files for do_vla_import/importvla. Designed to run on its own
+    thread while CLI calibration info is gathered in parallel.
     """
 
     #curl: fail on HTTP errors, show errors, retry, create parent dirs, bounded timeouts
@@ -334,16 +411,12 @@ class DelosDownload:
 
     @staticmethod
     def _repo_root():
-        """Locate the hvla_image_machine project root from this file's path."""
-        here = Path(__file__).resolve()
-        for parent in here.parents:
-            if parent.name == FOLDER_NAME:
-                return parent
-        return here.parents[2] #<root>/src/archive_dowload/<file> -> <root>
+        """Locate the hvla_image_machine project root."""
+        return creds.project_root()
 
     def _resolve_base_url(self):
-        """Delos archive base URL (constructor override or nraoCreds.json), trailing '/'."""
-        url = self.base_url or load_nrao_creds(required=('delos_url',))['delos_url']
+        """Delos archive base URL (constructor override or credentials), trailing '/'."""
+        url = self.base_url or load_creds(required=('delos_url',))['delos_url']
         return url if url.endswith('/') else url + '/'
 
     @staticmethod
@@ -404,11 +477,9 @@ class DelosDownload:
     def _check_reachable(self, base_url):
         """Pre-poke the Delos host before downloading anything.
 
-        Without this, an offline/unreachable Delos makes every per-file curl burn
-        --connect-timeout * (--retry + 1) seconds of silent retries in a row, which
-        looks like a hang (this runs on a worker thread with verbose=False while the
-        CLI prompts run in parallel). A single short probe up front lets us fail fast
-        with a clear message instead.
+        Without it, an unreachable Delos makes every per-file curl burn
+        --connect-timeout * (--retry + 1) seconds of silent retries, which looks
+        like a hang on the worker thread. One short probe fails fast instead.
 
         We deliberately do NOT pass -f here: an HTTP error (e.g. 403 on a directory
         with listing disabled) still proves the host is up and answering, so only a
