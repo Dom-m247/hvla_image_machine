@@ -1,5 +1,6 @@
 from pathlib import Path
 from pprint import pp
+from typing import Any, Callable
 import threading
 import sys
 
@@ -24,6 +25,8 @@ class CLI:
     #only worth asking when the user wants a say; 'auto' picks its own
     if options.decision('refant') != AUTO:
       options.reference_antenna = CLI.getReferenceAntenna()
+    if options.decision('flagging') != OFF:
+      options.flagging_methods = CLI.getFlaggingMethods()
     options.min_snr = CLI.getMinSNR()
     options.image_filename = CLI.getImageFilename()
     options.image_size = CLI.getImageSize()
@@ -50,6 +53,8 @@ class CLI:
     #only worth asking when the user wants a say; 'auto' picks its own
     if options.decision('refant') != AUTO:
       options.reference_antenna = CLI.getReferenceAntenna()
+    if options.decision('flagging') != OFF:
+      options.flagging_methods = CLI.getFlaggingMethods()
     options.min_snr = CLI.getMinSNR()
     options.image_filename = CLI.getImageFilename()
     options.image_size = CLI.getImageSize()
@@ -98,10 +103,100 @@ class CLI:
       print(f"Invalid selection. Enter 1-{len(options_list)} or press enter.")
 
   @staticmethod
+  def selectFromList(label, options_list, default_index=0):
+    '''Numbered single choice over arbitrary display strings; enter takes the default.
+    Returns the chosen index, so the caller keeps its own objects.'''
+    print(f"\n{label}")
+    for i, opt in enumerate(options_list, 1):
+      print(f"  {i}: {opt}" + (' (default)' if i - 1 == default_index else ''))
+    while True:
+      val = input(f"Select 1-{len(options_list)}, or press enter for the default: ").strip()
+      if val == '':
+        return default_index
+      try:
+        idx = int(val) - 1
+        if 0 <= idx < len(options_list):
+          return idx
+      except ValueError:
+        pass
+      print(f"Please enter a number between 1 and {len(options_list)}.")
+
+  @staticmethod
+  def selectManyFromList(label, options_list, default_indices=None) -> list:
+    '''Numbered multi-choice over arbitrary display strings. Returns chosen indices.'''
+    default_indices = list(range(len(options_list))) if default_indices is None else list(default_indices)
+    print(f"\n{label}")
+    for i, opt in enumerate(options_list, 1):
+      print(f"  {i}: {opt}" + (' *' if i - 1 in default_indices else ''))
+    while True:
+      val = input("Select (comma-separated, 'all', 'none'): ").strip().lower()
+      if val == '':
+        return default_indices
+      if val == 'all':
+        return list(range(len(options_list)))
+      if val == 'none':
+        return []
+      try:
+        picked = sorted({int(p) - 1 for p in val.split(',') if p.strip() != ''})
+        if picked and all(0 <= i < len(options_list) for i in picked):
+          return picked
+      except ValueError:
+        pass
+      print(f"Please enter numbers between 1 and {len(options_list)}, 'all' or 'none'.")
+
+  @staticmethod
+  def getValue(label, current, cast: Callable[[str], Any] = str):
+    '''Prompt for a replacement value; blank keeps `current`.'''
+    while True:
+      raw = input(f"{label} [{current}]: ").strip()
+      if raw == '':
+        return current
+      try:
+        return cast(raw)
+      except (ValueError, TypeError):
+        print(f"Could not read {raw!r} as {getattr(cast, '__name__', cast)}.")
+
+  @staticmethod
+  def getRMSRegion(nx, ny, presets) -> str:
+    """Choose the region the off-source RMS is measured in. Takes a preset number or a
+    box typed directly as blcx,blcy,trcx,trcy. Asked once and reused for the whole run."""
+    labels = list(presets)
+    print(f"\nOff-source RMS region  (image is {nx} x {ny} pixels)")
+    for i, label in enumerate(labels, 1):
+      print(f"  {i}: {label:<22} {presets[label]}")
+    while True:
+      val = input("Select a number, or type a box as blcx,blcy,trcx,trcy: ").strip()
+      if val == '':
+        print("A region is required. Pick a number or type a box.")
+        continue
+      try:
+        idx = int(val) - 1
+        if 0 <= idx < len(labels):
+          return presets[labels[idx]]
+        print(f"Enter 1-{len(labels)}, or type a box.")
+        continue
+      except ValueError:
+        pass
+      corners = [p.strip() for p in val.split(',')]
+      if len(corners) == 4 and all(p.lstrip('-').isdigit() for p in corners):
+        return ','.join(corners)
+      print("A box is four integers: blcx,blcy,trcx,trcy.")
+
+  @staticmethod
   def getDecisions():
     '''Pick a mode for each decision point (see DECISIONS).'''
     return {name: CLI._select(spec['label'], list(spec['modes']), spec['default'])
             for name, spec in DECISIONS.items()}
+
+  @staticmethod
+  def getFlaggingMethods() -> list:
+    '''Pick which flagdata passes the flagging stage runs.'''
+    spec = DECISIONS['flagging']
+    names = list(spec['methods'])
+    labels = [spec['methods'][n] for n in names]
+    default_idx = [names.index(m) for m in spec['methods_default']]
+    chosen = CLI.selectManyFromList('Flagging methods:', labels, default_idx)
+    return [names[i] for i in chosen]
 
   @staticmethod
   def getBand():
@@ -208,12 +303,16 @@ class CLI:
       print("Please enter y or n.")
 
   @staticmethod
-  def selectBand(bands, requested=None) -> str:
-    '''Prompt the user to choose one band from the bands the target was actually
-    observed in. Used when a requested band is not among them.'''
+  def selectBand(bands, requested=None, spanned=None) -> str:
+    '''Choose one of the bands the target was actually observed in -- either because a
+    requested band is not among them, or because the target `spanned` several of them
+    and the run has to be reduced in one.'''
     while True:
       if requested:
         print(f"Requested band '{requested}' is not available for this target.")
+      if spanned:
+        print(f"Source '{spanned}' was observed in more than one band; "
+              f"this run reduces one of them.")
       print("Bands observed for the target:")
       for i, b in enumerate(bands, 1):
         print(f"  {i}: {b}")
@@ -226,6 +325,37 @@ class CLI:
         if val in bands:
           return val
       print(f"Invalid selection. Enter 1-{len(bands)} or a band name.")
+
+  #a survey MS can hold hundreds of fields; only the nearest are worth printing,
+  #the rest stay reachable by typing the name
+  SOURCE_LIST_LIMIT = 25
+
+  @staticmethod
+  def selectSource(fields, name, aliases, separations=None):
+    '''Pick the target field from listobs after name matching failed. Accepts a
+    number or a listobs name. None when the MS lists no fields.'''
+    if not fields:
+      return None
+    separations = separations or {}
+    shown = fields[:CLI.SOURCE_LIST_LIMIT]
+    print(f"\nName parsing failed: '{name}' matches no source in this MS.")
+    print(f"  SIMBAD aliases tried: {', '.join(aliases) if aliases else '(none, SIMBAD could not resolve it)'}")
+    order = 'nearest the resolved position first' if separations else 'listobs order'
+    print(f"  Fields in listobs, {order} "
+          f"({len(shown)} of {len(fields)} shown):")
+    for i, field in enumerate(shown, 1):
+      sep = separations.get(field.id)
+      print(f"  {i:>3}: {str(field.name):<20}"
+            + (f"{sep:8.2f} deg from target" if sep is not None else ''))
+    while True:
+      val = input(f"\nSelect the target (1-{len(shown)}, or type any listobs name): ").strip()
+      #listobs names are often bare digits, so an out-of-range number is a name
+      if val.isdigit() and 1 <= int(val) <= len(shown):
+        return shown[int(val) - 1]
+      for field in fields:
+        if str(field.name).casefold() == val.casefold():
+          return field
+      print(f"Invalid selection. Enter 1-{len(shown)} or a listobs name.")
 
   @staticmethod
   def getReferenceAntenna() -> str:
@@ -411,7 +541,9 @@ class CLI:
     print(header)
     print('-' * (len(header) + 8))
     print(f"{CLI._RED}Red{CLI._RESET} = observed {CLI.RADIO_SEARCH_HIGHLIGHT_YEAR} or later")
-    for i, obs in enumerate(observations, 1):
+    #printed worst-first so the deepest observation -- still #1 -- ends up at the bottom,
+    #next to the prompt, where it doesn't scroll away on a long result list
+    for i, obs in reversed(list(enumerate(observations, 1))):
       row = (
         f"{i:>3}  {obs.date:<12} {obs.proj_code:<12} {obs.seg:<10} "
         f"{obs.band:<5} {obs.cfg:<5} {obs.sensitivity:<12} {obs.separation:<12} {obs.time:<8} {obs.name}"

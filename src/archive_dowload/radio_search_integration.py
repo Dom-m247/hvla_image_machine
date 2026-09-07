@@ -144,6 +144,10 @@ class RadioSearch2:
         self.client.close()
 
 
+#archfileinfo dates: 'YY-Mon-DD' (old style) or 'YYYY-MM-DD'.
+ARCHFILE_DATE = re.compile(r'^(?:\d{2}-[A-Za-z]{3}-\d{2}|\d{4}-\d{2}-\d{2})$')
+
+
 def parseArchFileInfo(results):
     """
     Parse the output of radio_search2 --archfileinfo into a list of nrao_segment objects.
@@ -166,21 +170,20 @@ def parseArchFileInfo(results):
             continue
         parts = line.split()
         #data rows begin with a numeric file number; skip headers/footers
-        if not parts or not parts[0].isdigit():
+        if len(parts) < 3 or not parts[0].isdigit():
             continue
-        # columns: file_number, file_name, band, date, time(start), size
-        # radio_search2 can emit short rows (a trailing "N files" summary line, or
-        # a file row missing its time/size columns) that still start with a digit.
-        # Guard the positional access so one short line doesn't abort the whole
-        # import; only file_name and date are actually used downstream.
-        if len(parts) < 4:
-            continue  #not a real file row (file_number, file_name, band, date min)
+        #file_number, file_name, <band flags...>, date, start, size. The band flag
+        #field splits into 0-8 tokens, so anchor on the date; no date = not a file row.
+        date_index = next((i for i, part in enumerate(parts[2:], 2)
+                           if ARCHFILE_DATE.match(part)), None)
+        if date_index is None:
+            continue
         file_number = int(parts[0])
         file_name = parts[1]
-        band = parts[2]
-        date = parts[3]
-        start = parts[4] if len(parts) > 4 else ''
-        size = parts[5] if len(parts) > 5 else ''
+        band = ''.join(parts[2:date_index])
+        date = parts[date_index]
+        start = parts[date_index + 1] if len(parts) > date_index + 1 else ''
+        size = parts[date_index + 2] if len(parts) > date_index + 2 else ''
         current_files.append(nrao_archfile(file_number, file_name, band, date, start, size))
 
     if current_segment_name is not None:

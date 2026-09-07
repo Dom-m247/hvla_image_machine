@@ -1,30 +1,77 @@
 #!/bin/bash
+# Remove the scratch a run leaves behind. Results folders are archived output, so
+# they are skipped unless --results is given.
+
+set -u
+
+REMOVE_RESULTS=0
+
+usage() {
+  cat <<'EOF'
+Usage: ./cleanup.sh [--results]
+
+  (no flags)  remove logs, listobs, MS directories and imaging products,
+              leaving every *_results/ folder untouched
+  --results   additionally delete the *_results/ folders themselves
+  -h, --help  show this message
+EOF
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --results) REMOVE_RESULTS=1 ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "cleanup.sh: unknown option '$1'" >&2; usage >&2; exit 1 ;;
+  esac
+  shift
+done
+
+# -prune keeps the scrub out of the results folders: they hold copies with the same
+# names (<name>.log, <name>.mask, <name>.pbcor.tt0, <name>-listobs.txt) and deleting
+# those would gut the archived output. -exec rather than -delete, which implies -depth
+# and cannot be combined with -prune.
+scrub_files() { find . -name '*_results' -prune -o -type f -name "$1" -exec rm -f {} +; }
+scrub_dirs()  { find . -name '*_results' -prune -o -type d -name "$1" -exec rm -rf {} +; }
 
 # Remove .log and listobs files
-find . -type f -name "*.log" -delete
-find . -type f -name "*-listobs.txt" -delete
+scrub_files "*.log"
+scrub_files "*-listobs.txt"
 
 # Remove .ms directories
-find . -type d -name "*.ms" -exec rm -rf {} +
-find . -type d -name "source.ms" -exec rm -rf {} +
-find . -type d -name "initial.ms" -exec rm -rf {} +
+scrub_dirs "*.ms"
+scrub_dirs "source.ms"
+scrub_dirs "initial.ms"
 
 # Remove .ms.flagversion directories
-find . -type d -name "*.ms.flagversions" -exec rm -rf {} +
+scrub_dirs "*.ms.flagversions"
 
 # Remove .G0,B0 directories
-find . -type d -name "*.G*" -exec rm -rf {} +
-find . -type d -name "*.B0" -exec rm -rf {} +
-find . -type d -name "*.fluxscale*" -exec rm -rf {} +
-find . -type d -name "*.selfcal*" -exec rm -rf {} +
+scrub_dirs "*.G*"
+scrub_dirs "*.B0"
+scrub_dirs "*.fluxscale*"
+scrub_dirs "*.selfcal*"
+scrub_dirs "*.blcal_*"
 
 #remove images
-find . -type d -name "*.tt0" -exec rm -rf {} +
-find . -type d -name "*.mask" -exec rm -rf {} +
-find . -type d -name "TempLattice*" -exec rm -rf {} +
+scrub_dirs "*.tt0"
+scrub_dirs "*.mask"
+scrub_dirs "TempLattice*"
 
 #remove pb and pbcorimage
-find . -type d -name "*.pb" -exec rm -rf {} +
-find . -type d -name "*.pbcorimage" -exec rm -rf {} +
+scrub_dirs "*.pb"
+scrub_dirs "*.pbcorimage"
 
 echo "Cleanup completed: removed .log, .ms, and .ms.flagversion files"
+
+if [ "$REMOVE_RESULTS" -eq 1 ]; then
+  shopt -s nullglob
+  results=(*_results)
+  if [ ${#results[@]} -eq 0 ]; then
+    echo "No *_results folders to remove."
+  else
+    for folder in "${results[@]}"; do
+      echo "Removing results folder: $folder"
+      rm -rf "$folder"
+    done
+  fi
+fi

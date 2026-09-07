@@ -8,7 +8,7 @@ from classes import run_log
 from typing import Any
 from pathlib import Path
 import casatasks as ct
-import casashell
+import os
 import shutil
 from classes.Loading_Animation import *
 #I(this script) am so FULL of magic numbers 🥰 that are absolutley pulled from thin Air 
@@ -110,20 +110,23 @@ class Cleaner:
     return ct.imstat(imagename=name+'.image.tt0')
 
   @staticmethod
-  def self_cal_cycle(options:Options,iter,solint='inf',calmode='p',mask=None,nsigma=None):
-    '''
-    Runs a single automated cycle of self calibration.
-
-    solint : gaincal solution interval for this cycle (loop shortens it as SNR builds).
-    calmode: 'p' for phase-only cycles, 'ap' for the final amplitude+phase pass.
-    mask   : a saved/carried clean mask to reuse (so interactive users draw once).
-    nsigma : clean depth for this cycle; None = the default (see _mask_kwargs).
-    '''
+  def self_cal_cycle(options:Options,iter,solint='inf',calmode='p',mask=None,nsigma=None,
+                     refant=None,minsnr=None,confirm_apply=None):
+    '''One cycle of self calibration, then the clean that scores it. solint/calmode
+    go to gaincal, mask/nsigma to tclean (see _mask_kwargs). Returns None when
+    confirm_apply -- guided mode's applycal prompt -- declined, leaving the data
+    uncalibrated so the caller can retry the cycle.'''
     iter = str(iter)
+    args = (options, iter, solint, calmode, refant, minsnr, confirm_apply)
     #calibration cycle -- model column feeding gaincal comes from the previous clean
-    LoadingAnimation.performing_action(action=f'self-cal cylce {iter} (solint={solint}, calmode={calmode})',
-                                       target=main_calibrations.self_cal_cycle,
-                                       args=(options,iter,solint,calmode))
+    if confirm_apply is None:
+      LoadingAnimation.performing_action(action=f'self-cal cylce {iter} (solint={solint}, calmode={calmode})',
+                                         target=main_calibrations.self_cal_cycle,
+                                         args=args)
+    #a prompting cycle runs on this thread: performing_action would put the prompt on a
+    #worker and drop the return value with it
+    elif not main_calibrations.self_cal_cycle(*args):
+      return None
     return Cleaner._clean_and_measure(options, iter, mask=mask, nsigma=nsigma)
 
   @staticmethod
@@ -145,7 +148,8 @@ class Cleaner:
     Runs before any scored imaging, so changing parameters here cannot make the
     keep-best dynamic ranges incomparable.'''
     from classes import decisions
-    if not getattr(options, 'test_image', False):
+    #an imported run replays the cell/imsize/robust it already settled on
+    if not getattr(options, 'test_image', False) or not decisions.is_interactive(options):
       return
     options.cell_size = Cleaner.find_cell_size(options)
     attempt = 0
@@ -157,12 +161,22 @@ class Cleaner:
       ct.tclean(**{**Cleaner._tclean_kwargs(options), 'imagename': name,
                    'niter': TEST_IMAGE_NITER, 'interactive': False,
                    **Cleaner._mask_kwargs(options)})
-      Cleaner.export_png(name)
+      png = Cleaner.export_png(name)
       measured = image_data.Image(options, ct.imstat(imagename=name+'.image.tt0'), base=name)
       peak, rms = measured.peak(), measured.off_source_rms()
       if peak is not None and rms:
         print(f"  peak {peak:.4g} Jy/beam, off-source rms {rms:.4g}, DR {peak/rms:.1f}")
-      if not decisions.confirm("Adjust and re-image?"):
+      #the whole point of a test image is to look at it: the viewer when it can open,
+      #the PNG export_png just wrote when it can't (no display, or no restored image)
+      opened = Cleaner.show_image(name)
+      if not opened and png:
+        print(f"  inspect the test image at {png}")
+      adjust = decisions.confirm("Adjust and re-image?(do not close viewer)")
+      #the decision is made, so close the viewer: it holds the real display, and the next
+      #export_png runs under its own short-lived one
+      if opened:
+        Cleaner._shutdown_casaviewer()
+      if not adjust:
         break
       #blank keeps the current value
       options.cell_size = Cleaner._as_arcsec(
@@ -363,6 +377,14 @@ class Cleaner:
     return sched
 
   @staticmethod
+  def _print_scan_timing(options:Options):
+    '''The two numbers a solint choice is made from: no solution can be shorter than
+    one integration, and 'inf' is one scan.'''
+    int_time, scan_len = Cleaner._scan_timing(options.calibrated_filename + '.ms')
+    print(f"\nIntegration time: {int_time if int_time is None else round(int_time, 2)}s   "
+          f"median scan length: {scan_len if scan_len is None else round(scan_len)}s")
+
+  @staticmethod
   def _nsigma_for_solint(solint) -> float:
     '''Clean depth for a phase cycle, from its solint: a long solint means a poorer
     model, so stop further above the noise. Keyed on solint rather than cycle number,
@@ -384,7 +406,32 @@ class Cleaner:
     would offer as the default for the user to accept or override. Clamps to the last
     solint so an open-ended loop never runs off the end of the schedule.'''
     solint = schedule[min(i, len(schedule) - 1)] if schedule else 'inf'
-    return {'solint': solint, 'calmode': 'p', 'nsigma': Cleaner._nsigma_for_solint(solint)}
+    return {'solint': solint, 'calmode': 'p', 'nsigma': Cleaner._nsigma_for_solint(solint),
+            'minsnr': options.min_snr, 'refant': options.ref_ant or ''}
+
+  @staticmethod
+  def _guided_cycle_params(options:Options, i, schedule) -> dict[str, Any]:
+    '''Show the proposal for phase cycle i and take overrides; blank keeps the proposal.
+    Only the calibration side is offered: imaging parameters stay run-level, or the
+    keep-best dynamic ranges stop being comparable (the test image settles those).'''
+    from classes import decisions
+    params = Cleaner._propose_cycle_params(options, i, schedule)
+    recorded = (getattr(options, 'self_cal_plan', None) or [])
+    if not decisions.is_interactive(options):
+      return {**params, **recorded[i]} if i < len(recorded) else params
+    print(f"\nCycle {i} proposal: solint={params['solint']}, calmode={params['calmode']}, "
+          f"nsigma={params['nsigma']}, minsnr={params['minsnr']}")
+    if not decisions.confirm("Adjust this cycle?"):
+      return params
+    params['solint'] = str(decisions.value('solint (int / inf / e.g. 30s)', params['solint']))
+    params['calmode'] = str(decisions.value('calmode (p / ap)', params['calmode']))
+    #depth follows the new solint unless the user says otherwise
+    params['nsigma'] = decisions.value('nsigma (clean depth)',
+                                       Cleaner._nsigma_for_solint(params['solint']), float)
+    params['minsnr'] = decisions.value('minsnr (gaincal)', params['minsnr'], float)
+    print("  changing the refant re-references the phases mid-run; blank keeps the run's choice")
+    params['refant'] = str(decisions.value('refant', params['refant']))
+    return params
 
   def image_gen(self, options:Options):
     '''Generate an image: initial clean, then phase-only self-cal cycles down a
@@ -395,7 +442,12 @@ class Cleaner:
     Packages the results folder and fits the target on the winner. Records its
     filename base on options.best_image_base and returns the image_data.Image.
     '''
+    from classes import decisions
     fn = options.image_filename
+    #'guided': the user, not the schedule, sets each cycle and ends the loop. An
+    #imported run replays the recorded plan instead of prompting.
+    guided = options.decision('self_cal') == GUIDED
+    prompts = guided and decisions.is_interactive(options)
     #optional test image: settle cell/imsize/robust before anything is scored
     Cleaner.test_image_cycle(options)
     #initial clean: the baseline the self-cal cycles must beat
@@ -422,23 +474,60 @@ class Cleaner:
         #clean (or an imported options.mask) is reused each cycle -- loaded so it can be
         #refined, not redrawn from scratch every time.
         current_mask = Cleaner._mask_path(fn)
+        if prompts:
+          Cleaner._print_scan_timing(options)
+          options.self_cal_plan = []
+
+        def confirm_apply(rate):
+          detail = ('failure rate unknown' if rate is None
+                    else f"gaincal failure rate {rate * 100:.1f}%")
+          return decisions.confirm(f"Apply these solutions? ({detail})")
+
+        def guided_gate(attr, question):
+          '''Ask a guided run whether to run a final pass, recording the answer so an
+          imported run repeats it. Automatic modes keep their own guards.'''
+          if not guided:
+            return True
+          if not prompts:
+            recorded = getattr(options, attr, None)
+            return True if recorded is None else bool(recorded)
+          answer = decisions.confirm(question)
+          setattr(options, attr, answer)
+          return answer
+
         #phase-only cycles: shorten solint as the model/SNR improves. Params come from
         #_propose_cycle_params per cycle, so an interactive mode can override them here.
         i = 0
-        while i < len(schedule):
-          params = Cleaner._propose_cycle_params(options, i, schedule)
+        keep_going = False   #guided only: the user's answer to "another cycle?"
+        while i < len(schedule) or (prompts and keep_going and i < SELF_CAL_MAX_GUIDED_CYCLES):
+          params = (Cleaner._guided_cycle_params(options, i, schedule) if guided
+                    else Cleaner._propose_cycle_params(options, i, schedule))
           solint = params['solint']
-          current = image_data.Image(options,
-                                     Cleaner.self_cal_cycle(options, i, solint=solint,
-                                                            calmode=params['calmode'],
-                                                            mask=current_mask,
-                                                            nsigma=params['nsigma']),
-                                     base=f"{fn}_{i}")
+          if guided:
+            Cleaner._clear_image(f"{fn}_{i}")  #a retried cycle is a fresh look, not a restart
+          measured = Cleaner.self_cal_cycle(options, i, solint=solint,
+                                            calmode=params['calmode'],
+                                            mask=current_mask,
+                                            nsigma=params['nsigma'],
+                                            refant=params.get('refant'),
+                                            minsnr=params.get('minsnr'),
+                                            confirm_apply=confirm_apply if prompts else None)
+          if measured is None:  #applycal declined -> nothing was calibrated; re-run this cycle
+            print(f"  solutions discarded; re-running cycle {i}.")
+            run_log.cycle(i, solint, params['calmode'],
+                          decision='guided: applycal declined; cycle re-run')
+            keep_going = True
+            continue
+          if prompts:
+            options.self_cal_plan.append(dict(params))
+          current = image_data.Image(options, measured, base=f"{fn}_{i}")
           current_mask = Cleaner._mask_path(f"{fn}_{i}") or current_mask
           curr_dr = current.dynamic_range()
           if curr_dr <= 0:
+            #an unmeasurable image can't be scored, so this stop is not up for discussion
             print(f"Self-cal cycle {i} (solint={solint}): non-positive dynamic range; stopping.")
-            run_log.cycle(i, solint, 'p', curr_dr, decision='STOP -- non-positive dynamic range')
+            run_log.cycle(i, solint, params['calmode'], curr_dr,
+                          decision='STOP -- non-positive dynamic range')
             diverged = True
             break
           improvement = ((curr_dr / prev_dr) * 100) - 100  #>0 DR rose (better); <0 diverging
@@ -450,6 +539,23 @@ class Cleaner:
           if adopted:
             best = {'base': f"{fn}_{i}", 'dr': curr_dr, 'flux': current.total_flux(),
                     'image': current, 'cycle': i}
+
+          #guided keeps the same scoring but hands the stop to the user: the automatic
+          #rules become advice, printed before the prompt
+          if prompts:
+            if improvement < 0:
+              print("  DR dropped -> self-cal is diverging.")
+            elif improvement < SELF_CAL_MIN_IMPROVEMENT_PCT:
+              print(f"  improvement < {SELF_CAL_MIN_IMPROVEMENT_PCT}% -> converged.")
+            keep_going = decisions.confirm("Run another self-cal cycle?")
+            run_log.cycle(i, solint, params['calmode'], curr_dr, improvement,
+                          f"guided: {'new best' if adopted else 'kept previous best'}; "
+                          f"{'continuing' if keep_going else 'user stopped'}")
+            prev_dr = curr_dr
+            i += 1
+            if not keep_going:
+              break
+            continue
 
           if improvement < 0:
             print("  DR dropped -> self-cal diverging; stopping, keeping best so far.")
@@ -468,10 +574,18 @@ class Cleaner:
           prev_dr = curr_dr
           i += 1
 
+        if prompts:
+          #the plan and its length are what an imported replay re-runs
+          options.self_cal_cycles = len(options.self_cal_plan)
+          run_log.note('IMAGING', 'Guided self-cal',
+                       f"{len(options.self_cal_plan)} cycle(s): "
+                       + ', '.join(f"{p['solint']}/{p['calmode']}" for p in options.self_cal_plan))
+
         #final amplitude+phase pass -- only after a healthy phase run (not a divergent
         #one, whose corrected data/model are already suspect). Guarded so it's kept
         #only if it raises DR without scaling the source flux away.
-        if SELF_CAL_FINAL_AP and schedule and not diverged:
+        if (SELF_CAL_FINAL_AP and schedule and not diverged
+            and guided_gate('self_cal_ap', "Run the final amplitude+phase pass?")):
           ap_idx = len(schedule)
           #default depth, not _nsigma_for_solint: solint is 'inf' here but the model is
           #at its best by now, so this pass cleans deep rather than shallow.
@@ -499,7 +613,8 @@ class Cleaner:
         #optional final baseline-cal (blcal) polish ('baseline_cal' breakpoint),
         #and only on a bright source (blcal's ~N^2/2 params overfit faint/extended flux).
         #Guarded exactly like the a&p pass: kept only if it raises DR without losing flux.
-        if options.decision('baseline_cal') != OFF and not diverged:
+        if (options.decision('baseline_cal') != OFF and not diverged
+            and guided_gate('self_cal_blcal', "Run the baseline calibration (blcal) pass?")):
           peak = best['image'].peak()
           if peak is None or peak < MIN_FLUX_FOR_BASELINE_CAL:
             measured = 'unmeasurable' if peak is None else f"{peak:.3g}"
@@ -654,24 +769,6 @@ class Cleaner:
     shutil.copytree(src, dest)
 
   @staticmethod
-  def find_solint_variations(options:Options):
-    '''
-    define different solints for self cal cycles, and run cycles with those solints to find the best one 
-    '''
-    obs_solint = options.solint
-    
-
-  @staticmethod
-  def manual_clean_calibration(options:Options):
-    '''
-    for doing manual calibration while also manual cleaning 
-    '''
-    print(f"Starting casa shell (logging to {ct.casalog.logfile()})")
-    #no --logfile: start_casa runs in THIS process and would repoint the process-wide
-    #logger, splitting the run's log before collect_results copies it.
-    casashell.start_casa([])
-
-  @staticmethod
   def export_png(image_base, outfile=None):
     '''Render the restored tclean image to a PNG via casaviewer, run under a
     headless virtual X display (Xvfb) so no real monitor / $DISPLAY is needed and
@@ -704,6 +801,28 @@ class Cleaner:
       print(f"PNG export failed ({image}): {e}")
       return None
     return outfile
+
+  @staticmethod
+  def show_image(image_base):
+    '''Open the restored image in casaviewer on the user's own display, so a decision
+    that follows is made looking at it. No-op without $DISPLAY; best-effort.'''
+    if not os.environ.get('DISPLAY'):
+      return False
+    image = image_data.restored_image(image_base)
+    if not image:
+      return False
+    try:
+      import io, contextlib
+      import casaviewer
+      #imview returns once the viewer is up, so the caller's prompt is what keeps the
+      #window on screen -- the same shape the flagging plotms check uses
+      with contextlib.redirect_stdout(io.StringIO()):
+        casaviewer.imview(raster={'file': image, 'colorwedge': True})
+      print(f"opened {image} in casaviewer")
+      return True
+    except Exception as e:
+      print(f"could not open the viewer ({image}): {e}")
+      return False
 
   @staticmethod
   def _shutdown_casaviewer():

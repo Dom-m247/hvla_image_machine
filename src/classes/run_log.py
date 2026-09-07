@@ -170,6 +170,7 @@ def _calibration_rows(options):
   rows += [
     ('Selection method', _decision(options, 'phase_cal')),
     ('Reference antenna', _refant(options)),
+    ('Data flagging', _flagging(options)),
     ('Minimum SNR', _get(options, 'min_snr')),
     ('Scan solint', _get(options, 'solint')),
   ]
@@ -373,6 +374,15 @@ def _masking(options):
 def _decision(options, name):
   """The mode chosen for a decision point, for display."""
   return (getattr(options, 'decisions', None) or {}).get(name, '-')
+
+
+def _flagging(options):
+  """Flagging mode, and which flagdata passes it was allowed to run."""
+  mode = _decision(options, 'flagging')
+  methods = _get(options, 'flagging_methods')
+  if mode == 'off' or not methods or methods is _MISSING:
+    return mode
+  return f"{mode} ({', '.join(methods)})"
 
 
 def _self_cal(options):

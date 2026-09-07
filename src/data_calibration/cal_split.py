@@ -25,9 +25,9 @@ def calibrator_split(options:Options):
     ct.split(vis= MS_SUB_PATH + options.proj_name+'.ms',outputvis=options.initial_calibration_filename+'.ms',datacolumn = 'data', field=fields, spw=spwID)
   #if options.get_dict_sp('breakpoints')['verify_scans']:
     #pause, show listobs(vis='init.ms') and continue if correct, else END
-  #NOTE: manual_flagging is deliberately NOT run here -- this executes inside a
-  #LoadingAnimation worker thread and flagging is interactive. It runs from
-  #hvla_data_cal.pre_data_calibration on the main thread, after this split.
+  #NOTE: flagging is deliberately NOT run here -- this executes inside a
+  #LoadingAnimation worker thread and flagging is interactive. It runs at the end of
+  #hvla_data_cal.pre_data_calibration on the main thread, once init_data exists.
 
 
 def get_command(options:Options):

@@ -228,31 +228,28 @@ def baseline_cal(options:options_class.Options):
   ct.applycal(vis=vis, gaintable=[ap_table, p_table],
               calwt=[False], applymode='calonly')
 
-def self_cal_cycle(options:options_class.Options,cycle_number,solint='inf',calmode='p'):
-  '''Perform one cycle of self calibration.
-
-  solint : gaincal solution interval; the loop shortens it each cycle as the
-           model/SNR improves.
-  calmode: 'p' for the phase-only cycles, 'ap' for a final amp+phase pass.
-           Amplitude solutions are normalised (solnorm=True) so the gain shape
-           is corrected without rescaling the source's absolute flux.
-
-  Solutions below options.min_snr are dropped, and applycal runs 'calonly' so
-  repeated cycles can't silently eat data.
-  '''
+def self_cal_cycle(options:options_class.Options,cycle_number,solint='inf',calmode='p',
+                   refant=None,minsnr=None,confirm_apply=None):
+  '''One cycle of self calibration; returns True when applycal ran. calmode 'ap'
+  normalises the solutions so the gain shape is corrected without rescaling the flux;
+  applycal is 'calonly' so repeated cycles can't eat data. refant/minsnr are per-cycle
+  overrides, and confirm_apply (given the gaincal failure rate) can veto the applycal.'''
   find_refant(options) #do again incase it's starting with a calibrated dataSet
   cycle_number = str(cycle_number)
   caltable = options.calibrated_filename+SELF_CAL+cycle_number
+  #a retried cycle must solve fresh: gaincal appends to an existing caltable
+  if Path(caltable).is_dir():
+    ct.rmtables(caltable)
   ct.gaincal(vis=options.calibrated_filename+'.ms',
              caltable=caltable,
              field='',
              spw='',
              selectdata=False,
              solint=solint,
-             refant=options.ref_ant,
+             refant=refant or options.ref_ant,
              gaintype='G',
              calmode=calmode,
-             minsnr=options.min_snr,
+             minsnr=options.min_snr if minsnr is None else minsnr,
              solnorm=(calmode=='ap')
              )
   #diagnostic only: report how many self-cal solutions failed (high -> solint likely
@@ -263,6 +260,9 @@ def self_cal_cycle(options:options_class.Options,cycle_number,solint='inf',calmo
     print(f"  self-cal solint={solint} calmode={calmode}: gaincal failure rate {rate*100:.1f}%{warn}")
     run_log.event(f"self-cal cycle {cycle_number} (solint={solint}, calmode={calmode}): "
                   f"gaincal failure rate {rate*100:.1f}%{warn}")
+  if confirm_apply is not None and not confirm_apply(rate):
+    run_log.event(f"self-cal cycle {cycle_number}: applycal declined; solutions discarded")
+    return False
   ct.applycal(vis=options.calibrated_filename+'.ms',
               field='',spw='',
               selectdata=False,
@@ -270,6 +270,7 @@ def self_cal_cycle(options:options_class.Options,cycle_number,solint='inf',calmo
               gainfield=[''],
               interp=['nearest'],
               calwt=[False],applymode='calonly') #gap (don't flag) failed/low-SNR solutions
+  return True
 
 def self_cal_solint_variation(options:options_class.Options,cycle_number,solint):
   '''

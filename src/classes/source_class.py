@@ -54,6 +54,19 @@ class source_info:
       if field.name == self.listobs_name: 
         return field.id
       
+  @staticmethod
+  def _to_skycoord(ra_str, decl_str, epoch=''):
+    '''listobs coordinates to SkyCoord. decl uses dot separators: +35.47.50.538.
+    Pass field.epoch when comparing against anything outside the MS: a B1950
+    position read as ICRS lands ~0.5 deg off.'''
+    from astropy.coordinates import SkyCoord
+    sign = decl_str[0] if decl_str[0] in '+-' else '+'
+    parts = decl_str.lstrip('+-').split('.', 2)
+    decl = f"{sign}{parts[0]}:{parts[1]}:{parts[2]}"
+    if str(epoch).upper().startswith('B1950'):
+      return SkyCoord(ra_str, decl, unit=('hourangle', 'deg'), frame='fk4', equinox='B1950')
+    return SkyCoord(ra_str, decl, unit=('hourangle', 'deg'))
+
   def _normalize_name(self, name):
     '''Normalize a source name for comparison: strip any leading B1950/J2000
     epoch prefix (b/B/j/J) and casefold, so matching is case-insensitive
@@ -67,17 +80,52 @@ class source_info:
     if(id is not False):
       return id
     possible_names = simbad.formatted_names_list(options.search_alias)
-    if possible_names is False:
-      raise Exception(f"Source name {self.name} not found in listobs and not resolvable by SIMBAD")
     #strip the B1950/J2000 epoch prefix from BOTH sides before comparing: listobs
     #names carry it (e.g. 'B0206+35') while SIMBAD aliases often don't ('0206+35').
-    normalized_aliases = {self._normalize_name(name) for name in possible_names}
-    for sources in options.observation_data.sources:
-      if self._normalize_name(sources.name) in normalized_aliases:
-        self.listobs_name = sources.name
-        return sources.id
-    raise Exception(f"Source name {self.name} not found in listobs or SIMBAD with aliases {possible_names}")
-     
+    if possible_names is not False:
+      normalized_aliases = {self._normalize_name(name) for name in possible_names}
+      for sources in options.observation_data.sources:
+        if self._normalize_name(sources.name) in normalized_aliases:
+          self.listobs_name = sources.name
+          return sources.id
+    return self._ask_source_name(options, possible_names)
+
+  def _ask_source_name(self, options, possible_names):
+    '''Nothing matched: let the user pick the field, nearest the resolved position first.'''
+    from classes.CLI_input import CLI
+    from classes import decisions, run_log
+    if not decisions.is_interactive(options):
+      raise Exception(f"Source name {self.name} not found in listobs; an imported "
+                      f"run cannot prompt. Correct 'source' in the import file.")
+    fields, separations = self._fields_by_separation(options)
+    chosen = CLI.selectSource(fields, self.name, possible_names or [], separations)
+    if chosen is None:
+      raise Exception(f"Source name {self.name} not found and this MS lists no fields")
+    run_log.event(f"Target {self.name} not in listobs; user selected {chosen.name}")
+    self.name = self.listobs_name = options.source = chosen.name
+    return chosen.src_id
+
+  def _fields_by_separation(self, options):
+    '''(fields, {field_id: degrees}) sorted nearest the SIMBAD position. Falls back
+    to listobs order with no separations when the position or a coordinate is unusable.'''
+    fields = list(options.observation_data.fields)
+    position = simbad.coordinates(options.search_alias or self.name)
+    if position is None:
+      return fields, {}
+    from astropy.coordinates import SkyCoord
+    from typing import Any, cast
+    target = SkyCoord(position[0], position[1], unit='deg')
+    separations = {}
+    for field in fields:
+      try:
+        #astropy is untyped: .icrs is a SkyCoord and .deg a float at runtime
+        coord = cast(Any, self._to_skycoord(field.ra, field.decl, field.epoch).icrs)
+        separations[field.id] = float(coord.separation(target).deg)
+      except Exception:
+        continue
+    fields.sort(key=lambda f: separations.get(f.id, float('inf')))
+    return fields, separations
+
   def check_name_in_list_obs(self, options):
     normalized = self._normalize_name(self.name)
     for sources in options.observation_data.sources:
@@ -184,6 +232,15 @@ class source_info:
         f"Could not determine a band for source '{self.name}': no spectral "
         f"windows found for its scans (spws {sorted(source_spws)}).")
     if len(source_bands) > 1:
+      #a multi-band observation is a choice, not an error: ask, and only refuse when
+      #there is nobody to ask
+      import sys
+      if interactive and sys.stdin.isatty():
+        from classes.CLI_input import CLI  #lazy: options_class<-CLI_input<-source_class cycle
+        chosen = CLI.selectBand(source_bands, spanned=self.name)
+        options.band = chosen
+        self.band = chosen
+        return chosen
       raise Exception(
         f"Source '{self.name}' spans multiple bands {source_bands}; "
         f"re-run specifying a single band. (spws {sorted(source_spws)})")
@@ -289,12 +346,7 @@ class source_info:
       #astropy is untyped: .deg is a scalar float at runtime, narrow it for the checker
       return cast(float, a.separation(b).deg)
 
-    def _to_skycoord(ra_str, decl_str) -> SkyCoord:
-      # decl from listobs uses dot separators: +35.47.50.538 -> +35:47:50.538
-      sign = decl_str[0] if decl_str[0] in '+-' else '+'
-      parts = decl_str.lstrip('+-').split('.', 2)
-      decl_colon = f"{sign}{parts[0]}:{parts[1]}:{parts[2]}"
-      return SkyCoord(ra_str, decl_colon, unit=('hourangle', 'deg'))
+    _to_skycoord = self._to_skycoord
 
     exclude_ids = {options.flux_cal.field_id, options.source_ids.field_id}
 

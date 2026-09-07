@@ -3,7 +3,6 @@ import casaviewer
 import casatasks 
 import casaconfig
 from classes.CLI_input import CLI
-from classes.constants import GUIDED
 from pre_calibration.options_class import Options
 from pre_calibration import *
 from image_generation.image_maker import Cleaner
@@ -108,20 +107,16 @@ def main(): #argv
 
   #tcleaning!
   cleaner = Cleaner()
-  #self_cal 'guided' -> hand-driven clean/self-cal in a CASA shell; every other mode
-  #runs the automated image_gen loop (which no-ops the cycles when self_cal is off).
-  if source.decision('self_cal') != GUIDED:
-    print(f"Starting Clean")
-    start_time = time.perf_counter()
-    cleaner.image_gen(source)
-    end_time = time.perf_counter()
-    elapsed_time = end_time - start_time
-    print(f"Imaging Time taken: {elapsed_time:.4f} seconds")
-    casatasks.casalog.post(f"Imaging Time taken: {elapsed_time:.4f} seconds")
-    run_log.timing('Imaging', elapsed_time)
-  else:
-    print(f"Starting Manual Clean and self_cal")
-    image = Cleaner.manual_clean_calibration(options=source)
+  #every self_cal mode runs image_gen: it no-ops the cycles when off, and prompts
+  #through them when guided.
+  print(f"Starting Clean")
+  start_time = time.perf_counter()
+  cleaner.image_gen(source)
+  end_time = time.perf_counter()
+  elapsed_time = end_time - start_time
+  print(f"Imaging Time taken: {elapsed_time:.4f} seconds")
+  casatasks.casalog.post(f"Imaging Time taken: {elapsed_time:.4f} seconds")
+  run_log.timing('Imaging', elapsed_time)
 
   #output options obj as json! #CHANGE TO IMPORT
   if not source.sysArgs.noexport:

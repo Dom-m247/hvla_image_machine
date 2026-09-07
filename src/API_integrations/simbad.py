@@ -3,6 +3,7 @@
 from astroquery.simbad import Simbad
 from pprint import pp 
 from astropy.table import Table
+from typing import cast
 import numpy as np
 import re
 
@@ -37,6 +38,17 @@ class simbad:
     return True
 
   @staticmethod
+  def coordinates(source_name):
+    '''(ra_deg, dec_deg) for a source, or None when SIMBAD cannot resolve it.'''
+    result = Simbad.query_object(source_name)
+    if (simbad.check_result(result) is False):
+      return None
+    try:
+      return float(result[0]['ra']), float(result[0]['dec'])
+    except (TypeError, ValueError):
+      return None
+
+  @staticmethod
   def formatted_names_list(source_name):
     '''Candidate alias strings for a source, to match against listobs field names.
 
@@ -47,11 +59,11 @@ class simbad:
       - coordinate: digits, '+', '-', '.' only ('PKS 0034-01' -> '0034-01')
     Returns False if SIMBAD cannot resolve the name.
     '''
-    result = Simbad.query_objectids(source_name)
+    result = cast(Table, Simbad.query_objectids(source_name))
     if (simbad.check_result(result) is False):
       return False
     all_names = []
-    for each_id in result:
+    for each_id in result[result.colnames[0]]:
       raw = str(each_id)
       cleaned = re.sub(r'[\[\{].*?[\]\}]', '', raw)            # drop [HB89]/{...} catalog tags
       compact = re.sub(r'\s+', '', cleaned).strip()            # '3C 15' -> '3C15'

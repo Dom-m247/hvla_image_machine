@@ -26,6 +26,10 @@ def data_calibration(options:Options):
       main_calibrations.target_as_phase_cal(options)
     #split of calibrated data for imaging
     LoadingAnimation.performing_action(" calibrated data split", target=calibrated_split, args=(options,))
+    #post-calibration flagging (rflag) on the calibrated target, once the split has
+    #finished -- on the main thread, so its accept/revert prompt can block
+    if options.decision('flagging') != OFF:
+      data_flagging.post_calibration_flagging(options)
   
 def project_code_from_archives(archive_files):
   """Project code for MS naming when a locally-held segment is imported.
@@ -109,12 +113,6 @@ def pre_data_calibration(options:Options):
   #generate Naming Schemese for files
   LoadingAnimation.performing_action(" ms split on science target and calibrator(s)", target=cal_split.calibrator_split, args=(options,))
 
-  #data-flagging breakpoint: interactive (plotms + accept/revert prompt), so it runs
-  #here on the main thread AFTER the split animation finishes -- not inside
-  #calibrator_split, which executes on a LoadingAnimation worker thread.
-  if options.decision('flagging') != OFF:
-    data_flagging.manual_flagging(options)
-
   #split off the calibrators and target's to make cleaning and calibration more efficient
   split_list_obs = parse.log_listobs_precalib(options.initial_calibration_filename,options)
   options.init_data = parse.populate_Obs_data(split_list_obs) 
@@ -124,6 +122,11 @@ def pre_data_calibration(options:Options):
   print(f"flux cal field ID: {options.flux_cal.initial_ms_fieldID} | source field ID: {options.source_ids.initial_ms_fieldID}")
   if not options.target_is_phase_cal:
     options.phase_cal.initial_ms_fieldID = options.phase_cal.find_fieldID(options.init_data)
+
+  #flagging runs last: it is interactive (plotms + accept/revert), so it must be on the
+  #main thread, and 'manual' picks from init_data, which only exists from here on.
+  if options.decision('flagging') != OFF:
+    data_flagging.pre_calibration_flagging(options)
 
 def calibrated_split(options:Options):
   """

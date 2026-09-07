@@ -18,6 +18,8 @@ class Options:
   IMPORT_FIELDS = (
     'source', 'archive_file', 'archive_files', 'band', 'decisions',
     'reference_antenna', 'flux_cal_name', 'flux_cal_manual', 'phase_cal_name',
+    'flagging_methods', 'flag_selection', 'rms_region',
+    'self_cal_plan', 'self_cal_ap', 'self_cal_blcal',
     'min_snr', 'image_filename',
     'image_size', 'interactive_image', 'use_custom_cell_size', 'deconvolver',
     'weighting', 'robust', 'test_image', 'mask',
@@ -44,6 +46,12 @@ class Options:
     self.flux_cal_manual = None    #{'flux': Jy, 'reffreq': str} for setjy standard='manual'
     self.phase_cal_name = ''       #chosen phase calibrator field name
     self.reference_antenna = reference_antenna
+    self.flagging_methods = list(FLAG_METHODS_DEFAULT)  #which flagdata passes to run
+    self.flag_selection = None     #{'field','spw','outright'} from the flagging 'manual' mode
+    self.self_cal_plan = []        #params actually used per self-cal cycle, for replay
+    self.rms_region = ''           #imstat box the off-source RMS is measured in (DO_MEAN_RMS False)
+    self.self_cal_ap = None        #guided answers to the two final passes; None = not asked yet
+    self.self_cal_blcal = None
     self.min_snr = min_snr
     self.source_ra = ''
     self.source_decl = ''
@@ -117,6 +125,12 @@ class Options:
       self.flux_cal_name = dict_in.get('flux_cal_name', '')
       self.flux_cal_manual = dict_in.get('flux_cal_manual')
       self.phase_cal_name = dict_in.get('phase_cal_name', '')
+      self.flagging_methods = dict_in.get('flagging_methods') or list(FLAG_METHODS_DEFAULT)
+      self.flag_selection = dict_in.get('flag_selection')
+      self.self_cal_plan = dict_in.get('self_cal_plan') or []
+      self.rms_region = dict_in.get('rms_region', '')
+      self.self_cal_ap = dict_in.get('self_cal_ap')
+      self.self_cal_blcal = dict_in.get('self_cal_blcal')
       self.reference_antenna = dict_in['reference_antenna']
       self.min_snr = dict_in['min_snr']
       self.image_filename = dict_in['image_filename']
@@ -151,6 +165,12 @@ class Options:
     '''Mode chosen for decision `name`, falling back to the registry default so a
     newly-added decision never breaks an existing options object.'''
     return self.decisions.get(name, DECISIONS[name]['default'])
+
+  def flag_methods(self) -> list:
+    '''Selected flagging methods, re-sorted into FLAG_METHODS order. The passes are
+    order-dependent, and neither the GUI nor an edited import.json guarantees it.'''
+    chosen = set(self.flagging_methods or ())
+    return [m for m in FLAG_METHODS if m in chosen]
 
   def set_archive(self, paths):
     '''Record the archive selection. `paths` may be one path or a list of them.

@@ -74,13 +74,38 @@ SELF_CAL_NSIGMA_LONG = 4.0          #solint longer than SELF_CAL_LONG_SOLINT_S
 SELF_CAL_LONG_SOLINT_S = 60         #seconds; above this a solint counts as long
 SELF_CAL_MIN_IMPROVEMENT_PCT = 10   #stop self-cal once an improving cycle gains < this % in dynamic range
 SELF_CAL_AP_MAX_FLUX_LOSS_PCT = 5   #reject the a&p pass if integrated flux drops more than this %
+SELF_CAL_MAX_GUIDED_CYCLES = 12     #hard cap on 'guided', where the user, not the schedule, ends the loop
+#--- data flagging ---
+#Methods the flagging decision can run, one flagdata pass each. Insertion order IS
+#the run order: the deterministic passes must precede tfcrop, whose statistics are
+#skewed by zeros and scan-start settling, and extend grows what the autoflagger found.
+FLAG_CLIPZEROS = 'clipzeros'
+FLAG_QUACK     = 'quack'
+FLAG_SHADOW    = 'shadow'
+FLAG_AUTOCORR  = 'autocorr'
+FLAG_TFCROP    = 'tfcrop'
+FLAG_EXTEND    = 'extend'
+FLAG_RFLAG     = 'rflag'
+FLAG_METHODS = {m: m for m in (FLAG_CLIPZEROS, FLAG_QUACK, FLAG_SHADOW, FLAG_AUTOCORR,
+                               FLAG_TFCROP, FLAG_EXTEND, FLAG_RFLAG)}
+FLAG_METHODS_DEFAULT = (FLAG_TFCROP,)
+FLAG_QUACK_INTERVAL = 5.0     #seconds dropped at each scan start (settling)
+FLAG_EXTEND_GROWTIME = 60.0   #% of a baseline's timerange flagged -> flag the rest of it
+FLAG_RFLAG_TIMEDEVSCALE = 5.0
+#every spw in this data is 1 channel, so tfcrop/rflag fit in time only and
+#edge-channel flagging does not apply
 #--- gaincal solution failure rate (flagged fraction of a caltable) ---
 GAINCAL_APPLYMODE_CUTOFF_PCT = 5    #primary applycal: > this failure rate -> 'calonly' (don't flag), else 'calflag'
 GAINCAL_WARN_PCT = 10               #warn (solint likely too short / SNR too low / bad refant) above this failure rate
 #--- image measurement (classes/image_data.py) ---
-#Off-source noise: the RMS is measured in four corner boxes and the median taken,
-#so one corner holding a sidelobe or a field source can't drag the estimate. Boxes
-#are inset from the very edge, where gridding artifacts live.
+#Where the off-source noise is measured. False: the user designates one region, asked
+#once and reused for every image in the run. True: the automatic four-corner median
+#below. The automatic path is also the fallback whenever no region can be obtained
+#(an imported replay, a piped run), so an unattended run always scores.
+DO_MEAN_RMS = False
+#Automatic path: the RMS is measured in four corner boxes and the median taken, so one
+#corner holding a sidelobe or a field source can't drag the estimate. Boxes are inset
+#from the very edge, where gridding artifacts live.
 RMS_CORNER_BOX_FRACTION = 0.25      #corner box side, as a fraction of the shorter image side
 RMS_EDGE_MARGIN_FRACTION = 0.02     #inset from the image edge, same units
 MAD_TO_SIGMA = 1.4826               #robust fallback estimator: sigma = 1.4826 * MAD
@@ -167,12 +192,14 @@ FLUX_CAL_ALIASES = {'1331+305': '3C286',
 OFF, VERIFY, MANUAL = 'off', 'verify', 'manual'
 FORCE, GUIDED = 'force', 'guided'
 
-#'gui' groups the dropdown into the GUI's calibration or image frame.
+#'gui' groups the dropdown into the GUI's calibration or image frame. 'methods' is an
+#optional multi-select rendered beside the mode dropdown; the mode itself is still one string.
 DECISIONS = {
   'flux_cal':     {'label': 'Flux calibrator',      'modes': (AUTO, VERIFY, MANUAL), 'default': AUTO, 'gui': 'calibration'},
   'phase_cal':    {'label': 'Phase calibrator',     'modes': (AUTO, FORCE, MANUAL),  'default': AUTO, 'gui': 'calibration'},
   'refant':       {'label': 'Reference antenna',    'modes': (AUTO, MANUAL),         'default': AUTO, 'gui': 'calibration'},
-  'flagging':     {'label': 'Data flagging',        'modes': (OFF, AUTO, VERIFY),    'default': OFF,  'gui': 'calibration'},
+  'flagging':     {'label': 'Data flagging',        'modes': (OFF, AUTO, VERIFY, MANUAL), 'default': AUTO, 'gui': 'calibration',
+                   'methods': FLAG_METHODS, 'methods_default': FLAG_METHODS_DEFAULT},
   'self_cal':     {'label': 'Self-calibration',     'modes': (OFF, AUTO, GUIDED),    'default': OFF,  'gui': 'image'},
   'baseline_cal': {'label': 'Baseline cal (blcal)', 'modes': (OFF, AUTO, VERIFY),    'default': OFF,  'gui': 'image'},
   'core_subtract':{'label': 'Core subtraction',     'modes': (OFF, AUTO, MANUAL),    'default': OFF,  'gui': 'image'},

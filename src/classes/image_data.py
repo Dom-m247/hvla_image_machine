@@ -21,7 +21,7 @@ from typing import Any, cast
 import astropy.units as u
 import casatasks as ct
 
-from classes.constants import (MAD_TO_SIGMA, RMS_CORNER_BOX_FRACTION,
+from classes.constants import (DO_MEAN_RMS, MAD_TO_SIGMA, RMS_CORNER_BOX_FRACTION,
                                RMS_EDGE_MARGIN_FRACTION)
 from pre_calibration.options_class import Options
 
@@ -79,6 +79,7 @@ class Image:
     stats = image_data or {}
     for key in self.STAT_KEYS:
       setattr(self, key, stats.get(key))
+    self.options = options   #carries the run's designated RMS region, if any
     self.base = str(base or '')
     self.path = restored_image(self.base)
     self.rms_method = 'none'   #set by off_source_rms(); which estimator was used
@@ -131,7 +132,7 @@ class Image:
     archived record can say how the number was obtained.
     '''
     if self._off_source_rms is None and self.path:
-      self._off_source_rms, self.rms_method = measure_off_source_rms(self.path)
+      self._off_source_rms, self.rms_method = measure_off_source_rms(self.path, self.options)
     return self._off_source_rms
 
   def dynamic_range(self):
@@ -238,12 +239,13 @@ def header_value(hdr, *keys):
 
 #--------------------------------------------------------------- off-source noise
 
-def measure_off_source_rms(image):
+def measure_off_source_rms(image, options=None):
   '''Background RMS as (value, method).
 
-  Median of four corner boxes, inset from the edge where gridding artifacts
-  live, so one corner holding a sidelobe can't drag the estimate. Needs at least
-  two usable corners.
+  DO_MEAN_RMS False (default): one region the user designated, reused all run.
+  DO_MEAN_RMS True, or no region available: median of four corner boxes, inset
+  from the edge where gridding artifacts live, so one corner holding a sidelobe
+  can't drag the estimate. Needs at least two usable corners.
 
   Falls back to sigma = 1.4826 * MAD over the whole image, which a compact
   bright source barely moves, for images too small for corner boxes.
@@ -251,22 +253,70 @@ def measure_off_source_rms(image):
   '''
   if not image:
     return None, 'none'
+  if not DO_MEAN_RMS:
+    rms = _box_rms(image, rms_region(options, image))
+    if rms:
+      return rms, 'user-region'
+    #no region to be had (imported replay, piped run) -- score it automatically
   shape = image_shape(read_header(image))
   if shape:
-    values = []
-    for box in corner_boxes(*shape):
-      try:
-        rms = first_value(imstat_dict(imagename=image, box=box).get('rms'))
-      except Exception:
-        continue
-      if rms and rms > 0:
-        values.append(rms)
+    values = [rms for rms in (_box_rms(image, box) for box in corner_boxes(*shape)) if rms]
     if len(values) >= 2:
       return median(values), 'corner-boxes'
   mad_sigma = _mad_sigma(image)
   if mad_sigma:
     return mad_sigma, 'mad'
   return None, 'none'
+
+
+def _box_rms(image, box):
+  '''imstat RMS over one box selection, or None.'''
+  if not box:
+    return None
+  try:
+    rms = first_value(imstat_dict(imagename=image, box=box).get('rms'))
+  except Exception:
+    return None
+  return rms if rms and rms > 0 else None
+
+
+def rms_region(options, image):
+  '''The region the RMS is measured in, asked once and reused for the whole run.
+
+  A region recorded by an earlier run pre-empts the prompt, so --importRun replays
+  hands-free. Returns '' when there is nobody to ask.'''
+  from classes import decisions   #lazy: decisions -> CLI_input -> options_class
+  if options is None:
+    return ''
+  if recorded := decisions.resolved(options, 'rms_region'):
+    return recorded
+  if not decisions.is_interactive(options):
+    return ''
+  shape = image_shape(read_header(image))
+  if not shape:
+    return ''
+  from classes.CLI_input import CLI
+  from classes import run_log
+  chosen = CLI.getRMSRegion(*shape, presets=rms_region_presets(*shape))
+  options.rms_region = chosen   #recorded for replay, and reused by every later image
+  run_log.note('IMAGING', 'RMS region', f"{chosen}   (designated by the user)")
+  return chosen
+
+
+def rms_region_presets(nx, ny):
+  '''Named box selections to offer: the four automatic corner boxes, then the four
+  half-image quadrants.'''
+  corners = corner_boxes(nx, ny)
+  labels = ['bottom-left', 'top-left', 'bottom-right', 'top-right']
+  presets = {f"{label} corner box": box for label, box in zip(labels, corners)}
+  mx, my = nx // 2, ny // 2
+  presets.update({
+    'bottom-left quadrant':  f"0,0,{mx - 1},{my - 1}",
+    'top-left quadrant':     f"0,{my},{mx - 1},{ny - 1}",
+    'bottom-right quadrant': f"{mx},0,{nx - 1},{my - 1}",
+    'top-right quadrant':    f"{mx},{my},{nx - 1},{ny - 1}",
+  })
+  return presets
 
 
 def corner_boxes(nx, ny):

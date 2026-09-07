@@ -526,6 +526,7 @@ class BreakpointsWindow:
         #decision-point dropdowns, rendered from the DECISIONS registry into the frame
         #each one names in 'gui'. Adding a decision point adds a dropdown here.
         self.decision_vars = {}
+        self.decision_method_vars = {}   #decision name -> {method: BooleanVar}
         self._add_decision_menus(calibration_frame, 'calibration')
 
         # Solution Interval (solint) dropdown
@@ -721,7 +722,8 @@ class BreakpointsWindow:
         ).pack(side="right")
     
     def _add_decision_menus(self, frame, group):
-        """Render a labelled mode dropdown for each DECISIONS entry in `group`."""
+        """Render a labelled mode dropdown for each DECISIONS entry in `group`, plus a
+        method multi-select beneath any entry that declares one."""
         for name, spec in DECISIONS.items():
             if spec.get('gui') != group:
                 continue
@@ -734,7 +736,27 @@ class BreakpointsWindow:
                 values=list(spec['modes']),
                 state="readonly",
                 width=30
-            ).pack(anchor="w", pady=(0, 15))
+            ).pack(anchor="w", pady=(0, 5) if spec.get('methods') else (0, 15))
+            if spec.get('methods'):
+                self._add_method_checks(frame, name, spec)
+
+    def _add_method_checks(self, frame, name, spec):
+        """Checkbutton per method of decision `name`, disabled while its mode is off."""
+        box = ttk.Frame(frame)
+        box.pack(anchor="w", padx=(15, 0), pady=(0, 15))
+        self.decision_method_vars[name] = {}
+        for method, description in spec['methods'].items():
+            var = tk.BooleanVar(value=method in spec['methods_default'])
+            self.decision_method_vars[name][method] = var
+            ttk.Checkbutton(box, text=description, variable=var).pack(anchor="w")
+        self.decision_vars[name].trace_add(
+            'write', lambda *_, n=name, b=box: self.toggle_method_checks(n, b))
+
+    def toggle_method_checks(self, name, box):
+        """Grey out a decision's method checkboxes when its mode is off."""
+        state = "disabled" if self.decision_vars[name].get() == OFF else "normal"
+        for child in box.winfo_children():
+            child.config(state=state)
 
     def go_back(self):
         """Return to the source input window"""
@@ -770,6 +792,9 @@ class BreakpointsWindow:
     def submit(self):
         """Collect every option into the summary dict the pipeline imports."""
         decisions_chosen = {name: var.get() for name, var in self.decision_vars.items()}
+        #<decision>_methods matches the Options field name, so no per-decision special case
+        method_choices = {f"{name}_methods": [m for m, var in methods.items() if var.get()]
+                          for name, methods in self.decision_method_vars.items()}
         source_info = self.app.source_data
         self_cal_on = decisions_chosen['self_cal'] != OFF
 
@@ -798,6 +823,7 @@ class BreakpointsWindow:
             "robust":self.robust_var.get(),
             "test_image":self.test_image_var.get(),
             "self_cal_cycles":self.self_cal_cycle_var.get() if self_cal_on else None,
+            **method_choices,
         }
         # Store in app
         self.app.summary_dict = summary_dict
