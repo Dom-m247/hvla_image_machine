@@ -184,6 +184,16 @@ FLUX_CAL_ALIASES = {'1331+305': '3C286',
                       '0521+1638': '3C138'} #upgrade with calibrator list, and pull flux data for 'custom' callibrators
 
 
+#--- archive search results ---
+#radio_search returns both old-style VLA and JVLA-era observations, but the download
+#path only understands old-style archive segments: a JVLA project's --archfileinfo
+#lists scheduling blocks, parses to zero segments, and dies at importvla with nothing
+#to import. Observations from this year on are the JVLA-era ones (so "historical"
+#means 2008 and earlier); they are shown in red, and hidden outright when
+#RADIO_SEARCH_HISTORICAL_ONLY is set.
+RADIO_SEARCH_MODERN_YEAR = 2009
+RADIO_SEARCH_HISTORICAL_ONLY = True   #False shows JVLA-era rows again, marked red
+
 #--- decision points (Breakpoints 2.0) ---
 #Every point where the pipeline picks something the user may want to see or override.
 #Modes are uniform: off = skip the stage, auto = decide silently, verify = decide then

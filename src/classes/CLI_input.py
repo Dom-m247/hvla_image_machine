@@ -25,7 +25,8 @@ class CLI:
     #only worth asking when the user wants a say; 'auto' picks its own
     if options.decision('refant') != AUTO:
       options.reference_antenna = CLI.getReferenceAntenna()
-    if options.decision('flagging') != OFF:
+    #auto and off both keep FLAG_METHODS_DEFAULT; only the modes that want a say ask
+    if options.decision('flagging') in (VERIFY, MANUAL):
       options.flagging_methods = CLI.getFlaggingMethods()
     options.min_snr = CLI.getMinSNR()
     options.image_filename = CLI.getImageFilename()
@@ -53,7 +54,8 @@ class CLI:
     #only worth asking when the user wants a say; 'auto' picks its own
     if options.decision('refant') != AUTO:
       options.reference_antenna = CLI.getReferenceAntenna()
-    if options.decision('flagging') != OFF:
+    #auto and off both keep FLAG_METHODS_DEFAULT; only the modes that want a say ask
+    if options.decision('flagging') in (VERIFY, MANUAL):
       options.flagging_methods = CLI.getFlaggingMethods()
     options.min_snr = CLI.getMinSNR()
     options.image_filename = CLI.getImageFilename()
@@ -506,8 +508,9 @@ class CLI:
     pass
 
   #Observations from this year onward are highlighted red in the selection table
-  #(radio_search2 dates are 'YY-Mon-DD', so 09 == 2009).
-  RADIO_SEARCH_HIGHLIGHT_YEAR = 2009
+  #(radio_search2 dates are 'YY-Mon-DD', so 09 == 2009). Same boundary the
+  #RADIO_SEARCH_HISTORICAL_ONLY filter uses, so the two can never disagree.
+  RADIO_SEARCH_HIGHLIGHT_YEAR = RADIO_SEARCH_MODERN_YEAR
   _RED = '\033[31m'
   _RESET = '\033[0m'
 
@@ -540,7 +543,9 @@ class CLI:
     )
     print(header)
     print('-' * (len(header) + 8))
-    print(f"{CLI._RED}Red{CLI._RESET} = observed {CLI.RADIO_SEARCH_HIGHLIGHT_YEAR} or later")
+    #nothing can be red when the filter already removed those rows
+    if not RADIO_SEARCH_HISTORICAL_ONLY:
+      print(f"{CLI._RED}Red{CLI._RESET} = observed {CLI.RADIO_SEARCH_HIGHLIGHT_YEAR} or later")
     #printed worst-first so the deepest observation -- still #1 -- ends up at the bottom,
     #next to the prompt, where it doesn't scroll away on a long result list
     for i, obs in reversed(list(enumerate(observations, 1))):
