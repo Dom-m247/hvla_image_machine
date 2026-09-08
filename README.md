@@ -110,9 +110,6 @@ Ka, and Q**.
 - A Linux environment with `taskset` available (the launcher pins CASA to
   specific CPU cores).
 - Network access to the NED/SIMBAD catalog services for source resolution.
-- A `Creds.json` in the project root, if you intend to use the archive search
-  (`--radio_search`) or the submission form (`--archive`) — see
-  [Credentials](#credentials).
 - All Python dependencies are installed automatically into a dedicated virtual
   environment on first run (see [`requirements.txt`](requirements.txt)). The
   core stack is built on the NRAO **CASA 6.6** modular packages — `casatasks`,
@@ -156,30 +153,6 @@ does the same thing — the function exists only so the pipeline can be started 
 anywhere, since `run.sh` resolves `.hvla_env`, `src/` and `data_archive/` relative to
 the current directory.
 
-## Credentials
-
-The archive search, the NAS download, and the submission form all read a single
-`Creds.json` at the **project root**, beside `run.sh`:
-
-```
-hvla_image_machine/
-├── Creds.json      <- here
-├── run.sh
-└── src/
-```
-
-It is deliberately not in the repository — obtain a copy from the group and drop it in
-place. It holds the search host and login, the NAS base URL, the path to the remote
-`radio_search` tool, and the submission form URL.
-[`classes/creds.py`](src/classes/creds.py) is the only thing that reads it; nothing
-else should look for it or keep a second copy.
-
-Without it the pipeline still calibrates and images normally — only `--radio_search`
-and `--archive` are affected. The GUI disables its **Get Observations** button when
-the file is missing.
-
-## Configuration
-
 ### CPU cores
 
 [`run.sh`](run.sh) pins CASA to specific cores via `taskset` so runs share a machine
@@ -214,20 +187,6 @@ tables must be downloaded once. In
 
 Two routes: let the tool find and download the observation for you, or point it at a
 file you already have.
-
-### Search and download it — `--radio_search`
-
-With `-rs` the tool queries the observation archive for your source, shows what it
-finds, and downloads the segment you pick straight from the Delos NAS into
-`data_archive/<proj_code>/`. The transfer runs in parallel with the calibration
-prompts, so you answer questions while the files come down:
-
-```bash
-hvla_image -rs
-```
-
-Needs [`Creds.json`](#credentials), and implies `--cli`. In the GUI the equivalent is
-the **Get Observations** button.
 
 ### Point it at a local file
 
@@ -278,26 +237,6 @@ hvla_image --archive         # submit a finished run to the archive form
 > **Note:** argument abbreviation is enabled, so `--no` is ambiguous between
 > `--noexport` and `--no-ms-tar`. Type enough of the flag to be unique.
 
-## Archiving and Submission
-
-When a run finishes it packages its results folder into two tarballs, written beside
-the products:
-
-| Bundle | Contents |
-|--------|----------|
-| `<name>_results.tar.gz` | everything a reviewer reads — FITS, pbcor image, PNG preview, `<name>.fit.json`, run log, `replay.py` |
-| `<name>_CALMS.tar.gz` | the calibrated measurement set, kept separate because it is far larger |
-
-Use `--no-ms-tar` when you only need the products bundle.
-
-`--archive` then opens the group's submission form in a browser, prefilled from the
-run: source name and coordinates, band, array configuration, resolution, and the
-measured fit values. File uploads cannot be prefilled — attach the tarballs yourself.
-
-```bash
-hvla_image -a
-```
-
 It prompts for a results folder. Give it one and it submits that finished run and
 exits; press enter instead and it runs the pipeline normally, submitting at the end.
 Archiving an older folder recovers the measurements from its `<name>.fit.json` and the
@@ -314,7 +253,7 @@ with:
 bash run.sh --importRun
 ```
 
-A blank template is available under
+Blank templates are available under
 [`parsing_examples/`](parsing_examples/) for reference. Use `--noexport` to skip
 generating the file on a given run.
 
@@ -376,16 +315,8 @@ run.
 ## Roadmap
 
 Active development items (see [`TODO`](TODO) for the full list):
-
-- Core subtraction for imaging, and multi-component Gaussian fitting (the fit
-  currently models one component at the peak).
-- Principled reference-antenna selection (central, low-flagging, present for the
-  full track) and a fluxscale-failure retry.
-- Manual flux calibration and a "skip self phase-cal" toggle.
-- A guided manual self-cal mode (inspect solutions / choose solint per cycle).
+- Core subtraction improvment
 - Outlier-field imaging.
-- Expanded GUI features and clearer separation of manual self-cal from
-  interactive cleaning.
 
 
 ---
