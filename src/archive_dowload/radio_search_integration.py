@@ -1,6 +1,7 @@
 #for doing a RADIO_SEARCH based Download
 from classes.CLI_input import CLI
-from classes.constants import DATA_ARCHIVE
+from classes.constants import (DATA_ARCHIVE, RADIO_SEARCH_HISTORICAL_ONLY,
+                              RADIO_SEARCH_MODERN_YEAR)
 from classes.Loading_Animation import LoadingAnimation
 from classes import creds
 from pre_calibration.options_class import Options
@@ -316,7 +317,30 @@ class RadioSearchIntegration:
     LoadingAnimation.performing_action(
       f"archive search for {options.search_alias}" + (f" in band {band}" if band else ""),
       target=lambda: results.append(rs(*args)))
-    return parseObservations(results[0]) if results else []
+    observations = parseObservations(results[0]) if results else []
+    return RadioSearchIntegration._drop_modern(observations)
+
+  @staticmethod
+  def _drop_modern(observations):
+    """Hide JVLA-era rows when RADIO_SEARCH_HISTORICAL_ONLY is set.
+
+    The download path only understands old-style VLA archive segments: a JVLA
+    project's --archfileinfo lists scheduling blocks, which parse to zero segments
+    and leave the run with nothing to import. Dropping those rows here -- the one
+    place both the CLI table and the GUI list come through -- keeps an observation
+    that cannot work from being selectable at all.
+
+    An undated row is kept: unknown is not grounds for hiding.
+    """
+    if not RADIO_SEARCH_HISTORICAL_ONLY:
+      return observations
+    kept = [obs for obs in observations
+            if (year := CLI._observation_year(getattr(obs, 'date', ''))) is None
+            or year < RADIO_SEARCH_MODERN_YEAR]
+    if hidden := len(observations) - len(kept):
+      print(f"  {hidden} observation(s) from {RADIO_SEARCH_MODERN_YEAR} or later hidden "
+            f"(set RADIO_SEARCH_HISTORICAL_ONLY = False in classes/constants.py to show them)")
+    return kept
 
   @staticmethod
   def select_observation(rs, options):

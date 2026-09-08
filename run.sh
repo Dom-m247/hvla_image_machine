@@ -5,7 +5,8 @@ set -euo pipefail
 # CPU pinning (affinity). taskset CONFINES the run to these cores; on its own it
 # does NOT parallelize anything. Leave empty (CPU_CORES="") to use all cores.
 # ---------------------------------------------------------------------------
-CPU_CORES="25,26,27,28"      # e.g. "25,26,27,28"; empty disables pinning
+CPU_CORES="${HVLA_CPU_CORES-25,26,27,28}"   # e.g. "25,26,27,28" or "25-28"; empty disables pinning
+                                           # set per install by tools/install_hvla_launcher.sh --cores
 
 # ---------------------------------------------------------------------------
 # MPI parallel launch (real CASA engine parallelism: tclean parallel=True, MMS).
@@ -64,7 +65,8 @@ fi
 # --- derive rank count: #cores (1 client + the rest as CASA worker engines) ---
 if [ -z "$MPI_NPROC" ]; then
   if [ -n "$CPU_CORES" ]; then
-    NCORES=$(tr ',' '\n' <<<"$CPU_CORES" | grep -c .)   # counts comma-listed cores
+    # counts comma-listed cores, expanding "25-28" style ranges
+    NCORES=$(tr ',' '\n' <<<"$CPU_CORES" | awk -F- 'NF==2{n+=$2-$1+1;next} NF==1&&$1!=""{n++} END{print n+0}')
   else
     NCORES=$(nproc 2>/dev/null || echo 4)
   fi
