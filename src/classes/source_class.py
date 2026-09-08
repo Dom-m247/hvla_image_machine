@@ -105,16 +105,18 @@ class source_info:
     self.name = self.listobs_name = options.source = chosen.name
     return chosen.src_id
 
-  def _fields_by_separation(self, options):
-    '''(fields, {field_id: degrees}) sorted nearest the SIMBAD position. Falls back
-    to listobs order with no separations when the position or a coordinate is unusable.'''
-    fields = list(options.observation_data.fields)
-    position = simbad.coordinates(options.search_alias or self.name)
-    if position is None:
-      return fields, {}
-    from astropy.coordinates import SkyCoord
+  def _fields_by_separation(self, options, target=None):
+    '''(fields, {field_id: degrees}) sorted nearest `target`, defaulting to this
+    source's SIMBAD position. Falls back to listobs order with no separations when
+    the position or a coordinate is unusable.'''
     from typing import Any, cast
-    target = SkyCoord(position[0], position[1], unit='deg')
+    fields = list(options.observation_data.fields)
+    if target is None:
+      position = simbad.coordinates(options.search_alias or self.name)
+      if position is None:
+        return fields, {}
+      from astropy.coordinates import SkyCoord
+      target = SkyCoord(position[0], position[1], unit='deg')
     separations = {}
     for field in fields:
       try:
@@ -158,6 +160,34 @@ class source_info:
     self.name = source_field_entry.name
     self.source_id = source_field_entry.src_id
     self.field_id = source_field_entry.id
+
+  def _target_coord(self, options):
+    '''The science target's ICRS position, read from its field in the MS. None when
+    the target isn't resolved yet or its coordinate won't parse.'''
+    from typing import Any, cast
+    field_id = getattr(getattr(options, 'source_ids', None), 'field_id', None)
+    for field in options.observation_data.fields:
+      if field.id == field_id:
+        try:
+          return cast(Any, self._to_skycoord(field.ra, field.decl, field.epoch).icrs)
+        except Exception:
+          return None
+    return None
+
+  def _fields_nearest_target(self, options, subset=None):
+    '''(fields, formatter) nearest the science target first, optionally restricted to
+    `subset`. The formatter shows each field's separation, so a pick is made on it.'''
+    ordered, separations = self._fields_by_separation(options, self._target_coord(options))
+    if subset is not None:
+      keep = {f.id for f in subset}
+      ordered = [f for f in ordered if f.id in keep]
+
+    def describe(field):
+      sep = separations.get(field.id)
+      shown = f"{sep:6.2f} deg" if sep is not None else "     ? deg"
+      return f"{field.name:<15} {shown}  (field {field.id})"
+
+    return ordered, describe
 
   def set_RA_DECL(self,options):
     '''set RA and DECL coords for source'''
@@ -278,16 +308,19 @@ class source_info:
       if chosen is None:
         raise Exception(f'Recorded flux calibrator {recorded!r} is not in this MS')
     elif mode == MANUAL:
-      chosen = decisions.pick('Flux calibrator -- choose a field:', fields,
-                              formatter=lambda f: f"{f.name} (field {f.id})")
+      ordered, describe = self._fields_nearest_target(options)
+      chosen = decisions.pick('Flux calibrator -- nearest the target first:', ordered,
+                              formatter=describe)
       if chosen is None:
         return False   #no fields at all -- nothing to calibrate against
       options.flux_cal_manual = self._ask_manual_flux(options, chosen)
     elif not candidates:
       return False
     elif mode == VERIFY:
-      chosen = decisions.pick('Flux calibrator -- detected candidates:', candidates,
-                              formatter=lambda f: f"{f.name} (field {f.id})")
+      #auto keeps taking candidates[0] in listobs order; only the picker is re-ordered
+      ordered, describe = self._fields_nearest_target(options, subset=candidates)
+      chosen = decisions.pick('Flux calibrator -- detected candidates, nearest first:',
+                              ordered, formatter=describe)
     else:
       chosen = candidates[0]
     if chosen is None:

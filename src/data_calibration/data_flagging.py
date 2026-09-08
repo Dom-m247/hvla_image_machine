@@ -5,6 +5,8 @@ calibrated target (rflag, which needs the CORRECTED-derived data a DATA pass can
 see). Each stage saves a named flag version first, so the whole stage is reversible
 with flagmanager restore.
 """
+import contextlib
+import io
 import os
 
 import casatasks as ct
@@ -193,7 +195,10 @@ _METHODS = {FLAG_CLIPZEROS: _flag_clipzeros, FLAG_QUACK: _flag_quack,
 def _flagged_fraction(vis):
     """Flagged fraction of `vis` as a percentage, or None if it can't be measured."""
     try:
-        summary = ct.flagdata(vis=vis, mode='summary', spwchan=False, basecnt=False) or {}
+        #measurement only: the per-field/spw/antenna report flagdata prints would bury
+        #the one number we want. It still goes to the casa log.
+        with contextlib.redirect_stdout(io.StringIO()):
+            summary = ct.flagdata(vis=vis, mode='summary', spwchan=False, basecnt=False) or {}
         total = float(summary.get('total', 0))
         return 100.0 * float(summary['flagged']) / total if total else None
     except Exception as exc:

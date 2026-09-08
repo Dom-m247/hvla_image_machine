@@ -180,6 +180,7 @@ bash run.sh --importRun      # replay a previous run from import.json
 | `--importRun` | `-i`, `-import` | Import settings from `import.json` for an automated run. |
 | `--cli` | `-c`, `-t` | Run the entire pipeline in the terminal without the GUI. |
 | `--cliCalib` | `-tc` | CLI mode for calibration and imaging with manual calibrator override. |
+| `--archive` | `-a` | After imaging, open the archive submission form prefilled from the run. |
 | `--noexport` | | Skip writing the `import.json` export. |
 | `--debug` | | Use debug exports for testing. |
 
@@ -229,19 +230,26 @@ src/
 │   ├── data_flagging.py       #   tfcrop flagging breakpoint (backup + plotms review)
 │   └── parse_listobs.py       #   listobs parsing + array-config / solint helpers
 └── image_generation/          # CASA imaging
-    └── image_maker.py         #   tclean, self-cal ladder, results folder + replay
+    ├── image_maker.py         #   tclean, self-cal ladder, results folder + replay
+    └── source_fit.py          #   2D Gaussian fit of the target -> <name>.fit.json
 ```
+
+Each run's results folder collects the science products (FITS, pbcor, PNG, mask,
+listobs, CASA log), the structured measurements (`<name>.fit.json`), a
+reproducible recipe (`import.json`) and the exact CASA calls (`replay.py`) — plus
+`<name>.log`, a human-readable report of what the run decided and why.
 
 ## Roadmap
 
 Active development items (see [`TODO`](TODO) for the full list):
 
-- Gaussian fitting (`imfit`) and core subtraction for imaging.
+- Core subtraction for imaging, and multi-component Gaussian fitting (the fit
+  currently models one component at the peak).
 - Principled reference-antenna selection (central, low-flagging, present for the
   full track) and a fluxscale-failure retry.
 - Manual flux calibration and a "skip self phase-cal" toggle.
 - A guided manual self-cal mode (inspect solutions / choose solint per cycle).
-- An off-source RMS box for the self-cal metric, and outlier-field imaging.
+- Outlier-field imaging.
 - Expanded GUI features and clearer separation of manual self-cal from
   interactive cleaning.
 

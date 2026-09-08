@@ -9,6 +9,8 @@ from classes.observations_class import vla_antenna_name
 import pprint as pp
 from data_calibration import parse_listobs as parse
 
+import contextlib
+import io
 import math
 from statistics import median
 from pathlib import Path
@@ -429,8 +431,11 @@ def _unflagged_visibilities(vis, options):
   if not vis:
     return {}
   try:
-    summary = ct.flagdata(vis=vis, mode='summary', field=_calibrator_fields(options),
-                          spwchan=False, basecnt=False)
+    #measurement only: we want the dict, not flagdata's multi-page report on the
+    #terminal. It still goes to the casa log.
+    with contextlib.redirect_stdout(io.StringIO()):
+      summary = ct.flagdata(vis=vis, mode='summary', field=_calibrator_fields(options),
+                            spwchan=False, basecnt=False)
     per_antenna = (summary or {}).get('antenna') or {}
   except Exception as exc:
     print(f"find_refant: could not read flag statistics from {vis} ({exc}); "

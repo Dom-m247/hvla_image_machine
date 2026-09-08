@@ -275,7 +275,8 @@ class SourceInputWindow:
         target = SimpleNamespace(proj_code=observation.proj_code, archive_files=[])
         #carried through to Options so the run records which project it came from
         self.proj_code = observation.proj_code
-        self._set_busy(True, f"Downloading {observation.proj_code} ...")
+        self._set_busy(True, f"Downloading {observation.proj_code}; "
+                             f"the file selection will fill in automatically ...")
 
         def work():
             from archive_dowload.radio_search_integration import (
@@ -474,8 +475,14 @@ class ObservationResultsWindow:
 
         button_frame = ttk.Frame(self.window)
         button_frame.pack(fill="x", padx=10, pady=10)
-        ttk.Button(button_frame, text="Okay", command=self.okay).pack(side="right", padx=5)
+        #disabled until a row is picked, so Okay never has to warn about an empty
+        #selection -- the same shape as the Get Observations button
+        self.okay_button = ttk.Button(button_frame, text="Okay", command=self.okay,
+                                      state="disabled")
+        self.okay_button.pack(side="right", padx=5)
         ttk.Button(button_frame, text="Cancel", command=self.cancel).pack(side="right")
+        self.tree.bind('<<TreeviewSelect>>', lambda _e: self.okay_button.config(
+            state="normal" if self.tree.selection() else "disabled"))
 
     def selected_observation(self):
         """The observation the user highlighted, or None."""
@@ -488,10 +495,7 @@ class ObservationResultsWindow:
         """Close, then download the selection through the parent window."""
         observation = self.selected_observation()
         if observation is None:
-            messagebox.showwarning(
-                "No Selection", "Select an observation, or press Cancel.",
-                parent=self.window)
-            return
+            return   #the button is disabled without a selection
         self.cancel()
         self.source_window.download_observation(observation)
 
