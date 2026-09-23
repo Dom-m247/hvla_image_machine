@@ -1,10 +1,28 @@
 {
     "source": null,
     "archive_file": "ARCHIVE.EXP OR .MS ",
+    "archive_files": [],
     "band": "AUTO, or specify a band (e.g. L, S, C, X, Ku, K, Ka, Q)",
-    "breakpoints": [],
-    "custom_amp_cal": "auto",
+    "decisions": {
+        "flux_cal": "auto",
+        "phase_cal": "auto",
+        "refant": "auto",
+        "flagging": "auto",
+        "self_cal": "off",
+        "baseline_cal": "off",
+        "core_subtract": "off"
+    },
     "reference_antenna": "auto",
+    "flux_cal_name": "",
+    "flux_cal_manual": null,
+    "phase_cal_name": "",
+    "flagging_methods": [
+        "tfcrop"
+    ],
+    "flag_selection": null,
+    "self_cal_plan": [],
+    "self_cal_ap": null,
+    "self_cal_blcal": null,
     "min_snr": 3.0,
     "image_filename": "IMAGE FILENAME HERE",
     "image_size": [
@@ -16,6 +34,8 @@
     "cell_size": 0.01,
     "deconvolver": "mtmfs",
     "weighting": "briggs",
-    "do_self_cal": true,
-    "self_cal_cycles": 1
+    "robust": 0.5,
+    "test_image": false,
+    "mask": "",
+    "self_cal_cycles": 4
 }
