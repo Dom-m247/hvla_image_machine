@@ -218,7 +218,9 @@ def _final_image_rows(options):
 
 def _output_rows(options):
   results = _get(options, 'results_dir')
-  rows = [('Results folder', results)]
+  #every path below is relative to the work directory, so name it first
+  rows = [('Work directory', _get(options, 'work_dir')),
+          ('Results folder', results)]
   try:
     for name in sorted(p.name for p in Path(str(results)).iterdir()):
       rows.append(('', name))

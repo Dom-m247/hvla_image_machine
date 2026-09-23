@@ -193,6 +193,26 @@ def parseArchFileInfo(results):
     return segments
 
 
+ARCHFILE_SIZE_UNITS = {'B': 1 / 1024**2, 'KB': 1 / 1024, 'MB': 1.0, 'GB': 1024.0, 'TB': 1024.0**2}
+
+
+def size_mb(archfile):
+    """An archive file's size in MB (from e.g. '95.22MB'), or None when it cannot be read."""
+    match = re.match(r'([0-9]*\.?[0-9]+)\s*([a-zA-Z]+)$', str(getattr(archfile, 'size', '') or '').strip())
+    if match is None or match.group(2).upper() not in ARCHFILE_SIZE_UNITS:
+        return None
+    return float(match.group(1)) * ARCHFILE_SIZE_UNITS[match.group(2).upper()]
+
+
+def total_size_label(archfiles):
+    """Summed size of archive files for display; unreadable sizes are counted, not guessed."""
+    sizes = [size_mb(archfile) for archfile in archfiles]
+    label = f"{sum(s for s in sizes if s is not None):.2f}MB"
+    if unknown := sizes.count(None):
+        label += f" + {unknown} file(s) of unknown size"
+    return label
+
+
 #sensitivity is reported with its unit attached and the unit varies between
 #searches ('4.92 uJy', '1.2 mJy'), so rows have to be compared numerically: a
 #string sort puts '10.56 uJy' ahead of '4.92 uJy'.
@@ -281,6 +301,7 @@ class RadioSearchIntegration:
     #DO radio_search with options.source and options.band
 
     with RadioSearchIntegration.connect() as rs:
+      while True:
         selected_obs = RadioSearchIntegration.select_observation(rs, options)
         if selected_obs is None:
             return []
@@ -297,7 +318,16 @@ class RadioSearchIntegration:
         options.proj_code = selected_obs.proj_code
         #return the file(s) to download to the caller (radio_search), which will
         #hand them to DelosDownload on a separate thread.
-        return RadioSearchIntegration.select_segment_files(archfiles, selected_obs)
+        download_files = RadioSearchIntegration.select_segment_files(archfiles, selected_obs)
+        if download_files and CLI.getYesNo(
+                f"Download segment {selected_obs.seg}? [Total: {total_size_label(download_files)}]"):
+            return download_files
+        choice = CLI.declinedDownloadChoice()
+        if choice is False:
+            return []
+        if choice and (picked := RadioSearchIntegration.select_segments(archfiles)):
+            return picked
+        #enter, or no segment picked: back to the observation table
 
   @staticmethod
   def run_search(rs, options):
@@ -396,6 +426,25 @@ class RadioSearchIntegration:
     download_files = selected_segment.files
     print(f"Files to download for segment {selected_obs.seg}: "
           f"{[archfile.file_name for archfile in download_files]}")
+    return download_files
+
+  @staticmethod
+  def select_segments(archfiles):
+    """Let the user pick any segments of the project; returns their files as one list.
+
+    importvla concatenates whatever comes back into a single MS.
+    """
+    segments = [seg for seg in archfiles if seg.files]
+    if not segments:
+        print("No archive files are listed for this project.")
+        return []
+    labels = [f"{seg.name}  ({len(seg.files)} file(s), {total_size_label(seg.files)})"
+              for seg in segments]
+    picked = CLI.selectManyFromList("Segments to download:", labels, default_indices=[])
+    download_files = [archfile for i in picked for archfile in segments[i].files]
+    if download_files:
+        print(f"Downloading {len(picked)} segment(s), {len(download_files)} file(s): "
+              f"[Total: {total_size_label(download_files)}]")
     return download_files
 
 
@@ -519,7 +568,7 @@ class DelosDownload:
         )
         if probe.returncode in self.CONNECT_FAIL_CODES:
             raise RuntimeError(
-                f"Delos NAS is not reachable at {base_url} (curl exit {probe.returncode}: "
+                f"Archive is not reachable at {base_url} (curl exit {probe.returncode}: "
                 f"{probe.stderr.strip() or 'connection failed'}).\n"
                 f"The host may be offline, or this machine may not be on the "
                 f"NRAO/UMBC network / VPN. Aborting before download."

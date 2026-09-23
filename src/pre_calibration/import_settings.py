@@ -1,7 +1,9 @@
 #handles importing/exporting setting/data to json file
 #from .options_class import Options
 #from casatasks import casalog
-import argparse, json, sys
+import argparse, json
+from pathlib import Path
+from classes import creds
 from classes.constants import FOLDER_NAME, IMPORT_JSON, RS_IMPORT
 from .options_class import Options
 import pprint
@@ -30,15 +32,22 @@ def _json_default(obj):
 
 
 def add_path(archivePath):
-  """localize path to archive name"""
-  sysPath = sys.path[0]
-  archivePath = sysPath[:sys.path[0].find(FOLDER_NAME)] + archivePath
-  return archivePath
-  
+  """localize a stored archive path against the project root"""
+  parts = Path(archivePath).parts
+  if parts and parts[0] == FOLDER_NAME:
+    parts = parts[1:]
+  return str(creds.project_root().joinpath(*parts))
+
 def revmove_path(archivePath):
-  """delocalize archive file"""
-  archivePath = archivePath[archivePath.find(FOLDER_NAME):]
-  return archivePath
+  """delocalize: store as <FOLDER_NAME>/<path relative to the project root>"""
+  path, root = Path(archivePath), creds.project_root()
+  if path.parts and path.parts[0] == FOLDER_NAME:
+    return str(path)
+  try:
+    rel = (path if path.is_absolute() else root / path).resolve().relative_to(root)
+  except ValueError:
+    return str(path)  #outside the project: not localizable, store as given
+  return str(Path(FOLDER_NAME) / rel)
 
 def import_options():
   """imports the options stored in import.json"""

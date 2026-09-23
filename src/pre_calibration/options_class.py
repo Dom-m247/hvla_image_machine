@@ -4,6 +4,7 @@ from typing import Any, cast
 from classes.observations_class import Obs_data
 from classes.source_class import source_info
 from classes.constants import *
+from classes import work_dir
 import pprint
 
 class Options:
@@ -34,6 +35,8 @@ class Options:
                min_snr=3.0,):
     #default members
     self.sysArgs: Any = sysArgs  #argparse.Namespace (dynamic dest attrs) -> Any
+    #where this run writes; per-invocation, so it is not an import.json field
+    self.work_dir = str(work_dir.current())
     self.source = source
     self.archive_file = archive_file
     self.band = band

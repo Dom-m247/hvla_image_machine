@@ -79,13 +79,13 @@ EOF
   exit 0
 fi
 
-#the function cds in a subshell: run.sh resolves .hvla_env, src/ and data_archive/
-#from the CWD, and the caller's shell must not be left in the repo afterwards
+#no cd: run.sh resolves .hvla_env, src/ and data_archive/ from its own location, and
+#the run writes into whatever directory you call it from
 BLOCK="$BEGIN
-# Runs the pipeline in $REPO from whatever directory you are in.
+# Runs the pipeline from $REPO, writing its output into your current directory.
 # HVLA_CPU_CORES: cores to pin to; empty means all cores. Edit and re-source to change.
 $NAME() {
-  ( cd \"$REPO\" && HVLA_CPU_CORES=\"$CORES\" bash run.sh \"\$@\" )
+  HVLA_CPU_CORES=\"$CORES\" bash \"$REPO/run.sh\" \"\$@\"
 }
 $END"
 
@@ -111,8 +111,9 @@ cat <<EOF
 Activate it in this terminal:
   source $RC
 
-Then, from anywhere:
+Then, from anywhere -- the run writes into the directory you call it from:
   $NAME              # GUI, calibrate + image
   $NAME -rs          # search the archive, download, and run
-  $NAME --noexport   # ...arguments pass straight through to run.sh
+  $NAME --workdir ~/runs/3c84   # ...or into a directory you name
+  $NAME --noexport   # arguments pass straight through to run.sh
 EOF

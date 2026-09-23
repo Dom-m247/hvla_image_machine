@@ -2,14 +2,17 @@
 """Dependencies.py: A script to manage and install required Python dependencies for the HVLA Image Machine application."""
 import subprocess
 import sys
+from pathlib import Path
+
+#<root>/src/Dependencies.py -> <root>/requirements.txt, so the install works from
+#any working directory
+REQUIREMENTS = Path(__file__).resolve().parent.parent / "requirements.txt"
 
 def install_from_requirements():
   """Install all modules from requirements.txt file."""
-  #requirments.txt *Should* be in the same directory as this script
-  #if it's not then
   print(f"verifying all modules from requirments.txt...")
   try:
-      subprocess.check_call([sys.executable, "-m", "pip", "install",'--quiet', "-r", "requirements.txt"])
+      subprocess.check_call([sys.executable, "-m", "pip", "install",'--quiet', "-r", str(REQUIREMENTS)])
       print("All modules from requirements.txt installed successfully.")
       return True
   except subprocess.CalledProcessError as e:

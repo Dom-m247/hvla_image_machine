@@ -305,6 +305,21 @@ class CLI:
       print("Please enter y or n.")
 
   @staticmethod
+  def declinedDownloadChoice() -> bool | None:
+    '''What to do after a declined segment download: None = pick another
+    observation, True = choose segments to download, False = quit.'''
+    while True:
+      val = input("Press enter to pick a different observation, or enter [y] to download "
+                  "specific segments and [n] to exit: ").strip().lower()
+      if val == '':
+        return None
+      if val in ('y', 'yes'):
+        return True
+      if val in ('n', 'no'):
+        return False
+      print("Please enter y, n, or press enter.")
+
+  @staticmethod
   def selectBand(bands, requested=None, spanned=None) -> str:
     '''Choose one of the bands the target was actually observed in -- either because a
     requested band is not among them, or because the target `spanned` several of them
@@ -358,6 +373,31 @@ class CLI:
         if str(field.name).casefold() == val.casefold():
           return field
       print(f"Invalid selection. Enter 1-{len(shown)} or a listobs name.")
+
+  @staticmethod
+  def selectResultsFolder(folders, where=''):
+    '''Pick a results folder to archive, by number or path. Returns '' to archive
+    this run when it finishes instead; a path that is not a folder re-asks.'''
+    if folders:
+      print(f"\nResults folders in {where} (most recent first):")
+      for i, folder in enumerate(folders, 1):
+        print(f"  {i}: {folder.name}")
+      question = (f"\nFolder to archive (1-{len(folders)}, a path, or enter to "
+                  "archive this run when it finishes): ")
+    else:
+      print(f"\nNo results folders in {where}.")
+      question = ("Folder to archive (a path, or enter to archive this run when "
+                  "it finishes): ")
+    while True:
+      val = input(question).strip()
+      if not val:
+        return ''
+      if val.isdigit() and 1 <= int(val) <= len(folders):
+        return str(folders[int(val) - 1])
+      path = Path(val).expanduser()
+      if path.is_dir():
+        return str(path)
+      print(f"Not a folder: {path}")
 
   @staticmethod
   def getReferenceAntenna() -> str:

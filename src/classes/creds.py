@@ -17,18 +17,18 @@ from pathlib import Path
 from classes.constants import FOLDER_NAME
 
 CREDS_FILE = 'Creds.json'  #project-wide credentials, at the project root
+ROOT_MARKERS = ('run.sh', CREDS_FILE, '.git')  #files that only sit at the project root
 
 
 def project_root():
-  """The hvla_image_machine project root, from this file's path.
+  """The project root: the first parent of this file holding a marker.
 
-  Walk up looking for FOLDER_NAME, falling back to the known depth
-  (<root>/src/classes/<file>). Lifted here from DelosDownload._repo_root so the
-  path logic has one home rather than one per module that needs it.
+  Found by marker rather than by name, so the clone can live anywhere under any
+  folder name. Falls back to the known depth (<root>/src/classes/<file>).
   """
   here = Path(__file__).resolve()
   for parent in here.parents:
-    if parent.name == FOLDER_NAME:
+    if any((parent / marker).exists() for marker in ROOT_MARKERS) or parent.name == FOLDER_NAME:
       return parent
   return here.parents[2]  #<root>/src/classes/<file> -> <root>
 

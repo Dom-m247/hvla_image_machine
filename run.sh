@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+REPO_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"   # the clone; inputs resolve from here
+
+# The run stays in YOUR current directory: measurement_sets/, <name>_results/,
+# import.json, replay.py and the CASA log are written there. Override with
+# --workdir DIR or HVLA_WORK_DIR=DIR.
+
 # ---------------------------------------------------------------------------
 # CPU pinning (affinity). taskset CONFINES the run to these cores; on its own it
 # does NOT parallelize anything. Leave empty (CPU_CORES="") to use all cores.
@@ -21,14 +27,26 @@ MPI_NPROC="${MPI_NPROC:-}"        # override rank count; default = #cores (1 cli
 MPI_BIND_ARGS="--bind-to none"    # OpenMPI: lets ranks honor the taskset affinity mask
 
 PYTHON_CMD="python3.10"
-VENV_NAME=".hvla_env"
-DEPENDENCY_SCRIPT="src/Dependencies.py"
-MAIN_SCRIPT="src/HVLA_image_machine.py"
+VENV_NAME="$REPO_DIR/.hvla_env"
+DEPENDENCY_SCRIPT="$REPO_DIR/src/Dependencies.py"
+MAIN_SCRIPT="$REPO_DIR/src/HVLA_image_machine.py"
 
 # --- create the venv on first run ---
-if [ ! -d "$VENV_NAME" ]; then
+# a venv that fails at ensurepip leaves the directory behind, minus the activate
+if [ ! -f "$VENV_NAME/bin/activate" ]; then
+  if [ -d "$VENV_NAME" ]; then
+    echo "Error: '$VENV_NAME' exists but has no bin/activate -- creation failed part-way." >&2
+    echo "       Delete it and re-run: rm -rf $VENV_NAME" >&2
+    exit 1
+  fi
   if ! command -v "$PYTHON_CMD" >/dev/null 2>&1; then
     echo "Error: $PYTHON_CMD not found. Install Python 3.10 or change PYTHON_CMD." >&2
+    exit 1
+  fi
+  # ensurepip is a separate package on Debian/Ubuntu
+  if ! "$PYTHON_CMD" -c 'import ensurepip' >/dev/null 2>&1; then
+    echo "Error: $PYTHON_CMD ($(command -v "$PYTHON_CMD")) has no ensurepip; venv creation fails." >&2
+    echo "       apt install python3.10-venv, or put a python3.10 that has it first on PATH." >&2
     exit 1
   fi
   echo "Creating virtual environment '$VENV_NAME' using $PYTHON_CMD..."

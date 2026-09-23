@@ -1,4 +1,6 @@
 import sys,os,argparse
+from classes import work_dir
+work_dir.resolve()  #must precede the casatasks import: CASA opens its log in the CWD
 import casaviewer
 import casatasks 
 import casaconfig
@@ -29,6 +31,8 @@ def argumentManager():
   parser.add_argument('--cliCalib','-tc', action='store_true', help='run cli for calibration and imaging, allows user over-ride on calibrators')
   parser.add_argument('--archive','-a', action='store_true', help='run archiving routine')
   parser.add_argument('--no-ms-tar', action='store_true', help='skip taring the calibrated MS (the large bundle); the products tarball is still written')
+  #already applied at import time; declared so argparse accepts and documents it
+  parser.add_argument('--workdir', metavar='DIR', help=f'directory to run in: everything the run writes goes here (default: the current directory, or ${work_dir.ENV_VAR})')
   arguments = parser.parse_args()
   if arguments.radio_search:
     arguments.cli = True
@@ -39,12 +43,16 @@ def main(): #argv
   print("Welcome to the HVLA Image Machine!")
   source = Options()
   source.sysArgs = argumentManager()
+  print(f"Work directory: {source.work_dir}")
   #--archive: either archive a finished results folder and stop, or fall through
   #and archive this run once it has one.
   if source.sysArgs.archive:
     folder = form_submission.prompt_for_folder()
     if folder:
-      form_submission.archive_existing(folder)
+      #no fall-through to a full run: --archive on a named folder either submits it
+      #or fails saying so
+      if not form_submission.archive_existing(folder):
+        sys.exit(f"Could not build a submission from {folder}.")
       return
 
   #===========================================================================================  
@@ -162,18 +170,14 @@ def export_obj(options,error):
   import_settings.generate_debug_export(options,filename="error_export")
 
 def delete_logs():
-  """ Deleting casa logs that aren't the most recent one
-  stolen fom 1.99 """ 
-  import os 
-  timestamp_integers = []
-  for item in os.listdir(): 
-    newest = False
-    if item.startswith("casa-"):
-      timestamp_integers.append(int(item[5:13] + item[14:20]))
-  timestamp_integers = sorted(timestamp_integers)
-  for i in range(len(timestamp_integers) - 1):
-    item = 'casa-' + str(timestamp_integers[i])[:8] + '-' + str(timestamp_integers[i])[8:14] + '.log'
-    os.remove(os.path.join(item)) # deleting casa logs
+  """Delete the work directory's casa logs, keeping the newest (this run's).
+  casa-YYYYMMDD-HHMMSS.log sorts by name into chronological order."""
+  logs = sorted(work_dir.current().glob('casa-*.log'))
+  for log in logs[:-1]:
+    try:
+      log.unlink()
+    except OSError as e:
+      print(f"Could not delete {log.name}: {e}")
 
 def update_config():
   #if first time startup
@@ -188,6 +192,9 @@ def radio_search(options:Options):
     return
   #find and select the observation; returns the archive file(s) to download from the NAS
   download_files = RadioSearchIntegration.perform_radio_search(options)
+  if not download_files:
+    print("No archive files selected, Exiting")
+    sys.exit()
 
   #split control: one thread downloads the files from the NAS (DelosDownload),
   #another gathers CLI calibration info. Wait for both before returning to main.

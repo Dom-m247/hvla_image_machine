@@ -5,7 +5,7 @@ import urllib.parse
 import webbrowser
 from pathlib import Path
 
-from classes import creds
+from classes import creds, work_dir
 from classes.constants import (ARRAY_CONFIGURATION, BAND_ANGULAR_RESOLUTION,
                                BAND_LARGEST_SCALE)
 
@@ -206,10 +206,24 @@ class _ArchivedRun:
 
 
 def prompt_for_folder():
-  """Ask which results folder to archive. '' means 'this run, at the end'."""
-  answer = input("\nResults folder to archive "
-                 "(or press enter to archive this run when it finishes): ").strip()
-  return answer
+  """Ask which results folder to archive. '' means 'this run, at the end'.
+
+  Offers the folders in the work directory, which is where a run just made one.
+  """
+  from classes.CLI_input import CLI
+
+  work = work_dir.current()
+  folders = sorted((p for p in work.glob('*_results') if p.is_dir()),
+                   key=_folder_mtime, reverse=True)
+  return CLI.selectResultsFolder(folders, where=str(work))
+
+
+def _folder_mtime(path):
+  """Sort key for the folder list; unreadable folders sort last, not crash."""
+  try:
+    return path.stat().st_mtime
+  except OSError:
+    return 0.0
 
 
 def archive_existing(folder):

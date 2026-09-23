@@ -1,5 +1,7 @@
-#parent directory name, edit if different!
+#the prefix import.json stores archive paths under; the project root itself is found
+#by marker file (classes/creds.project_root), so a renamed clone still works
 FOLDER_NAME = 'hvla_image_machine'
+#relative on purpose: they resolve against the work directory (classes/work_dir)
 MS_SUB_PATH = 'measurement_sets/'
 IMAGES_PATH = 'images/ '
 IMPORT_JSON = 'import.json'

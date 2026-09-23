@@ -15,6 +15,7 @@ approachable through a guided GUI, a scriptable CLI, and fully reproducible cali
 - [How It Works](#how-it-works)
 - [Requirements](#requirements)
 - [Installation](#installation)
+- [Where a run writes](#where-a-run-writes)
 - [Credentials](#credentials)
 - [Configuration](#configuration)
 - [Providing Observations](#providing-observations)
@@ -121,7 +122,8 @@ Ka, and Q**.
 Each user runs their own clone, with their own virtual environment and their own
 `data_archive/`, so runs on a shared machine never collide.
 
-**1. Clone the repository:**
+**1. Clone the repository.** Any path, any folder name — everything the pipeline reads
+is resolved from the clone itself:
 
 ```bash
 git clone https://github.com/domo4448/hvla_image_machine ~/hvla_image_machine
@@ -148,10 +150,31 @@ The first invocation creates the `.hvla_env` virtual environment, installs all
 dependencies, and starts the application; expect several minutes. Subsequent runs
 reuse the environment and start immediately.
 
-If you would rather not add a shell function, `bash run.sh` from the repository root
-does the same thing — the function exists only so the pipeline can be started from
-anywhere, since `run.sh` resolves `.hvla_env`, `src/` and `data_archive/` relative to
-the current directory.
+If you would rather not add a shell function, `bash /path/to/clone/run.sh` does the
+same thing — it resolves `.hvla_env`, `src/` and `data_archive/` from its own location.
+The function only saves you typing the path to the clone.
+
+### Where a run writes
+
+A run reads from the clone and writes into **the directory you start it from** — the
+work directory. Everything it produces goes there:
+
+```
+<work dir>/
+├── measurement_sets/           # imported MS, calibration tables, images (created for you)
+├── <proj>_<source>_<band>_results/
+├── import.json                 # the recipe, for --importRun
+└── casa-<timestamp>.log
+```
+
+So `cd ~/runs/3c84 && hvla_image` keeps that reduction to itself, and two runs in two
+directories do not collide. Name the directory explicitly with `--workdir DIR` (it is
+created if it does not exist) or `HVLA_WORK_DIR=DIR`; `--workdir` wins. Inputs are
+unaffected — `Creds.json`, `data_archive/` and the calibrator tables always resolve
+from the clone.
+
+Paths recorded in `import.json` and `replay.py` stay relative to the work directory, so
+a results folder replays wherever it is unpacked.
 
 ### CPU cores
 
@@ -161,7 +184,7 @@ politely. Your core list lives in the `HVLA_CPU_CORES` value that
 
 ```bash
 hvla_image() {
-  ( cd "$HOME/hvla_image_machine" && HVLA_CPU_CORES="25-28" bash run.sh "$@" )
+  HVLA_CPU_CORES="25-28" bash "$HOME/hvla_image_machine/run.sh" "$@"
 }
 ```
 
@@ -200,15 +223,15 @@ Place the data in [`data_archive/`](data_archive/) and select it:
   import step is skipped.
 
 In the GUI, use the **Browse** button to select the file. In CLI mode, enter the
-path when prompted; it must end in `.exp`,`.dat`, or `.ms`. Imported measurement sets are
-written to [`measurement_sets/`](measurement_sets/).
+path when prompted; it must end in `.exp`,`.dat`, or `.ms`. Imported measurement sets
+are written to `measurement_sets/` inside the [work directory](#where-a-run-writes).
 
 ## Usage
 
 The default invocation launches the GUI:
 
 ```bash
-hvla_image                   # or: bash run.sh, from the repository root
+hvla_image                   # or: bash /path/to/clone/run.sh
 ```
 
 Pass arguments to select a different mode; they reach the pipeline unchanged either
@@ -230,15 +253,18 @@ hvla_image --archive         # submit a finished run to the archive form
 | `--cliCalib` | `-tc` | Keeps source selection on the GUI path even alongside `--cli`, and is recorded in the run log. |
 | `--importRun` | `-i`, `-import` | Import settings from `import.json` for an automated run. |
 | `--noexport` | | Skip writing the `import.json` export. |
-| `--archive` | `-a` | Archive submission — prompts for a finished results folder to submit, or press enter to submit this run once it completes. Needs `Creds.json`. |
+| `--archive` | `-a` | Archive submission — lists the finished results folders in the [work directory](#where-a-run-writes) to pick from, or press enter to submit this run once it completes. Needs `Creds.json`. |
 | `--no-ms-tar` | | Skip the large calibrated-MS tarball; the products tarball is still written. |
+| `--workdir DIR` | | Run in `DIR` and write everything there, instead of the current directory. Created if missing; also settable as `HVLA_WORK_DIR`. See [Where a run writes](#where-a-run-writes). |
 | `--debug` | | Also write `export_for_testing.json`, a full dump of the options object. |
 
 > **Note:** argument abbreviation is enabled, so `--no` is ambiguous between
 > `--noexport` and `--no-ms-tar`. Type enough of the flag to be unique.
 
-It prompts for a results folder. Give it one and it submits that finished run and
-exits; press enter instead and it runs the pipeline normally, submitting at the end.
+It lists the `*_results` folders in the [work directory](#where-a-run-writes), most
+recent first, and you pick one by number — or type a path to a folder anywhere else.
+Either way it submits that finished run and exits. Press enter instead and it runs the
+pipeline normally, submitting at the end.
 Archiving an older folder recovers the measurements from its `<name>.fit.json` and the
 observation from its saved listobs, so a run archived weeks later needs nothing but
 the folder itself. Needs [`Creds.json`](#credentials), which holds the form URL.
@@ -250,8 +276,11 @@ calibrator choices, imaging parameters, and breakpoints. Replay that exact run
 with:
 
 ```bash
-bash run.sh --importRun
+cd <the run's work directory> && hvla_image --importRun
 ```
+
+`--importRun` reads `import.json` from the work directory, so replaying a run means
+starting it where that run wrote — or pointing `--workdir` at it.
 
 Blank templates are available under
 [`parsing_examples/`](parsing_examples/) for reference. Use `--noexport` to skip
@@ -280,6 +309,7 @@ src/
 │   ├── CLI_input.py           #   Interactive terminal prompts
 │   ├── decisions.py           #   Decision-point modes (auto/verify/manual/...)
 │   ├── creds.py               #   Creds.json location + loading (the only reader)
+│   ├── work_dir.py            #   Resolves the directory a run writes into
 │   ├── run_log.py             #   Human-readable report of the run's choices
 │   ├── call_recorder.py       #   Records CASA calls -> replay.py
 │   └── constants.py           #   Band tables, defaults, decision registry
@@ -309,8 +339,8 @@ listobs, CASA log), the structured measurements (`<name>.fit.json`), the exact C
 calls (`replay.py`), and `<name>.log`, a human-readable report of what the run decided
 and why — then bundles the lot into the tarballs described in
 [Archiving and Submission](#archiving-and-submission). The `import.json` recipe is
-written to the **project root**, not the results folder, and is overwritten by each
-run.
+written to the **[work directory](#where-a-run-writes)**, not the results folder, and
+is overwritten by each run in that directory.
 
 ## Roadmap
 
