@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Remove the scratch a run leaves behind. Results folders are archived output, so
 # they are skipped unless --results is given.
 
