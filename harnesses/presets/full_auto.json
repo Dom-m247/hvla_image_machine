@@ -1,0 +1,13 @@
+{
+  "harness": "full-auto",
+  "label": "deepest obs; auto cal/flag/refant, single clean, no self-cal",
+  "options": {
+    "batch_size": 4,
+    "max_gb": 20
+  },
+  "seed": {
+    "decisions": {"flux_cal": "auto", "phase_cal": "auto", "refant": "auto",
+                  "flagging": "auto", "self_cal": "off", "baseline_cal": "off",
+                  "core_subtract": "off"}
+  }
+}

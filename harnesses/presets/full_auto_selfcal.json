@@ -1,0 +1,12 @@
+{
+  "harness": "full-auto",
+  "label": "as full_auto, plus the scored self-cal ladder (4 cycles)",
+  "options": {
+    "batch_size": 4,
+    "max_gb": 20
+  },
+  "seed": {
+    "decisions": {"self_cal": "auto"},
+    "self_cal_cycles": 4
+  }
+}

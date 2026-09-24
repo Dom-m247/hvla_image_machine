@@ -1,4 +1,6 @@
 import casatasks as ct
+import re
+import shutil
 import sys,os
 
 from classes import CLI_input
@@ -45,6 +47,16 @@ def project_code_from_archives(archive_files):
     return parent
   return first.name[:5]
 
+def archive_project_code(proj_code):
+  """A project code as the raw VLA archive records spell it: 'AK0252' -> 'AK252'.
+
+  The NRAO archive pads the number to four digits; the records written at the
+  telescope do not, and importvla's project filter matches the records. '' when
+  it does not look like a project code, so there is nothing to filter on.
+  """
+  match = re.fullmatch(r'([A-Za-z]+)0*(\d+)([A-Za-z]*)', str(proj_code or '').strip())
+  return (match.group(1) + match.group(2) + match.group(3)).upper() if match else ''
+
 def convert_to_ms(archive,options):
   """
   Converts raw HVLA data archive to Measurement Set (MS) format.
@@ -58,10 +70,11 @@ def convert_to_ms(archive,options):
     try:
       options.proj_code = options.proj_code or project_code_from_archives(archive)
       options.proj_name = options.proj_code + '_' + FULLMS #project code (selected observation, or derived) names the MS
-      LoadingAnimation.performing_action("archive import, This may take a moment",target=do_vla_import,args=(archive,options.proj_name))
+      project = archive_project_code(options.proj_code)
+      LoadingAnimation.performing_action("archive import, This may take a moment",target=do_vla_import,args=(archive,options.proj_name,project))
       return parse.log_listobs(MS_SUB_PATH+options.proj_name,options)
     except RuntimeError as file_exists:
-      print(f"MS file already exists, delete it and re-run")
+      print(f"Error Encountered while importing archive: {file_exists}")
       sys.exit() # add call to a cleanup script?
   #get some version of the observation Name
   #OUTPUT MS name = "fullMS.ms" -> weird cstring error if not directly entered.
@@ -72,29 +85,80 @@ def convert_to_ms(archive,options):
   #import archive to MS
   try:
     options.proj_name = archive[archive.rfind('/')+1:archive.rfind('/')+6] + '_' + FULLMS #attempt to extart the observtion proj code -> mostly for file naming    if not os.path.exists(options.proj_name + '.ms'):
-    LoadingAnimation.performing_action("archive import, This may take a moment",target=do_vla_import,args=(archive,options.proj_name))
+    project = archive_project_code(options.proj_code or project_code_from_archives([archive]))
+    LoadingAnimation.performing_action("archive import, This may take a moment",target=do_vla_import,args=(archive,options.proj_name,project))
     return parse.log_listobs(MS_SUB_PATH+options.proj_name,options)
   except RuntimeError as file_exists:
     print(f"MS file already exists, delete it and re-run")
     sys.exit() # add call to a cleanup script?
 
-def do_vla_import(archive_files,output_ms:str):
+def do_vla_import(archive_files,output_ms:str,project=''):
   """
   Convert VLA archive to Measurement Set format.
   `archive_files` may be a single archive file path or a list of raw archive
   files; importvla concatenates a list of files into one MS.
+
+  `project` (archive spelling, see archive_project_code) keeps only that project's
+  records: an archive file is a slice of a tape and often holds other projects'
+  observations too. A filter that matches nothing falls back to importing it all.
+
+  importvla gives up at the first record it cannot parse (seen as 'Failed
+  Assertion: offset != 0'), but writes everything it read before that. A partial
+  MS that is whole -- data rows and its OBSERVATION record -- is kept with a
+  warning rather than failing the run; if the target is not in it, the target
+  search says so.
   """
   if isinstance(archive_files, str):
     archive_files = [archive_files]
   #NOTE: importvla needs local paths it can open. For the radio_search path,
   #      the entries must be the LOCAL paths the NAS files were downloaded to,
   #      not the bare archive file names. DelosDownload sets these local paths.
-  if not Path(MS_SUB_PATH + output_ms+'.ms').is_dir():
-    print(f"\nImporting {archive_files} to {MS_SUB_PATH + output_ms+'.ms'}...")
-    run_log.event(f"importvla: {archive_files} -> {MS_SUB_PATH + output_ms + '.ms'}")
-    ct.importvla(archivefiles=archive_files,vis= MS_SUB_PATH + output_ms+'.ms')
-  else:
-    run_log.event(f"importvla skipped: {MS_SUB_PATH + output_ms + '.ms'} already exists")
+  vis = MS_SUB_PATH + output_ms + '.ms'
+  if Path(vis).is_dir():
+    run_log.event(f"importvla skipped: {vis} already exists")
+    return
+  print(f"\nImporting {archive_files} to {vis}" + (f" (project {project})" if project else '') + "...")
+  run_log.event(f"importvla: {archive_files} -> {vis}" + (f", project={project}" if project else ''))
+  try:
+    _importvla(archive_files, vis, project)
+  except Exception as exc:
+    if not (_ms_rows(vis) and _ms_rows(vis + '/OBSERVATION')):
+      raise
+    msg = (f"importvla stopped early ({str(exc).splitlines()[-1][-120:]}); "
+           f"continuing with the {_ms_rows(vis)} rows it imported before that")
+    print(f"\nWARNING: {msg}")
+    ct.casalog.post(msg, priority='WARN')
+    run_log.event(f"WARNING: {msg}")
+
+def _importvla(archive_files, vis, project):
+  if not project:
+    ct.importvla(archivefiles=archive_files,vis=vis)
+    return
+  try:
+    ct.importvla(archivefiles=archive_files,vis=vis,project=project)
+  except Exception:
+    if _ms_rows(vis):
+      raise   #the filter matched; the failure is the import's own
+    #no record carries that code (a code guessed from a folder name, or a spelling
+    #the archive differs on): import everything rather than nothing
+    print(f"No records for project {project} in {archive_files}; importing every project in them.")
+    run_log.event(f"importvla: project {project} matched nothing; importing unfiltered")
+    shutil.rmtree(vis, ignore_errors=True)
+    ct.importvla(archivefiles=archive_files,vis=vis)
+
+def _ms_rows(table):
+  """Rows in a table (an MS, or one of its subtables); 0 when missing or unreadable."""
+  if not Path(table).is_dir():
+    return 0
+  import casatools
+  tb = casatools.table()
+  try:
+    tb.open(table)
+    return tb.nrows()
+  except Exception:
+    return 0
+  finally:
+    tb.close()
 
 def pre_data_calibration(options:Options):
   """extract and clean necessary info for data calibration"""
