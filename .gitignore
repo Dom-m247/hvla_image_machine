@@ -1,0 +1,83 @@
+# HVLA Image Machine
+
+
+# --- Python -------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+.pyrightconfig.json
+
+# --- Virtual environments -----------------------------------------------------
+.hvla_env/
+.venv/
+venv/
+env/
+
+# --- Credentials --------------------------------------------------------------
+/Creds.json
+credentials.json
+token.json
+.env
+
+# --- Pipeline inputs ----------------------------------------------------------
+data_archive/
+measurement_sets/
+
+# --- Pipeline outputs ---------------------------------------------------------
+*_results/
+import.json
+/export_for_testing.json
+*.txt
+
+# CASA logs and task parameter files
+*.log
+*.last
+
+# listobs and task output captures
+*-listobs.txt
+*_out.txt
+*_output.txt
+/fullSet-list-file.txt
+
+# CASA tables are directories; the trailing slash keeps these from matching files
+*.ms/
+*.ms.flagversions/
+*.G[0-9]*/
+*.B[0-9]*/
+*.fluxscale*/
+*.selfcal*/
+*.blcal_*/
+*.tt[0-9]/
+*.mask/
+*.pb/
+*.pbcor*/
+*.image/
+*.model/
+*.psf/
+*.residual/
+*.sumwt/
+*.work.temp/
+TempLattice*/
+/src/archive_dowload/archfiles.txt
+
+# --- Test harness -------------------------------------------------------------
+# every sweep: run dirs, results, failures, oversight logs, manifests, reports
+harnesses/sweeps/
+
+# left over from the old auto_harness.py
+harnesses/runs/
+harnesses/failed_tests/
+harnesses/manifest.json
+harnesses/harness_report.json
+
+# --- Kept on purpose ----------------------------------------------------------
+!/parsing_examples/*.txt
+!/parsing_examples/*.json
