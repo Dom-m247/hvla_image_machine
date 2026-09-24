@@ -24,6 +24,7 @@ from archive_dowload.radio_search_integration import (        # noqa: E402
 )
 from classes import creds                                     # noqa: E402
 from classes.CLI_input import CLI                             # noqa: E402
+from classes.image_data import first_value, imstat_dict       # noqa: E402
 from classes.constants import (                               # noqa: E402
   AUTO, BAND_GHZ_RANGES, DECISIONS, DEFAULT_IMAGE_SIZE, FLAG_METHODS_DEFAULT,
   FOLDER_NAME, FORCE, IMPORT_JSON, MIN_SNR, MS_SUB_PATH, OFF, CLEAN_ROBUST,
@@ -48,6 +49,7 @@ __all__ = [
   'AUTO', 'BAND_GHZ_RANGES', 'CLEAN_ROBUST', 'CLI', 'DECISIONS',
   'DEFAULT_IMAGE_SIZE', 'DelosDownload', 'FLAG_METHODS_DEFAULT', 'FOLDER_NAME', 'FORCE',
   'IMPORT_JSON', 'MAIN_SCRIPT', 'MIN_SNR', 'MS_SUB_PATH', 'NED_API', 'OFF',
+  'first_value', 'imstat_dict',
   'Options', 'PRE_EVLA_YEAR', 'REPO_ROOT', 'RadioSearchIntegration', 'SRC',
   'VENV_PYTHON', 'creds', 'parseArchFileInfo', 'revmove_path', 'sensitivity_jy',
   'size_mb',

@@ -6,6 +6,7 @@
     ./run_harness.py lightcurve "4C 35.03" --bands C               # every epoch < 100"
     ./run_harness.py lightcurve "4C 35.03" --preset lightcurve_deep  # interactive, attended
     ./run_harness.py resume sweeps/full-auto_full_auto_20260924-150000
+    ./run_harness.py summarize sweeps/lightcurve_lightcurve_20260924-161811
     ./run_harness.py presets
 
 A target is a source name, or 'name, PROJ' to hold it to a project. Settings come
@@ -83,6 +84,10 @@ def parse_args(argv=None):
   sub.add_argument('sweep_dir', help='the sweep folder')
   _run_flags(sub)
 
+  sub = commands.add_parser('summarize', help="rebuild a sweep's summary (the lightcurve "
+                                              "plot) from the runs that have passed")
+  sub.add_argument('sweep_dir', help='the sweep folder')
+
   commands.add_parser('presets', help='list the presets and what they are for')
   return parser.parse_args(argv)
 
@@ -124,6 +129,17 @@ def main(argv=None):
     print(f"No pipeline interpreter at {VENV_PYTHON}. Run ./run.sh once to build "
           f"the virtual environment.", file=sys.stderr)
     return 2
+
+  if args.command == 'summarize':
+    try:
+      sweep = Sweep.open(args.sweep_dir)
+    except (ValueError, KeyError, OSError) as exc:
+      print(f"error: cannot open {args.sweep_dir}: {exc}", file=sys.stderr)
+      return 2
+    if not hasattr(KINDS.get(sweep.kind), 'summarize'):
+      print(f"error: the {sweep.kind} harness has no summary", file=sys.stderr)
+      return 2
+    return 0 if sweep_module.summarize(sweep) else 1
 
   if args.command == 'resume':
     try:

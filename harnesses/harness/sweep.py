@@ -22,6 +22,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import failures, runner, seed
+from .kinds import KINDS
 from .presets import Preset
 from .selection import Selection, SelectionError, Selector, Target, download, read_manifest, write_manifest
 
@@ -375,6 +376,21 @@ def report(sweep, results, skipped, seconds):
   return summary
 
 
+def summarize(sweep, oversight=None):
+  """The kind's sweep-wide products (a lightcurve plot, say), from every run that
+  has passed so far. Never raises: the runs already have their verdicts."""
+  hook = getattr(KINDS.get(sweep.kind), 'summarize', None)
+  if hook is None:
+    return None
+  try:
+    return hook(sweep)
+  except Exception as exc:
+    print(f"!! could not build the {sweep.kind} summary: {exc!r}")
+    if oversight is not None:
+      oversight.event('summary-failed', harness=sweep.kind, detail=repr(exc))
+    return None
+
+
 # ----------------------------------------------------------------------- entry
 def execute(sweep, kind, dry_run=False, select_only=False, fresh=False):
   """Run a new sweep end to end. Returns the process exit status."""
@@ -418,6 +434,8 @@ def _finish(sweep, oversight, selections, skipped, started, dry_run, fresh):
     print('\nInterrupted; resume with: run_harness.py resume ' + str(sweep.root))
     return 130
   summary = report(sweep, results, skipped, time.perf_counter() - started)
+  if not dry_run:
+    summarize(sweep, oversight)
   oversight.event('sweep-end', **summary['counts'])
   bad = sum(n for status, n in summary['counts'].items() if status not in ('passed', 'skipped'))
   return 1 if (bad or summary['not_run']) else 0

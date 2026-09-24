@@ -2,8 +2,10 @@
 
 Each epoch is imaged with the same preset, so the images are comparable. The
 base preset fixes the imaging parameters; the deep one cleans interactively and
-runs attended.
+runs attended. After every pass the epochs' source fits are plotted over time
+(lightcurve_plot).
 """
+from .. import lightcurve_plot
 from ..selection import observation_date, within_size
 
 NAME = 'lightcurve'
@@ -20,3 +22,7 @@ def choose(selector, target, options):
     max_sep_arcsec=options['max_sep_arcsec'])
   selections, too_big = within_size(selections, options['max_gb'])
   return sorted(selections, key=observation_date), rejected + too_big
+
+
+def summarize(sweep):
+  return lightcurve_plot.build(sweep)

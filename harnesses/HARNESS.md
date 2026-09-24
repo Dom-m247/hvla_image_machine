@@ -11,6 +11,7 @@ bash tools/run_harness.sh lightcurve "4C 35.03" --bands C                # every
 bash tools/run_harness.sh lightcurve "4C 35.03" --preset lightcurve_deep # interactive, attended
 bash tools/run_harness.sh full-auto --targets-file names.txt --select-only   # search + download only
 bash tools/run_harness.sh resume harnesses/sweeps/full-auto_full_auto_20260924-150000  # re-run what didn't pass
+bash tools/run_harness.sh summarize harnesses/sweeps/lightcurve_lightcurve_20260924-161811  # re-plot a lightcurve
 bash tools/run_harness.sh presets                                        # list presets
 ```
 
@@ -42,6 +43,38 @@ Calling it directly is the same thing:
 
 Both keep only observations from before `before_year` (2009). The Delos download
 only handles classic-VLA archive segments.
+
+## Lightcurves
+
+After every pass, and again after each `resume`, the `lightcurve` harness collects
+the 2D Gaussian fit the pipeline makes of each passed run's final image
+(`<name>.fit.json` in its results folder) and writes, into the sweep folder:
+
+- `lightcurve.csv`: one row per passed run with a fit, oldest first. Includes the
+  integrated and peak flux density with their errors, frequency, observing time
+  (ISO and MJD), primary-beam response, pointing separation, array config and beam.
+- `lightcurve_<source>.png`: integrated and peak flux density against time, one row
+  of panels per band.
+
+Each time is the middle of the target's observing span, from the results folder's
+listobs. When that listobs is missing, the archive date is used instead.
+
+The pipeline fits the flat-noise image, which is not corrected for the primary
+beam. That attenuates a source pointed off-centre, and this harness takes pointings
+up to `max_sep_arcsec` away. So every flux and error is divided by the primary-beam
+response at the fitted peak, read from `<name>.fits` and `<name>.pbcor.tt0`.
+
+An epoch is listed in the CSV but left off the plot when:
+
+- the fit did not converge
+- there is no primary-beam response to correct it with
+- it has no observing time
+
+The CSV's `note` column says which. Error bars are imfit's statistical errors only,
+with no flux-scale term.
+
+`summarize <sweep folder>` rebuilds both files from whatever has passed so far,
+including for a sweep made before this existed.
 
 ## Targets
 
@@ -123,13 +156,15 @@ sweeps/<harness>_<preset>_<YYYYmmdd-HHMMSS>/
   oversight.log     one line per event, written as it happens
   oversight.jsonl   the same events as JSON
   report.json       per-run status; updated by every pass, including resumes
+  lightcurve.csv    lightcurve only: every passed epoch's fit (see Lightcurves)
+  lightcurve_<source>.png  lightcurve only: flux density over time
   runs/<slug>/      a run's working directory, ending in its own *_results/
   failed/<slug>_failed/  what a failed run left behind
 ```
 
 `<slug>` is `<source>__<proj>_<seg>_<band>`. Events are `sweep-start`,
 `selected`, `skipped`, `run-start`, `run-end` (status, minutes, results folder),
-`failure` (reason, artifact folder), `sweep-resume` and `sweep-end`.
+`failure` (reason, artifact folder), `sweep-resume`, `summary-failed` and `sweep-end`.
 
 **Resume** re-runs every run whose last `run-end` wasn't `passed`, using the
 copied preset in `sweep.json` and reusing each run directory: importvla and the
@@ -191,6 +226,7 @@ harness/
   pipeline.py         the one place that imports src/
   presets.py          load, merge and validate presets
   kinds/              full_auto.py, lightcurve.py: which observations a target runs
+  lightcurve_plot.py  the lightcurve harness's summary: fits -> CSV + plot
   selection.py        targets, name -> observations -> archive files, the manifest
   seed.py             the import.json a run is driven by
   sweep.py            sweep folder, oversight log, batches, report, resume
@@ -200,7 +236,9 @@ harness/
 
 To add a harness, add a module to `harness/kinds/` with `NAME`, `HELP`,
 `DEFAULT_PRESET`, `DEFAULT_OPTIONS` and `choose(selector, target, options)`,
-register it in `kinds/__init__.py`, and add a preset for it.
+register it in `kinds/__init__.py`, and add a preset for it. An optional
+`summarize(sweep)` runs after every pass. It builds the sweep-wide products, and
+a failure in it is logged without changing the sweep's exit status.
 
 The `runs/`, `failed_tests/`, `manifest.json` and `harness_report.json` left in
 this folder are from the old `auto_harness.py` and aren't used any more. Delete
