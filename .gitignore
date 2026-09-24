@@ -13,7 +13,7 @@ dist/
 .coverage
 htmlcov/
 .ipynb_checkpoints/
-.pyrightconfig.json
+pyrightconfig.json
 
 # --- Virtual environments -----------------------------------------------------
 .hvla_env/
