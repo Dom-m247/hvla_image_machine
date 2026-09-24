@@ -240,10 +240,6 @@ register it in `kinds/__init__.py`, and add a preset for it. An optional
 `summarize(sweep)` runs after every pass. It builds the sweep-wide products, and
 a failure in it is logged without changing the sweep's exit status.
 
-The `runs/`, `failed_tests/`, `manifest.json` and `harness_report.json` left in
-this folder are from the old `auto_harness.py` and aren't used any more. Delete
-them when you no longer need them.
-
 ## Exit status
 
 `0` when everything selected passed, `1` when anything failed or couldn't be
