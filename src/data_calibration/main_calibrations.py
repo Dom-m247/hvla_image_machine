@@ -36,7 +36,7 @@ def target_as_phase_cal(options:options_class.Options):
   if not Path(options.initial_calibration_filename+BANDPASS_B0).is_dir():
     bandpass_output = ct.bandpass(vis=options.initial_calibration_filename+'.ms',
                                   caltable=options.initial_calibration_filename+BANDPASS_B0,
-                                  field=options.flux_cal.listobs_name,
+                                  field=options.flux_cal.casa_field,
                                   spw='',
                                   refant=options.ref_ant,
                                   solint='inf',
@@ -49,7 +49,7 @@ def target_as_phase_cal(options:options_class.Options):
     #apply bandpass cal to flux model and source
     gaincal_output2 = ct.gaincal(vis=options.initial_calibration_filename+'.ms',
                                caltable=options.initial_calibration_filename+GAINCAL_G1,
-                               field=options.flux_cal.listobs_name,
+                               field=options.flux_cal.casa_field,
                                spw='', 
                                solint='inf',
                                refant=options.ref_ant,
@@ -62,7 +62,7 @@ def target_as_phase_cal(options:options_class.Options):
     #apply to source
     gaincal_out3 = ct.gaincal(vis=options.initial_calibration_filename+'.ms',
                             caltable=options.initial_calibration_filename+GAINCAL_G1,
-                            field=options.source_ids.listobs_name,
+                            field=options.source_ids.casa_field,
                             spw='',
                             solint='inf',
                             refant=options.ref_ant,
@@ -76,25 +76,25 @@ def target_as_phase_cal(options:options_class.Options):
     fluxScale_out = ct.fluxscale(vis=options.initial_calibration_filename+'.ms',
                             caltable=options.initial_calibration_filename+GAINCAL_G1,
                             fluxtable=options.initial_calibration_filename+FLUXSCALE_X + '1',
-                            reference=[options.flux_cal.listobs_name], #fluxdensity model calibrator
-                            transfer=[options.source_ids.listobs_name], #nodder,
+                            reference=[options.flux_cal.casa_field], #fluxdensity model calibrator
+                            transfer=[options.source_ids.casa_field], #nodder,
                             incremental=False
     )
   if not Path(options.calibrated_filename+'.ms').is_dir():
     #adaptive applymode from the G1 gaincal failure rate (see primary_calibration)
     apply_mode = choose_applymode(options.initial_calibration_filename + GAINCAL_G1)
     apply_cal_out = ct.applycal(vis=options.initial_calibration_filename+'.ms',
-           field= options.flux_cal.listobs_name ,
+           field= options.flux_cal.casa_field ,
            gaintable=[options.initial_calibration_filename+FLUXSCALE_X+'1',options.initial_calibration_filename+BANDPASS_B0],
-           gainfield=[options.flux_cal.listobs_name,''],
+           gainfield=[options.flux_cal.casa_field,''],
            interp=['nearest',''], #['nearest','linear']?
            calwt=[False], #true?
            applymode=apply_mode,
     )
     apply_cal_out = ct.applycal(vis=options.initial_calibration_filename+'.ms',
-           field=options.source_ids.listobs_name,
+           field=options.source_ids.casa_field,
            gaintable=[options.initial_calibration_filename+FLUXSCALE_X+'1',options.initial_calibration_filename+BANDPASS_B0],
-           gainfield=[options.source_ids.listobs_name,''],
+           gainfield=[options.source_ids.casa_field,''],
            interp=['linear',''], #['nearest','linear']?
            calwt=[False], #true?
            applymode=apply_mode,
@@ -126,7 +126,7 @@ def primary_calibration(options:options_class.Options):
   if not Path(options.initial_calibration_filename+BANDPASS_B0).is_dir():
     bandpass_output = ct.bandpass(vis=options.initial_calibration_filename+'.ms',
                                   caltable=options.initial_calibration_filename+BANDPASS_B0,
-                                  field=options.flux_cal.listobs_name,
+                                  field=options.flux_cal.casa_field,
                                   spw='',
                                   refant=options.ref_ant,
                                   solint='inf',
@@ -140,7 +140,7 @@ def primary_calibration(options:options_class.Options):
     #apply AP cal to flux model
     gaincal_output2 = ct.gaincal(vis=options.initial_calibration_filename+'.ms',
                                caltable=options.initial_calibration_filename+GAINCAL_G1,
-                               field=options.flux_cal.listobs_name,
+                               field=options.flux_cal.casa_field,
                                spw='', 
                                solint='inf',
                                refant=options.ref_ant,
@@ -153,7 +153,7 @@ def primary_calibration(options:options_class.Options):
     #apply to source
     gaincal_out3 = ct.gaincal(vis=options.initial_calibration_filename+'.ms',
                             caltable=options.initial_calibration_filename+GAINCAL_G1,
-                            field=options.phase_cal.listobs_name,
+                            field=options.phase_cal.casa_field,
                             spw='',
                             solint='inf',
                             refant=options.ref_ant,
@@ -168,8 +168,8 @@ def primary_calibration(options:options_class.Options):
     fluxScale_out = ct.fluxscale(vis=options.initial_calibration_filename+'.ms',
                             caltable=options.initial_calibration_filename+GAINCAL_G1,
                             fluxtable=options.initial_calibration_filename+FLUXSCALE_X + '1',
-                            reference=[options.flux_cal.listobs_name], #fluxdensity model calibrator
-                            transfer=[options.phase_cal.listobs_name], #nodder,
+                            reference=[options.flux_cal.casa_field], #fluxdensity model calibrator
+                            transfer=[options.phase_cal.casa_field], #nodder,
                             incremental=False
    )
   
@@ -180,25 +180,25 @@ def primary_calibration(options:options_class.Options):
     #otherwise apply where solved without flagging, so a poor solve can't gut the dataset.
     apply_mode = choose_applymode(options.initial_calibration_filename + GAINCAL_G1)
     apply_cal_out = ct.applycal(vis=options.initial_calibration_filename+'.ms',
-           field= options.flux_cal.listobs_name ,
+           field= options.flux_cal.casa_field ,
            gaintable=[options.initial_calibration_filename+FLUXSCALE_X+'1',options.initial_calibration_filename+BANDPASS_B0],
-           gainfield=[options.flux_cal.listobs_name,''],
+           gainfield=[options.flux_cal.casa_field,''],
            interp=['nearest',''], #['nearest','linear']?
            calwt=[False], #true?
            applymode=apply_mode,
     )
     apply_cal_out = ct.applycal(vis=options.initial_calibration_filename+'.ms',
-           field= options.phase_cal.listobs_name ,
+           field= options.phase_cal.casa_field ,
            gaintable=[options.initial_calibration_filename+FLUXSCALE_X+'1',options.initial_calibration_filename+BANDPASS_B0],
-           gainfield=[options.phase_cal.listobs_name,''],
+           gainfield=[options.phase_cal.casa_field,''],
            interp=['nearest',''], #['nearest','linear']?
            calwt=[False], #true?
            applymode=apply_mode,
     )
     apply_cal_out = ct.applycal(vis=options.initial_calibration_filename+'.ms',
-           field=options.source_ids.listobs_name,
+           field=options.source_ids.casa_field,
            gaintable=[options.initial_calibration_filename+FLUXSCALE_X+'1',options.initial_calibration_filename+BANDPASS_B0],
-           gainfield=[options.phase_cal.listobs_name,''],
+           gainfield=[options.phase_cal.casa_field,''],
            interp=['linear',''], #['nearest','linear']?
            calwt=[False], #true?
            applymode=apply_mode,
@@ -456,7 +456,7 @@ def _calibrator_fields(options:options_class.Options):
   names = []
   for attr in ('flux_cal', 'phase_cal'):
     cal = getattr(options, attr, None)
-    name = getattr(cal, 'listobs_name', '') if cal else ''
+    name = cal.casa_field if cal else ''
     if name and name not in names:
       names.append(str(name))
   return ','.join(names)

@@ -21,6 +21,13 @@ def vla_antenna_name(name):
   return f"VA{match.group(1)}" if match else text
 
 
+def casa_field(name):
+  """A field name as a CASA field selection. An all-digit name ('02093547') would be
+  read as a field ID, so it is double-quoted to force name matching."""
+  text = str(name or '')
+  return f'"{text}"' if text.isdigit() else text
+
+
 class Obs_information:
     def __init__(self,obs_info={}):
       self.observer = obs_info['observer'] #will likeley be empty

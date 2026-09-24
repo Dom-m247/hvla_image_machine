@@ -177,13 +177,21 @@ MULTISCALE_BEAM_MULTIPLIERS = [0, 2, 5]
 
 BAND_SOLINT = {'4':'900', 'P':'900', 'L':'450', 'S':'450', 'C':'240', 'X':'240', 'Ku':'180', 'U':'180', 'K':'120', 'Ka':'90', 'Q':'60'}
 
-FLUX_CAL_ALIASES = {'1331+305': '3C286', 
-                      '1328+307': '3C286', 
-                      '0542+4951': '3C147', 
-                      '0137+3309': '3C48', 
-                      '0134+329': '3C48', 
-                      '0137+331': '3C48', 
-                      '0521+1638': '3C138'} #upgrade with calibrator list, and pull flux data for 'custom' callibrators
+#VLA listobs names: B1950 (older data) and J2000, short and long forms
+FLUX_CAL_ALIASES = {'1331+305': '3C286',
+                      '1328+307': '3C286',
+                      '1331+3030': '3C286',
+                      '0542+4951': '3C147',
+                      '0542+498': '3C147',
+                      '0538+498': '3C147',
+                      '0137+3309': '3C48',
+                      '0134+329': '3C48',
+                      '0137+331': '3C48',
+                      '0521+1638': '3C138',
+                      '0521+166': '3C138',
+                      '0518+165': '3C138'} #upgrade with calibrator list, and pull flux data for 'custom' callibrators
+#variable (3C138 flares): auto takes these only when no other flux calibrator is observed
+FLUX_CAL_LAST_RESORT = ('3C138',)
 
 
 #--- archive search results ---

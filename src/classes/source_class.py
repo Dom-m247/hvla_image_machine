@@ -1,7 +1,7 @@
 import casatasks as ct
 
 #from pre_calibration.options_class import Options 
-from classes.observations_class import Obs_data 
+from classes.observations_class import Obs_data, casa_field
 from classes.constants import *
 from API_integrations.simbad import simbad
 from API_integrations.NED import NED_API
@@ -49,6 +49,11 @@ class source_info:
     #extra members defined by initial ms split after initilization
     self.initial_ms_fieldID: int | str | None = ''
   
+  @property
+  def casa_field(self):
+    '''listobs_name as a CASA field selection (see observations_class.casa_field).'''
+    return casa_field(self.listobs_name)
+
   def find_fieldID(self,data_source):
     for field in data_source.fields:
       if field.name == self.listobs_name: 
@@ -288,10 +293,30 @@ class source_info:
                 #lower range      upper range
     return True if (listobs_spw >= test_band[0]) and (listobs_spw <= test_band[1]) else False
     
+  @staticmethod
+  def _target_spws(options):
+    '''The spws the calibrator split keeps (the target's own); empty = not resolved.'''
+    return {int(s) for s in options.spw_selection.split(',') if s.strip()}
+
   def find_flux_cal_candidates(self,options):
-    '''Every field in the MS that is a known flux calibrator, in listobs order.'''
-    return [f for f in options.observation_data.fields
-            if f.name in FLUX_CAL_ALIASES or f.name in FLUX_CAL_ALIASES.values()]
+    '''Known flux calibrators in the MS, in listobs order with FLUX_CAL_LAST_RESORT
+    moved to the end, split into (usable, off_spw). The calibrator split keeps only the
+    target's spws, so a calibrator observed in none of them would be dropped from it.'''
+    known = sorted((f for f in options.observation_data.fields
+                    if f.name in FLUX_CAL_ALIASES or f.name in FLUX_CAL_ALIASES.values()),
+                   key=lambda f: FLUX_CAL_ALIASES.get(f.name, f.name) in FLUX_CAL_LAST_RESORT)
+    target_spws = self._target_spws(options)
+    if not target_spws:
+      return known, []
+    usable, off_spw = [], []
+    for f in known:
+      (usable if self.spws_for_field(options, f.id) & target_spws else off_spw).append(f)
+    for f in off_spw:
+      msg = (f"Flux calibrator {f.name} skipped: observed in spws "
+             f"{sorted(self.spws_for_field(options, f.id))}, target in {sorted(target_spws)}")
+      ct.casalog.post(msg, priority='WARN')
+      print(f"WARNING: {msg}")
+    return usable, off_spw
 
   def resolve_flux_cal(self,options):
     '''Pick the flux calibrator per the flux_cal decision: auto takes the first known
@@ -300,7 +325,7 @@ class source_info:
     from classes import decisions
     fields = options.observation_data.fields
     mode = decisions.mode(options, 'flux_cal')
-    candidates = self.find_flux_cal_candidates(options)
+    candidates, off_spw = self.find_flux_cal_candidates(options)
 
     #a name recorded by an earlier run wins over any prompt, so --importRun replays
     if recorded := decisions.resolved(options, 'flux_cal_name'):
@@ -315,9 +340,12 @@ class source_info:
         return False   #no fields at all -- nothing to calibrate against
       options.flux_cal_manual = self._ask_manual_flux(options, chosen)
     elif not candidates:
+      if off_spw:
+        raise Exception(f"No flux calibrator shares the target's spws ({options.spw_selection}); "
+                        f"skipped {', '.join(f.name for f in off_spw)}")
       return False
     elif mode == VERIFY:
-      #auto keeps taking candidates[0] in listobs order; only the picker is re-ordered
+      #auto keeps taking candidates[0]; only the picker is re-ordered
       ordered, describe = self._fields_nearest_target(options, subset=candidates)
       chosen = decisions.pick('Flux calibrator -- detected candidates, nearest first:',
                               ordered, formatter=describe)
@@ -382,13 +410,20 @@ class source_info:
     _to_skycoord = self._to_skycoord
 
     exclude_ids = {options.flux_cal.field_id, options.source_ids.field_id}
+    target_spws = self._target_spws(options)
 
     # {field_id: (Fields object, SkyCoord)}
     candidates = {}
     for field in options.observation_data.fields:
       if field.id in exclude_ids:
         continue
+      #a field with none of the target's spws would be dropped by the calibrator split
+      if target_spws and not (self.spws_for_field(options, field.id) & target_spws):
+        continue
       candidates[field.id] = (field, _to_skycoord(field.ra, field.decl))
+    if not candidates and self.type == TYPE_PHASE_CAL:
+      raise Exception(f"No phase calibrator candidate shares the target's spws "
+                      f"({options.spw_selection}) besides the flux calibrator")
 
     source_coord = _to_skycoord(options.source_ids.ra, options.source_ids.decl)
 

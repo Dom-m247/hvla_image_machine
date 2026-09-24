@@ -186,6 +186,13 @@ def pre_data_calibration(options:Options):
   print(f"flux cal field ID: {options.flux_cal.initial_ms_fieldID} | source field ID: {options.source_ids.initial_ms_fieldID}")
   if not options.target_is_phase_cal:
     options.phase_cal.initial_ms_fieldID = options.phase_cal.find_fieldID(options.init_data)
+  split_fields = [('target', options.source_ids), ('flux calibrator', options.flux_cal)]
+  if not options.target_is_phase_cal:
+    split_fields.append(('phase calibrator', options.phase_cal))
+  if missing := [f"{label} {src.listobs_name}" for label, src in split_fields
+                 if src.initial_ms_fieldID is None]:
+    raise Exception(f"Not in the split MS (no data in spws {options.spw_selection or 'all'}): "
+                    f"{', '.join(missing)}")
 
   #flagging runs last: it is interactive (plotms + accept/revert), so it must be on the
   #main thread, and 'manual' picks from init_data, which only exists from here on.
@@ -200,7 +207,7 @@ def calibrated_split(options:Options):
     print(f"The calibrated data exists, not splitting")
     ct.casalog.post(f"{options.initial_calibration_filename+'.ms'} -> {options.calibrated_filename+'.ms'}")
   else:
-    ct.split(vis=options.initial_calibration_filename+'.ms',outputvis=options.calibrated_filename+'.ms',datacolumn = 'corrected', field=options.source_ids.listobs_name)
+    ct.split(vis=options.initial_calibration_filename+'.ms',outputvis=options.calibrated_filename+'.ms',datacolumn = 'corrected', field=options.source_ids.casa_field)
     ct.casalog.post(f"{options.initial_calibration_filename+'.ms'} -> {options.calibrated_filename+'.ms'}")
   parse.log_listobs(options.calibrated_filename,options)
 
@@ -209,7 +216,7 @@ def build_setjy(options):
   #setjy runs on the full pre-split MS, so select the amp cal by name: names are stable
   #across the calibrator split, unlike field IDs (which renumber). initial_ms_fieldID
   #retains the split-MS id for main_calibrations; it is not valid against this full MS.
-  amp_field = options.flux_cal.listobs_name
+  amp_field = options.flux_cal.casa_field
   #manual mode: the user named a calibrator with no Perley-Butler model and gave its
   #flux density, so set the scale from that instead (1.99's manual flux calibration)
   if manual := getattr(options, 'flux_cal_manual', None):

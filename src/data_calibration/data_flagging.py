@@ -14,6 +14,7 @@ from casaplotms import plotms
 
 from classes.CLI_input import CLI
 from classes import decisions, run_log
+from classes.observations_class import casa_field
 from classes.constants import (VERIFY, MANUAL, FLAG_CLIPZEROS, FLAG_QUACK, FLAG_SHADOW,
                                FLAG_AUTOCORR, FLAG_TFCROP, FLAG_EXTEND, FLAG_RFLAG,
                                FLAG_QUACK_INTERVAL, FLAG_EXTEND_GROWTIME,
@@ -125,8 +126,8 @@ def _manual_selection(options: Options):
                                       formatter=lambda s: f"spw {s.id}  {s.ctrfreq_mhz} MHz, "
                                                           f"{s.num_channels} chan")
     selection = {
-        'field': _selection_csv(chosen_fields, fields, 'name'),
-        'spw': _selection_csv(chosen_spws, spws, 'id'),
+        'field': _selection_csv(chosen_fields, fields, lambda f: casa_field(f.name)),
+        'spw': _selection_csv(chosen_spws, spws, lambda s: str(s.id)),
         'outright': decisions.confirm(
             "Flag this selection outright? (n = run the selected methods restricted to it)"),
     }
@@ -136,12 +137,12 @@ def _manual_selection(options: Options):
     return selection
 
 
-def _selection_csv(chosen, available, attr):
+def _selection_csv(chosen, available, key):
     """CSV of the picks. Everything picked -- or nothing -- gives '', which is how
     CASA reads 'all' anyway."""
     if not chosen or len(chosen) == len(available):
         return ''
-    return ','.join(str(getattr(c, attr)) for c in chosen)
+    return ','.join(key(c) for c in chosen)
 
 
 def _flag_clipzeros(vis, field='', spw=''):
