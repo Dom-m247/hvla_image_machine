@@ -6,6 +6,7 @@ footing, and plots them per target:
 
     <sweep>/lightcurve.csv            one row per passed run, plotted or not
     <sweep>/lightcurve_<source>.png   integrated and peak flux density vs time, a row per band
+    <sweep>/lightcurve_<source>.csv   the points that plot shows, in its units (mJy)
 
 The fit is made on the flat-noise image, so its fluxes are attenuated by the primary
 beam wherever the target sits off the pointing centre -- and a lightcurve sweep takes
@@ -17,13 +18,16 @@ uncorrected fluxes on one axis.
 """
 import csv
 import json
+import math
 import re
 from datetime import datetime
 from pathlib import Path
 
 import casatasks as ct
-from matplotlib.dates import AutoDateLocator, ConciseDateFormatter
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.dates import AutoDateLocator, ConciseDateFormatter, date2num
 from matplotlib.figure import Figure
+from matplotlib.transforms import Bbox
 from matplotlib.ticker import StrMethodFormatter
 
 from .pipeline import first_value, imstat_dict
@@ -54,10 +58,19 @@ COLUMNS = ('source', 'band', 'frequency_ghz', 'time', 'mjd', 'time_from',
            'pb_response', 'separation', 'config', 'beam_major_arcsec',
            'beam_minor_arcsec', 'converged', 'plotted', 'note',
            'proj_code', 'segment', 'slug', 'fit_json')
+#lightcurve.csv's Jy columns -> the plot CSV's mJy ones
+MJY_COLUMNS = {'integrated_flux_jy': 'integrated_flux_mjy',
+               'integrated_flux_err_jy': 'integrated_flux_err_mjy',
+               'peak_flux_jy_per_beam': 'peak_flux_mjy_per_beam',
+               'peak_flux_err_jy_per_beam': 'peak_flux_err_mjy_per_beam'}
+PLOT_COLUMNS = ('band', 'frequency_ghz', 'time', 'mjd', 'proj_code', 'config',
+                *MJY_COLUMNS.values(), 'slug')
 
 
-def build(sweep, log=print):
-  """Write the sweep's lightcurve CSV and one plot per target. Returns the plot paths."""
+def build(sweep, log=print, label_points=True):
+  """Write the sweep's lightcurve CSV, and per target a plot and a CSV of the points
+  it shows. Returns the plot paths. label_points puts each epoch's project code
+  beside its point."""
   rows = collect(sweep, log)
   if not rows:
     log('Lightcurve: no passed run has a source fit yet; nothing to plot.')
@@ -67,11 +80,14 @@ def build(sweep, log=print):
   plots = []
   for source in dict.fromkeys(r['source'] for r in rows):
     target_rows = [r for r in rows if r['source'] == source]
-    path = sweep.root / f"lightcurve_{_safe(source)}.png"
-    if plot(source, target_rows, path, subtitle=sweep.root.name):
+    stem = f"lightcurve_{_safe(source)}"
+    path = sweep.root / f"{stem}.png"
+    if plot(source, target_rows, path, subtitle=sweep.root.name, label_points=label_points):
       plots.append(path)
+      write_plot_csv(target_rows, sweep.root / f"{stem}.csv")
       shown = sum(r['plotted'] for r in target_rows)
       log(f"Lightcurve plot:  {path}  ({shown} of {len(target_rows)} epoch(s) plotted)")
+      log(f"Plotted points:   {sweep.root / f'{stem}.csv'}")
     for r in target_rows:
       if not r['plotted']:
         log(f"  -- {r['slug']}: not plotted ({r['note']})")
@@ -209,25 +225,47 @@ def write_csv(rows, path):
                        'mjd': f"{row['mjd']:.5f}" if known else ''})
 
 
+def write_plot_csv(rows, path):
+  """The points a target's plot shows, band by band in its order, in mJy."""
+  shown = [r for r in rows if r['plotted']]
+  with open(path, 'w', newline='') as handle:
+    writer = csv.DictWriter(handle, fieldnames=PLOT_COLUMNS, extrasaction='ignore')
+    writer.writeheader()
+    for band in band_order(shown):
+      for row in (r for r in shown if r['band'] == band):
+        writer.writerow({**row, 'time': row['time'].isoformat(timespec='seconds'),
+                         'mjd': f"{row['mjd']:.5f}",
+                         **{mjy: row[jy] * 1e3 if row[jy] is not None else ''
+                            for jy, mjy in MJY_COLUMNS.items()}})
+
+
 # ------------------------------------------------------------------- plotting
 PANELS = (('integrated_flux_jy', 'integrated_flux_err_jy', 'Integrated flux density', 'mJy'),
           ('peak_flux_jy_per_beam', 'peak_flux_err_jy_per_beam', 'Peak flux density', 'mJy/beam'))
 
 
-def plot(source, rows, path, subtitle=''):
+def band_order(rows):
+  """The rows' bands, lowest frequency first: the order plot() stacks them in."""
+  return sorted(dict.fromkeys(r['band'] for r in rows),
+                key=lambda b: _median([r['frequency_ghz'] or 0 for r in rows if r['band'] == b]))
+
+
+def plot(source, rows, path, subtitle='', label_points=True):
   """Integrated and peak flux density vs time, one row of panels per band.
 
   Bands sit in separate rows rather than sharing an axis: a spectral index puts
-  them at different levels, and the two measures have different units.
+  them at different levels. A band's two panels share one flux scale, so its peak
+  reads directly against its integrated flux.
+  label_points writes each epoch's project code beside its point.
   """
   shown = [r for r in rows if r['plotted']]
   if not shown:
     return False
-  bands = sorted(dict.fromkeys(r['band'] for r in shown),
-                 key=lambda b: _median([r['frequency_ghz'] or 0 for r in shown if r['band'] == b]))
+  bands = band_order(shown)
 
   fig = Figure(figsize=(11, 1.4 + 2.8 * len(bands)), facecolor=SURFACE, layout='constrained')
-  axes = fig.subplots(len(bands), len(PANELS), sharex=True, squeeze=False)
+  axes = fig.subplots(len(bands), len(PANELS), sharex=True, sharey='row', squeeze=False)
+  labelled = []
   for row_axes, band in zip(axes, bands):
     band_rows = [r for r in shown if r['band'] == band]
     ghz = _median([r['frequency_ghz'] for r in band_rows if r['frequency_ghz']])
@@ -242,14 +280,19 @@ def plot(source, rows, path, subtitle=''):
                   markeredgewidth=1.5, elinewidth=1.5, capsize=0, zorder=3)
       ax.set_title(f"{label} — {measure.lower()}", loc='left', fontsize=10,
                    color=INK_SECONDARY)
-      ax.set_ylabel(unit, color=INK_MUTED, fontsize=9)
+      ax.set_ylabel(f"{measure} ({unit})", color=INK_MUTED, fontsize=9)
+      #sharey hides the peak panel's tick labels; its unit differs, so it keeps them
+      ax.yaxis.set_tick_params(labelleft=True)
       #plain, comma'd numbers: an offset ('+3.8e1') on a flux axis reads as a different value
       ax.yaxis.set_major_formatter(StrMethodFormatter('{x:,g}'))
+      if label_points:
+        labelled.append((ax, points, value_key))
 
   locator = AutoDateLocator(minticks=3, maxticks=8)
   for ax in axes[-1]:
     ax.xaxis.set_major_locator(locator)
     ax.xaxis.set_major_formatter(ConciseDateFormatter(locator))
+    ax.set_xlabel('Observation date', color=INK_MUTED, fontsize=9)
 
   fig.suptitle(f"{source} lightcurve", x=0.01, ha='left', fontsize=13, color=INK)
   dropped = len(rows) - len(shown)
@@ -258,8 +301,55 @@ def plot(source, rows, path, subtitle=''):
                 + "   ·   primary-beam corrected; error bars are imfit's "
                   "(no flux-scale term)",
                 x=0.01, ha='left', fontsize=8, color=INK_MUTED)
+  if labelled:
+    _label_points(fig, labelled)
   fig.savefig(path, dpi=110, facecolor=SURFACE)
   return True
+
+
+#where a project label may sit, tried in order: right, left, above, below the point
+LABEL_SPOTS = (((7, 0), 'left', 'center'), ((-7, 0), 'right', 'center'),
+               ((0, 7), 'center', 'bottom'), ((0, -7), 'center', 'top'))
+LABEL_SHARE_PT = 30   #a same-project point this close to a labelled one shares its label
+
+
+def _label_points(fig, labelled):
+  """Project code beside each point, in the first LABEL_SPOTS spot that stays inside
+  the panel and clear of the other labels and points; where none is clear, the
+  first spot. Needs the final layout, so it runs last, on a drawn figure."""
+  canvas = FigureCanvasAgg(fig)
+  canvas.draw()
+  renderer = canvas.get_renderer()
+  share = renderer.points_to_pixels(LABEL_SHARE_PT)
+  pad = renderer.points_to_pixels(4)   #about a marker's radius
+  for ax, points, value_key in labelled:
+    frame = ax.get_window_extent(renderer)
+    xy = [(r['time'], r[value_key] * 1e3) for r in points]
+    at = ax.transData.transform([(date2num(t), v) for t, v in xy])
+    markers = [Bbox.from_extents(x - pad, y - pad, x + pad, y + pad) for x, y in at]
+    placed = []   #(project, display position, label box)
+    for r, point, here in zip(points, xy, at):
+      code = r['proj_code']
+      if any(c == code and math.dist(p, here) < share for c, p, _ in placed):
+        continue
+      for spot in LABEL_SPOTS:
+        label = _annotate(ax, code, point, *spot)
+        box = label.get_window_extent(renderer)
+        inside = (frame.x0 <= box.x0 and box.x1 <= frame.x1
+                  and frame.y0 <= box.y0 and box.y1 <= frame.y1)
+        if inside and not any(box.overlaps(b) for b in markers + [b for *_, b in placed]):
+          break
+        label.remove()
+      else:
+        box = _annotate(ax, code, point, *LABEL_SPOTS[0]).get_window_extent(renderer)
+      placed.append((code, here, box))
+
+
+def _annotate(ax, text, point, offset, ha, va):
+  label = ax.annotate(text, point, xytext=offset, textcoords='offset points',
+                      ha=ha, va=va, fontsize=7, color=INK_SECONDARY, zorder=4)
+  label.set_in_layout(False)   #keep the layout the placement was measured on
+  return label
 
 
 def _style(ax):

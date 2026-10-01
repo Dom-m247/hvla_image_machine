@@ -249,6 +249,9 @@ def run_one(selection, sweep, cores, oversight, dry_run=False, fresh=False):
   if result.ok:
     print(f"  OK {label}: {result.seconds / 60:.1f} min"
           + (f"  -> {result.results_dir}" if result.results_dir else ''))
+    #.get: a sweep made before keep_ms existed has no such option stored
+    if options.get('keep_ms', True) and result.results_dir:
+      runner.keep_calibrated_ms(run_dir, result.results_dir, move=options['cleanup'])
     if options['cleanup']:
       runner.cleanup(run_dir)
   else:
@@ -376,14 +379,15 @@ def report(sweep, results, skipped, seconds):
   return summary
 
 
-def summarize(sweep, oversight=None):
+def summarize(sweep, oversight=None, **options):
   """The kind's sweep-wide products (a lightcurve plot, say), from every run that
-  has passed so far. Never raises: the runs already have their verdicts."""
+  has passed so far. options go to the kind's hook. Never raises: the runs already
+  have their verdicts."""
   hook = getattr(KINDS.get(sweep.kind), 'summarize', None)
   if hook is None:
     return None
   try:
-    return hook(sweep)
+    return hook(sweep, **options)
   except Exception as exc:
     print(f"!! could not build the {sweep.kind} summary: {exc!r}")
     if oversight is not None:

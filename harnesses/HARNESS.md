@@ -12,6 +12,7 @@ bash tools/run_harness.sh lightcurve "4C 35.03" --preset lightcurve_deep # inter
 bash tools/run_harness.sh full-auto --targets-file names.txt --select-only   # search + download only
 bash tools/run_harness.sh resume harnesses/sweeps/full-auto_full_auto_20260924-150000  # re-run what didn't pass
 bash tools/run_harness.sh summarize harnesses/sweeps/lightcurve_lightcurve_20260924-161811  # re-plot a lightcurve
+bash tools/run_harness.sh summarize harnesses/sweeps/lightcurve_lightcurve_20260924-161811 --no-project-labels  # ...without project codes
 bash tools/run_harness.sh presets                                        # list presets
 ```
 
@@ -54,7 +55,10 @@ the 2D Gaussian fit the pipeline makes of each passed run's final image
   integrated and peak flux density with their errors, frequency, observing time
   (ISO and MJD), primary-beam response, pointing separation, array config and beam.
 - `lightcurve_<source>.png`: integrated and peak flux density against time, one row
-  of panels per band.
+  of panels per band, each point labelled with its project code. A band's two panels
+  share one flux scale, so its peak reads directly against its integrated flux.
+- `lightcurve_<source>.csv`: the points that plot shows, band by band, in its units
+  (mJy and mJy/beam), with each one's project code.
 
 Each time is the middle of the target's observing span, from the results folder's
 listobs. When that listobs is missing, the archive date is used instead.
@@ -64,17 +68,18 @@ beam. That attenuates a source pointed off-centre, and this harness takes pointi
 up to `max_sep_arcsec` away. So every flux and error is divided by the primary-beam
 response at the fitted peak, read from `<name>.fits` and `<name>.pbcor.tt0`.
 
-An epoch is listed in the CSV but left off the plot when:
+An epoch is listed in `lightcurve.csv` but left off the plot when:
 
 - the fit did not converge
 - there is no primary-beam response to correct it with
 - it has no observing time
 
-The CSV's `note` column says which. Error bars are imfit's statistical errors only,
+Its `note` column says which. Error bars are imfit's statistical errors only,
 with no flux-scale term.
 
-`summarize <sweep folder>` rebuilds both files from whatever has passed so far,
-including for a sweep made before this existed.
+`summarize <sweep folder>` rebuilds these files from whatever has passed so far,
+including for a sweep made before this existed. `--no-project-labels` leaves the
+points unlabelled.
 
 ## Targets
 
@@ -99,9 +104,9 @@ path to a preset file somewhere else.
 
 **`options`** can be `batch_size`, `cores`, `timeout`, `bands`, `projects`,
 `before_year`, `max_gb`, `limit` (per target), `source_name` (`archive`|`input`),
-`cleanup` and `attended`. `full-auto` also takes `all_obs`, and `lightcurve` takes
-`max_sep_arcsec`. The flag for each one is the same name with dashes, e.g.
-`--batch-size`, except `--no-cleanup` and `--max-sep`.
+`cleanup`, `keep_ms` and `attended`. `full-auto` also takes `all_obs`, and
+`lightcurve` takes `max_sep_arcsec`. The flag for each one is the same name with
+dashes, e.g. `--batch-size`, except `--no-cleanup`, `--no-keep-ms` and `--max-sep`.
 
 **`seed`** sets any `import.json` key except the ones that describe the
 observation (`source`, `archive_file(s)`, `band`, `proj_code`, NED fields). Those
@@ -158,7 +163,9 @@ sweeps/<harness>_<preset>_<YYYYmmdd-HHMMSS>/
   report.json       per-run status; updated by every pass, including resumes
   lightcurve.csv    lightcurve only: every passed epoch's fit (see Lightcurves)
   lightcurve_<source>.png  lightcurve only: flux density over time
+  lightcurve_<source>.csv  lightcurve only: the points that plot shows
   runs/<slug>/      a run's working directory, ending in its own *_results/
+                    (with the calibrated MS as <name>.ms, unless --no-keep-ms)
   failed/<slug>_failed/  what a failed run left behind
 ```
 
@@ -169,8 +176,8 @@ sweeps/<harness>_<preset>_<YYYYmmdd-HHMMSS>/
 **Resume** re-runs every run whose last `run-end` wasn't `passed`, using the
 copied preset in `sweep.json` and reusing each run directory: importvla and the
 splits skip work already on disk. `--fresh` wipes a run directory first.
-`--batch-size`, `--cores`, `--timeout` and `--no-cleanup` can be changed when you
-resume. A target that failed selection has no run to resume, so start a new
+`--batch-size`, `--cores`, `--timeout`, `--no-cleanup` and `--no-keep-ms` can be
+changed when you resume. A target that failed selection has no run to resume, so start a new
 sweep for it.
 
 ## What counts as a pass
@@ -213,7 +220,12 @@ with stdin on `/dev/null` and no `DISPLAY` (except when attended). `--importRun`
 makes every mid-run prompt resolve itself. The closed stdin means a prompt that
 gets through fails that one run with `EOFError` instead of hanging the sweep.
 
-A passed run gets the project's `cleanup.sh`, which deletes the measurement sets
+A passed run's calibrated MS (the target, split out after calibration) is moved into
+its results folder as `<name>.ms`, a plain directory rather than a tarball, along
+with its `.flagversions`. It is the MS the folder's `<name>-listobs.txt` describes.
+With `--no-cleanup` it is copied instead, and `--no-keep-ms` leaves it where it is.
+
+Then the run gets the project's `cleanup.sh`, which deletes the measurement sets
 and scratch and keeps `*_results/`, unless `--no-cleanup` is given.
 
 ## Layout
@@ -226,7 +238,7 @@ harness/
   pipeline.py         the one place that imports src/
   presets.py          load, merge and validate presets
   kinds/              full_auto.py, lightcurve.py: which observations a target runs
-  lightcurve_plot.py  the lightcurve harness's summary: fits -> CSV + plot
+  lightcurve_plot.py  the lightcurve harness's summary: fits -> CSVs + plot
   selection.py        targets, name -> observations -> archive files, the manifest
   seed.py             the import.json a run is driven by
   sweep.py            sweep folder, oversight log, batches, report, resume

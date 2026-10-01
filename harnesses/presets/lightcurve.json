@@ -7,7 +7,7 @@
     "max_gb": 20
   },
   "seed": {
-    "decisions": {"self_cal": "off"},
+    "decisions": {"self_cal": "off","phase_cal": "force"},
     "image_size": [1024, 1024],
     "use_custom_cell_size": true,
     "cell_size": "0.08arcsec",

@@ -7,6 +7,7 @@ credentials, the calibrator table and the downloaded archives are all resolved
 from the project root, and importvla only reads them.
 """
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -22,6 +23,8 @@ from .pipeline import MAIN_SCRIPT, MS_SUB_PATH, REPO_ROOT, VENV_PYTHON
 #every .log outside a results folder, and this file has to survive that.
 RUN_OUTPUT = 'harness_run.out'
 CLEANUP_SCRIPT = REPO_ROOT / 'cleanup.sh'
+#listobs' header line: 'MeasurementSet Name:  /abs/path/<ms>.ms      MS Version 2'
+MS_NAME = re.compile(r'MeasurementSet Name:\s+(\S+)')
 DEFAULT_TIMEOUT = 4 * 60 * 60   #seconds; a classic-VLA reduction, generously
 
 
@@ -62,7 +65,7 @@ def command(cores=None):
 
   --importRun is what makes the run hands-free; --no-ms-tar drops the calibrated-MS
   tarball, which is the single largest artifact a run produces and is redundant
-  here because the MS itself is deleted on success anyway.
+  here: the MS is either kept untarred in the results folder (keep_ms) or deleted.
   """
   argv = [str(VENV_PYTHON), str(MAIN_SCRIPT), '--importRun', '--no-ms-tar']
   if cores and shutil.which('taskset'):
@@ -250,6 +253,44 @@ def find_results_dir(run_dir, since=None):
     return next(iter(found), None)
   #a second of slack: mtime granularity, not a real age difference
   return next((d for d in found if d.stat().st_mtime >= since - 1), None)
+
+
+def keep_calibrated_ms(run_dir, results_dir, move=True, log=print):
+  """Put a passed run's calibrated MS in its results folder as <name>.ms, next to
+  the other <name>.* products, where cleanup.sh does not reach.
+
+  The folder's listobs names the MS it was made from. Only the file name is used,
+  so a sweep folder that has been moved since still resolves. move=False copies,
+  leaving measurement_sets/ whole for a --no-cleanup sweep. Best-effort, like cleanup.
+  """
+  results_dir = Path(results_dir)
+  name = results_dir.name.removesuffix('_results')
+  try:
+    header = (results_dir / f"{name}-listobs.txt").read_text(errors='replace')
+  except OSError:
+    log(f"  calibrated MS not kept: {results_dir} has no listobs naming it")
+    return None
+  match = MS_NAME.search(header)
+  source = Path(run_dir) / MS_SUB_PATH / Path(match.group(1)).name if match else None
+  if source is None or not source.is_dir():
+    log(f"  calibrated MS not kept: {source or 'no MS named'} in {name}-listobs.txt")
+    return None
+  dest = results_dir / f"{name}.ms"
+  try:
+    #flag backups travel with the MS: flagmanager finds them as <vis>.flagversions
+    for src, dst in ((source, dest), (Path(f"{source}.flagversions"), Path(f"{dest}.flagversions"))):
+      if not src.is_dir():
+        continue
+      if dst.exists():
+        shutil.rmtree(dst)
+      if move:
+        shutil.move(src, dst)
+      else:
+        shutil.copytree(src, dst)
+  except Exception as exc:
+    log(f"  calibrated MS not kept: {source} -> {dest}: {exc!r}")
+    return None
+  return dest
 
 
 def cleanup(run_dir, log=print):

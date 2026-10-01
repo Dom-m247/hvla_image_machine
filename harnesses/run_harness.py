@@ -5,8 +5,9 @@
     ./run_harness.py full-auto --targets-file ../names.txt --preset full_auto_selfcal
     ./run_harness.py lightcurve "4C 35.03" --bands C               # every epoch < 100"
     ./run_harness.py lightcurve "4C 35.03" --preset lightcurve_deep  # interactive, attended
-    ./run_harness.py resume sweeps/full-auto_full_auto_20260924-150000
-    ./run_harness.py summarize sweeps/lightcurve_lightcurve_20260924-161811
+    ./run_harness.py resume sweeps/<full-auto or lightcurve sweep>  # re-run failed runs
+    ./run_harness.py summarize sweeps/<sweep>
+    ./run_harness.py summarize sweeps/<sweep> --no-project-labels
     ./run_harness.py presets
 
 A target is a source name, or 'name, PROJ' to hold it to a project. Settings come
@@ -29,7 +30,7 @@ from harness import sweep as sweep_module                  # noqa: E402
 
 #flag dest -> preset option. Defaults are None throughout: only a flag actually
 #given overrides the preset.
-RUN_OPTION_FLAGS = ('batch_size', 'cores', 'timeout', 'cleanup')
+RUN_OPTION_FLAGS = ('batch_size', 'cores', 'timeout', 'cleanup', 'keep_ms')
 SELECTION_OPTION_FLAGS = ('bands', 'projects', 'before_year', 'max_gb', 'limit', 'source_name')
 
 
@@ -40,6 +41,8 @@ def _run_flags(parser):
   parser.add_argument('--timeout', type=int, help='seconds before a single run is killed')
   parser.add_argument('--no-cleanup', dest='cleanup', action='store_const', const=False,
                       help="keep a passed run's measurement sets and scratch")
+  parser.add_argument('--no-keep-ms', dest='keep_ms', action='store_const', const=False,
+                      help="don't keep a passed run's calibrated MS in its results folder")
   parser.add_argument('--dry-run', action='store_true',
                       help='seed each run directory but run nothing')
   parser.add_argument('--fresh', action='store_true',
@@ -87,6 +90,9 @@ def parse_args(argv=None):
   sub = commands.add_parser('summarize', help="rebuild a sweep's summary (the lightcurve "
                                               "plot) from the runs that have passed")
   sub.add_argument('sweep_dir', help='the sweep folder')
+  sub.add_argument('--no-project-labels', dest='label_points', action='store_false',
+                   help="leave the lightcurve points unlabelled (by default each "
+                        "carries its project code)")
 
   commands.add_parser('presets', help='list the presets and what they are for')
   return parser.parse_args(argv)
@@ -139,7 +145,7 @@ def main(argv=None):
     if not hasattr(KINDS.get(sweep.kind), 'summarize'):
       print(f"error: the {sweep.kind} harness has no summary", file=sys.stderr)
       return 2
-    return 0 if sweep_module.summarize(sweep) else 1
+    return 0 if sweep_module.summarize(sweep, label_points=args.label_points) else 1
 
   if args.command == 'resume':
     try:

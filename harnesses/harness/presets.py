@@ -28,6 +28,7 @@ COMMON_OPTIONS = {
   'limit': 0,               #at most N observations per target (0 = all)
   'source_name': 'archive', #'archive' or 'input'; see seed.build
   'cleanup': True,          #run cleanup.sh in a passed run's directory
+  'keep_ms': True,          #keep a passed run's calibrated MS, untarred, in its results folder
   'attended': False,        #a person is at the terminal: one run at a time, stdin open
 }
 

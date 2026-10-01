@@ -24,5 +24,5 @@ def choose(selector, target, options):
   return sorted(selections, key=observation_date), rejected + too_big
 
 
-def summarize(sweep):
-  return lightcurve_plot.build(sweep)
+def summarize(sweep, label_points=True):
+  return lightcurve_plot.build(sweep, label_points=label_points)
