@@ -75,7 +75,7 @@ COLUMNS = ('source', 'band', 'frequency_ghz', 'time', 'mjd', 'time_from',
            'peak_flux_jy_per_beam', 'peak_flux_err_jy_per_beam', 'upper_limit_jy',
            'rms_jy_per_beam', 'stokes_v_rms_jy_per_beam', 'noise_ratio',
            'pb_response', 'target_separation_arcsec', 'archive_separation',
-           'search_epoch', 'fit_offset_arcsec', 'config', 'beam_major_arcsec',
+           'search_epoch', 'fit_offset_arcsec', 'flux_scale', 'config', 'beam_major_arcsec',
            'beam_minor_arcsec', 'converged', 'plotted', 'note',
            'proj_code', 'segment', 'slug', 'fit_json')
 
@@ -155,6 +155,7 @@ def epoch(selection, fit_path, sigma=None, max_sep=None):
     'beam_major_arcsec': beam.get('major_arcsec'),
     'beam_minor_arcsec': beam.get('minor_arcsec'),
     'converged': fit.get('converged'),
+    'flux_scale': (fit.get('flux_scale') or {}).get('origin', ''),
     'rms_jy_per_beam': fit.get('rms_jy_per_beam'),
     'stokes_v_rms_jy_per_beam': fit.get('stokes_v_rms_jy_per_beam'),
     'noise_ratio': fit.get('noise_ratio'),
@@ -180,6 +181,11 @@ def _target_epoch(row, fit, selection, sigma, max_sep):
   Gaussian fit (or, failing a usable fit, its peak pixel), or an upper limit."""
   target, detection = fit.get('target') or {}, fit.get('detection') or {}
   notes = []
+  scale = fit.get('flux_scale') or {}
+  if scale.get('origin') == 'catalogue':
+    notes.append(f"FLUX SCALE FROM CATALOGUE ({scale.get('calibrator')} at "
+                 f"{scale.get('flux_jy')} Jy, quality {scale.get('quality') or '?'}; "
+                 f"no standard flux calibrator observed)")
   data_sep = target.get('separation_from_pointing_arcsec')
   archive_sep = parse_separation_arcsec(selection.separation)
   row['target_separation_arcsec'] = data_sep
@@ -328,6 +334,12 @@ DETECTION_STYLE = dict(marker='o', markersize=7, color=SERIES, markeredgecolor=S
                        markeredgewidth=1.5)
 LIMIT_STYLE = dict(marker='v', markersize=8, markerfacecolor=SURFACE,
                    markeredgecolor=SERIES, markeredgewidth=1.5)
+#an epoch whose flux scale came from a calibrator's catalogue flux (no standard flux
+#calibrator observed) keeps its kind of mark but in outline: an open circle, and the
+#line-drawn downward tri for a limit
+CATALOGUE_DETECTION_STYLE = dict(marker='o', markersize=7, markerfacecolor=SURFACE,
+                                 markeredgecolor=SERIES, markeredgewidth=1.5)
+CATALOGUE_LIMIT_STYLE = dict(marker='1', markersize=11, color=SERIES, markeredgewidth=1.8)
 
 
 def plot(source, rows, path, subtitle=''):
@@ -360,11 +372,15 @@ def plot(source, rows, path, subtitle=''):
                     [r[value_key] * 1e3 for r in points],
                     yerr=[(r.get(error_key) or 0) * 1e3 for r in points],
                     fmt='none', ecolor=SERIES, elinewidth=1.5, capsize=0, zorder=2)
-        ax.plot([r['time'] for r in points], [r[value_key] * 1e3 for r in points],
-                linestyle='none', zorder=3, **DETECTION_STYLE)
-      if limits:
-        ax.plot([r['time'] for r in limits], [r['upper_limit_jy'] * 1e3 for r in limits],
-                linestyle='none', zorder=3, **LIMIT_STYLE)
+      for marks, value, standard, catalogue in ((points, value_key, DETECTION_STYLE,
+                                                 CATALOGUE_DETECTION_STYLE),
+                                                (limits, 'upper_limit_jy', LIMIT_STYLE,
+                                                 CATALOGUE_LIMIT_STYLE)):
+        for style, chosen in ((standard, [r for r in marks if not _catalogue(r)]),
+                              (catalogue, [r for r in marks if _catalogue(r)])):
+          if chosen:
+            ax.plot([r['time'] for r in chosen], [r[value] * 1e3 for r in chosen],
+                    linestyle='none', zorder=3, **style)
       ax.set_title(f"{label} — {measure.lower()}", loc='left', fontsize=10,
                    color=INK_SECONDARY)
       ax.set_ylabel(unit, color=INK_MUTED, fontsize=9)
@@ -379,10 +395,15 @@ def plot(source, rows, path, subtitle=''):
   #the legend names only the marks actually drawn
   limit_name = (f"{thresholds[0]:g}σ upper limit" if len(thresholds) == 1 else "upper limit")
   handles = []
-  if any(r['detected'] is not False for r in shown):
-    handles.append(Line2D([], [], linestyle='none', label='detection', **DETECTION_STYLE))
-  if any_limit:
-    handles.append(Line2D([], [], linestyle='none', label=limit_name, **LIMIT_STYLE))
+  kinds = ((lambda r: r['detected'] is not False, 'detection', DETECTION_STYLE,
+            CATALOGUE_DETECTION_STYLE),
+           (lambda r: r['detected'] is False, limit_name, LIMIT_STYLE, CATALOGUE_LIMIT_STYLE))
+  for wanted, name, standard, catalogue in kinds:
+    if any(wanted(r) and not _catalogue(r) for r in shown):
+      handles.append(Line2D([], [], linestyle='none', label=name, **standard))
+    if any(wanted(r) and _catalogue(r) for r in shown):
+      handles.append(Line2D([], [], linestyle='none', label=f"{name}, catalogue flux scale",
+                            **catalogue))
   fig.legend(handles=handles, loc='outside upper right', ncols=len(handles), frameon=False,
              fontsize=9, labelcolor=INK_SECONDARY)
   fig.suptitle(f"{source} lightcurve", x=0.01, ha='left', fontsize=13, color=INK)
@@ -391,10 +412,17 @@ def plot(source, rows, path, subtitle=''):
   fig.supxlabel(f"{subtitle}   ·   {len(shown)} epoch(s)"
                 + (f", {dropped} not plotted (see {CSV_NAME})" if dropped else '')
                 + "\nprimary-beam corrected   ·   error bars are imfit's (no flux-scale term)"
-                + ("   ·   limits are the threshold times the off-source rms" if any_limit else ''),
+                + ("   ·   limits are the threshold times the off-source rms" if any_limit else '')
+                + ("\noutlined marks: no standard flux calibrator observed; scale from the "
+                   "calibrator's catalogue flux, uncertain by 10-20% or more"
+                   if any(_catalogue(r) for r in shown) else ''),
                 x=0.01, ha='left', fontsize=8, color=INK_MUTED, linespacing=1.6)
   fig.savefig(path, dpi=110, facecolor=SURFACE)
   return True
+
+
+def _catalogue(row):
+  return row.get('flux_scale') == 'catalogue'
 
 
 def _style(ax):

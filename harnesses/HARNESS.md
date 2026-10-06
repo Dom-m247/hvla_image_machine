@@ -119,6 +119,13 @@ converge or landed more than a beam from the target -- plotted from its peak pix
 with no integrated flux. Error bars are imfit's statistical errors only, with no
 flux-scale term.
 
+An observation with no standard flux calibrator (3C286, 3C48, 3C147, 3C138) is not
+dropped: its flux scale is set from the nearest calibrator's flux in the VLA
+calibrator list, which may then serve as phase calibrator too. Calibrators vary, so
+that scale is good to perhaps 10-20%. Such an epoch is flagged everywhere it appears:
+a warning banner in the run, `*** CATALOGUE ***` in the run log, `flux_scale` in
+`fit.json` and the CSV, and outlined marks on the plot.
+
 `summarize <sweep folder>` rebuilds both files from whatever has passed so far, and
 `summarize <sweep folder> --sigma N` re-decides every epoch at threshold N from the
 recorded S/N, without re-imaging. A run made before target-based measurement is read

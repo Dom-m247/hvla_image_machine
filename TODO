@@ -20,6 +20,10 @@
   checkpoint backup/restore of the data folder (from 1.99 refant retry loop).
 - Manual flux calibration: setjy standard='manual' with user flux/freq, for odd/missing
   amplitude calibrators (Perley-Butler is the only path today).
+- Missing flux calibrator, second rescue: search every project observed within ~24 h
+  for scans of a standard flux calibrator at the right frequency, and pull those scans
+  in (bootstrapping through a calibrator both observed). Better than today's rescue,
+  which takes the phase calibrator's catalogue flux and is good to only ~10-20%.
 - "Don't do self phase calibration" toggle.
 - Solution bookkeeping: decide & document incremental vs non-incremental self-cal;
   implement check_refant (currently `pass`); optionally save per-cycle gain phase/amp

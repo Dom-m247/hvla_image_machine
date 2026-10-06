@@ -75,7 +75,8 @@ def fit_best_image(options: Options, image):
   fit_files = {'logfile': results_dir / f"{name}.imfit.log",
                'residual': results_dir / f"{name}.imfit.residual"}
 
-  record = {**image.measurements(), **_noise_check(options, rms)}
+  record = {**image.measurements(), **_noise_check(options, rms),
+            'flux_scale': flux_scale(options)}
   target = locate_target(options, image, header)
   if target and target['in_image']:
     detection = detect(image, target, rms, header, _sigma(options))
@@ -194,6 +195,19 @@ def detect(image, target, rms, header, sigma):
   }
 
 
+def flux_scale(options):
+  '''Where the run's flux scale came from: 'standard' (a Perley-Butler calibrator),
+  'catalogue' (a calibrator's VLA-calibrator-list flux, with no standard calibrator
+  observed -- good to perhaps 10-20%), or 'manual' (a flux the user typed).'''
+  manual = getattr(options, 'flux_cal_manual', None) or {}
+  calibrator = (getattr(getattr(options, 'flux_cal', None), 'listobs_name', '')
+                or getattr(options, 'flux_cal_name', ''))
+  if not manual:
+    return {'origin': 'standard', 'calibrator': calibrator}
+  return {'origin': manual.get('origin') or 'manual', 'calibrator': calibrator,
+          'flux_jy': manual.get('flux'), 'quality': manual.get('quality')}
+
+
 def _sigma(options):
   '''The run's detection threshold, in off-source rms.'''
   return _float(getattr(options, 'detection_sigma', None)) or DETECTION_SIGMA
@@ -309,6 +323,10 @@ def fit_source(image, rms=None, box='', logfile=None, residual=None) -> dict[str
 def print_summary(record):
   '''One human-readable block at the end of a run, to stdout and the CASA log.'''
   lines = _target_lines(record)
+  scale = record.get('flux_scale') or {}
+  if scale.get('origin') == 'catalogue':
+    lines.append(f"  FLUX SCALE FROM CATALOGUE: {scale.get('calibrator')} at {scale.get('flux_jy'):g} Jy "
+                 f"(quality {scale.get('quality') or '?'}); absolute fluxes uncertain by 10-20% or more")
   if record.get('converged') is None:
     lines.append("Source fit: not attempted (no source at the target)")
   else:

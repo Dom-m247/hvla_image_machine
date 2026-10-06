@@ -161,6 +161,7 @@ def _calibration_rows(options):
   rows = [
     ('Flux calibrator', _calibrator(amp)),
     ('setjy model', _attr_of(amp, 'model')),
+    ('Flux scale', _flux_scale(options)),
   ]
   if _get(options, 'target_is_phase_cal') is True:
     rows.append(('Phase calibrator', 'none -- the target serves as its own '
@@ -248,6 +249,17 @@ def _target_rows(fit):
                          f"{_number(detection.get('search_radius_arcsec'), '.1f')} arcsec"),
     ('', ''),
   ]
+
+
+def _flux_scale(options):
+  manual = getattr(options, 'flux_cal_manual', None) or {}
+  if not manual:
+    return 'standard (Perley-Butler 2013 model)'
+  if manual.get('origin') == 'catalogue':
+    return (f"*** CATALOGUE *** {manual.get('flux')} Jy from the VLA calibrator list "
+            f"(quality {manual.get('quality') or '?'}); no standard flux calibrator was "
+            f"observed. Absolute fluxes uncertain by 10-20% or more.")
+  return f"manual: {manual.get('flux')} Jy at {manual.get('reffreq') or '?'} (user supplied)"
 
 
 def _converged(fit):

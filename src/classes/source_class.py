@@ -10,6 +10,24 @@ TYPE_FLUX_CAL = 'flux_calibrator'
 TYPE_PHASE_CAL = 'phase_cal'
 TYPE_TARGET = 'target'
 AUTO = 'auto'
+#the VLA calibrator list's band codes where they differ from the pipeline's
+CATALOGUE_BAND_CODES = {'Ku': 'U'}
+
+
+def catalogue_scale(options):
+  '''True when this run's flux scale comes from a calibrator's catalogue flux, not a
+  standard flux calibrator (see source_info._catalogue_flux_cal).'''
+  return (getattr(options, 'flux_cal_manual', None) or {}).get('origin') == 'catalogue'
+
+
+def _warn_catalogue_scale(name, manual):
+  text = (f"NO STANDARD FLUX CALIBRATOR in this observation. The flux scale is set from "
+          f"{name}'s catalogue flux, {manual['flux']:g} Jy (VLA calibrator list, quality "
+          f"{manual.get('quality') or '?'}). Calibrators vary: treat absolute fluxes from this "
+          f"run as uncertain by 10-20% or more.")
+  print('\n' + '!' * 78 + f"\n{text}\n" + '!' * 78 + '\n')
+  ct.casalog.post(text, priority='WARN')
+
 
 class source_info:
   #TODO: upgrade to utilize other 'better' claibrators
@@ -340,10 +358,14 @@ class source_info:
         return False   #no fields at all -- nothing to calibrate against
       options.flux_cal_manual = self._ask_manual_flux(options, chosen)
     elif not candidates:
-      if off_spw:
-        raise Exception(f"No flux calibrator shares the target's spws ({options.spw_selection}); "
-                        f"skipped {', '.join(f.name for f in off_spw)}")
-      return False
+      #no standard calibrator: set the scale from a calibrator's catalogue flux instead
+      rescue = self._catalogue_flux_cal(options)
+      if rescue is None:
+        if off_spw:
+          raise Exception(f"No flux calibrator shares the target's spws ({options.spw_selection}); "
+                          f"skipped {', '.join(f.name for f in off_spw)}")
+        return False
+      chosen, options.flux_cal_manual = rescue
     elif mode == VERIFY:
       #auto keeps taking candidates[0]; only the picker is re-ordered
       ordered, describe = self._fields_nearest_target(options, subset=candidates)
@@ -367,9 +389,50 @@ class source_info:
     #a manual calibrator has no Perley-Butler model; setjy uses the user's flux instead
     self.name3c = FLUX_CAL_ALIASES.get(cal_name, cal_name)
     self.model = '' if options.flux_cal_manual else f"{self.name3c}_{self.band}.im"
-    decisions.announce('flux_cal', cal_name,
-                       'user flux' if options.flux_cal_manual else self.model)
+    if catalogue_scale(options):
+      manual = options.flux_cal_manual
+      detail = (f"CATALOGUE FLUX {manual['flux']:g} Jy, quality "
+                f"{manual.get('quality') or '?'} -- no standard flux calibrator observed")
+      _warn_catalogue_scale(cal_name, manual)
+    else:
+      detail = 'user flux' if options.flux_cal_manual else self.model
+    decisions.announce('flux_cal', cal_name, detail)
     return True
+
+  def _catalogue_flux_cal(self, options):
+    '''The rescue for an observation with no standard flux calibrator: the field
+    nearest the target that the VLA calibrator list gives a flux for in this band
+    (and does not call unusable in this array configuration), with that flux as a
+    setjy standard='manual' scale. Returns (field, flux_cal_manual) or None.
+
+    Calibrators are variable, so a scale set this way is good to perhaps 10-20%
+    rather than a few per cent; flux_cal_manual's origin='catalogue' carries that
+    through to the run log, the fit record and the lightcurve.'''
+    from classes.nrao_calibrators import NRAOCalibrators
+    from data_calibration.parse_listobs import vla_config_from_antennas  #lazy: import cycle
+    nrao = NRAOCalibrators()
+    code = CATALOGUE_BAND_CODES.get(options.band, options.band)
+    config = vla_config_from_antennas(options.observation_data.antennas)[:1]
+    target_spws = self._target_spws(options)
+    target_field = getattr(options.source_ids, 'field_id', None)
+    ordered, _ = self._fields_nearest_target(options)
+    for field in ordered:
+      if field.id == target_field:
+        continue
+      if target_spws and not (self.spws_for_field(options, field.id) & target_spws):
+        continue
+      entry = nrao.find_by_name(str(field.name))
+      band = entry.get_band(code) if entry else None
+      flux = band.get('flux_Jy') if band else None
+      quality = (band.get('calibrator_quality') or {}).get(config) if band and config else None
+      if not flux or flux <= 0 or quality == 'X':
+        continue
+      freqs = [s.ctrfreq_mhz for s in options.observation_data.spectral_windows
+               if not target_spws or s.id in target_spws]
+      reffreq = f"{sum(freqs) / len(freqs) / 1e3:.4f}GHz" if freqs else ''
+      return field, {'flux': float(flux), 'reffreq': reffreq, 'origin': 'catalogue',
+                     'quality': quality, 'catalogue_name': entry.iau_name}
+    return None
 
   def _ask_manual_flux(self,options,field):
     '''Flux density + reference frequency for setjy standard="manual".'''
@@ -409,7 +472,11 @@ class source_info:
 
     _to_skycoord = self._to_skycoord
 
-    exclude_ids = {options.flux_cal.field_id, options.source_ids.field_id}
+    exclude_ids = {options.source_ids.field_id}
+    #a calibrator whose catalogue flux sets the scale may also be the gain calibrator
+    #(often it is the only calibrator observed); a standard flux calibrator may not
+    if not catalogue_scale(options):
+      exclude_ids.add(options.flux_cal.field_id)
     target_spws = self._target_spws(options)
 
     # {field_id: (Fields object, SkyCoord)}

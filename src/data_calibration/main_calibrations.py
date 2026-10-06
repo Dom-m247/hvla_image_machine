@@ -106,9 +106,17 @@ def primary_calibration(options:options_class.Options):
   Performs initial calibration on flux, phase calibrator, and source 
   """
   find_refant(options)
+  #one field as flux and phase calibrator both: a calibrator whose catalogue flux sets
+  #the scale (source_info._catalogue_flux_cal) and is the only calibrator observed.
+  #setjy already gave it its flux, so its G1 gains are absolute and there is nothing
+  #for fluxscale to transfer -- G1 is applied directly.
+  same_field = options.phase_cal.field_id == options.flux_cal.field_id
+  gains = options.initial_calibration_filename + (GAINCAL_G1 if same_field else FLUXSCALE_X + '1')
   if not Path(options.initial_calibration_filename + GAINCAL_G0ALL).is_dir():
     #define fields in init.ms
-    fields = str(options.flux_cal.initial_ms_fieldID)+","+str(options.source_ids.initial_ms_fieldID) + ',' + str(options.phase_cal.initial_ms_fieldID)
+    fields = ','.join(dict.fromkeys(str(f) for f in (options.flux_cal.initial_ms_fieldID,
+                                                     options.source_ids.initial_ms_fieldID,
+                                                     options.phase_cal.initial_ms_fieldID)))
     #initial phase calibration
     gaincal_output = ct.gaincal(vis=options.initial_calibration_filename+'.ms',
                                 caltable=options.initial_calibration_filename+GAINCAL_G0ALL,
@@ -151,19 +159,20 @@ def primary_calibration(options:options_class.Options):
                                interp=['nearest']
      )
     #apply to source
-    gaincal_out3 = ct.gaincal(vis=options.initial_calibration_filename+'.ms',
-                            caltable=options.initial_calibration_filename+GAINCAL_G1,
-                            field=options.phase_cal.casa_field,
-                            spw='',
-                            solint='inf',
-                            refant=options.ref_ant,
-                            gaintype='G',
-                            calmode='ap',
-                            solnorm=False,
-                            gaintable=[options.initial_calibration_filename+BANDPASS_B0],
-                            append=True
-   )
-  if not Path(options.initial_calibration_filename+FLUXSCALE_X+'1').is_dir():
+    if not same_field:
+      gaincal_out3 = ct.gaincal(vis=options.initial_calibration_filename+'.ms',
+                              caltable=options.initial_calibration_filename+GAINCAL_G1,
+                              field=options.phase_cal.casa_field,
+                              spw='',
+                              solint='inf',
+                              refant=options.ref_ant,
+                              gaintype='G',
+                              calmode='ap',
+                              solnorm=False,
+                              gaintable=[options.initial_calibration_filename+BANDPASS_B0],
+                              append=True
+     )
+  if not same_field and not Path(options.initial_calibration_filename+FLUXSCALE_X+'1').is_dir():
     #transfer flux from flux_cal to phase_cal
     fluxScale_out = ct.fluxscale(vis=options.initial_calibration_filename+'.ms',
                             caltable=options.initial_calibration_filename+GAINCAL_G1,
@@ -181,23 +190,24 @@ def primary_calibration(options:options_class.Options):
     apply_mode = choose_applymode(options.initial_calibration_filename + GAINCAL_G1)
     apply_cal_out = ct.applycal(vis=options.initial_calibration_filename+'.ms',
            field= options.flux_cal.casa_field ,
-           gaintable=[options.initial_calibration_filename+FLUXSCALE_X+'1',options.initial_calibration_filename+BANDPASS_B0],
+           gaintable=[gains,options.initial_calibration_filename+BANDPASS_B0],
            gainfield=[options.flux_cal.casa_field,''],
            interp=['nearest',''], #['nearest','linear']?
            calwt=[False], #true?
            applymode=apply_mode,
     )
-    apply_cal_out = ct.applycal(vis=options.initial_calibration_filename+'.ms',
-           field= options.phase_cal.casa_field ,
-           gaintable=[options.initial_calibration_filename+FLUXSCALE_X+'1',options.initial_calibration_filename+BANDPASS_B0],
-           gainfield=[options.phase_cal.casa_field,''],
-           interp=['nearest',''], #['nearest','linear']?
-           calwt=[False], #true?
-           applymode=apply_mode,
-    )
+    if not same_field:
+      apply_cal_out = ct.applycal(vis=options.initial_calibration_filename+'.ms',
+             field= options.phase_cal.casa_field ,
+             gaintable=[gains,options.initial_calibration_filename+BANDPASS_B0],
+             gainfield=[options.phase_cal.casa_field,''],
+             interp=['nearest',''], #['nearest','linear']?
+             calwt=[False], #true?
+             applymode=apply_mode,
+      )
     apply_cal_out = ct.applycal(vis=options.initial_calibration_filename+'.ms',
            field=options.source_ids.casa_field,
-           gaintable=[options.initial_calibration_filename+FLUXSCALE_X+'1',options.initial_calibration_filename+BANDPASS_B0],
+           gaintable=[gains,options.initial_calibration_filename+BANDPASS_B0],
            gainfield=[options.phase_cal.casa_field,''],
            interp=['linear',''], #['nearest','linear']?
            calwt=[False], #true?
