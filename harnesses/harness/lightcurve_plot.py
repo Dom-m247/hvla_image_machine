@@ -247,15 +247,14 @@ PANELS = (('integrated_flux_jy', 'integrated_flux_err_jy', 'Integrated flux dens
 def band_order(rows):
   """The rows' bands, lowest frequency first: the order plot() stacks them in."""
   return sorted(dict.fromkeys(r['band'] for r in rows),
-                key=lambda b: _median([r['frequency_ghz'] or 0 for r in rows if r['band'] == b]))
+                key=lambda b: _median([r['frequency_ghz'] or 0 for r in rows if r['band'] == b]) or 0)
 
 
 def plot(source, rows, path, subtitle='', label_points=True):
   """Integrated and peak flux density vs time, one row of panels per band.
 
   Bands sit in separate rows rather than sharing an axis: a spectral index puts
-  them at different levels. A band's two panels share one flux scale, so its peak
-  reads directly against its integrated flux.
+  them at different levels. A band's two panels share one flux scale.
   label_points writes each epoch's project code beside its point.
   """
   shown = [r for r in rows if r['plotted']]
@@ -320,8 +319,9 @@ def _label_points(fig, labelled):
   canvas = FigureCanvasAgg(fig)
   canvas.draw()
   renderer = canvas.get_renderer()
-  share = renderer.points_to_pixels(LABEL_SHARE_PT)
-  pad = renderer.points_to_pixels(4)   #about a marker's radius
+  px_per_pt = fig.dpi / 72
+  share = LABEL_SHARE_PT * px_per_pt
+  pad = 4 * px_per_pt   #about a marker's radius
   for ax, points, value_key in labelled:
     frame = ax.get_window_extent(renderer)
     xy = [(r['time'], r[value_key] * 1e3) for r in points]
