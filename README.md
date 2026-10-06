@@ -154,6 +154,12 @@ If you would rather not add a shell function, `bash /path/to/clone/run.sh` does 
 same thing — it resolves `.hvla_env`, `src/` and `data_archive/` from its own location.
 The function only saves you typing the path to the clone.
 
+**Updating.** `hvla_image update` (or `--update`) fast-forwards your clone to the latest
+`main` and stops without starting a run. It refuses when the clone is on another branch
+or has commits of its own, and git refuses when the update would overwrite your
+uncommitted edits; nothing changes in any of those cases. New dependencies install on
+the next run. A clone from before this command existed needs one manual `git pull`.
+
 ### Where a run writes
 
 A run reads from the clone and writes into **the directory you start it from** — the
@@ -242,6 +248,7 @@ hvla_image --cli             # fully interactive terminal mode, no GUI
 hvla_image -rs               # search the archive, download, then run
 hvla_image --importRun       # replay a previous run from import.json
 hvla_image --archive         # submit a finished run to the archive form
+hvla_image update            # pull the latest version (also --update), then stop
 ```
 
 ### Command-line options
@@ -314,6 +321,7 @@ src/
 │   ├── call_recorder.py       #   Records CASA calls -> replay.py
 │   └── constants.py           #   Band tables, defaults, decision registry
 ├── API_integrations/          # External catalog clients
+│   ├── catalog_client.py      #   Rate-limited NED/SIMBAD client: gate + cache
 │   ├── NED.py                 #   NED queries + self-cal flux check
 │   └── simbad.py              #   SIMBAD queries
 ├── archive_dowload/           # Observation archive search & download
@@ -332,6 +340,9 @@ src/
 
 tools/
 └── install_alias.sh           # One-time shell-function setup (see Installation)
+
+tests/
+└── query/                     # Offline catalog_client tests: python tests/query/run_*.py
 ```
 
 Each run's results folder collects the science products (FITS, pbcor, PNG, mask,

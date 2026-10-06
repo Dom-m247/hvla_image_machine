@@ -3,6 +3,19 @@ set -euo pipefail
 
 REPO_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"   # the clone; inputs resolve from here
 
+# 'hvla_image update' (or --update): fast-forward this clone to origin/main, then stop.
+# One if-block on purpose: bash parses it whole, so git rewriting this file mid-run is safe.
+if [ "${1:-}" = update ] || [ "${1:-}" = --update ]; then
+  branch="$(git -C "$REPO_DIR" rev-parse --abbrev-ref HEAD)"
+  if [ "$branch" != main ]; then
+    echo "update: $REPO_DIR is on '$branch', not main. Switch first: git -C \"$REPO_DIR\" checkout main" >&2
+    exit 1
+  fi
+  git -C "$REPO_DIR" pull --ff-only origin main
+  echo "update: now at $(git -C "$REPO_DIR" log -1 --format='%h %s'). New dependencies install on the next run."
+  exit 0
+fi
+
 # The run stays in YOUR current directory: measurement_sets/, <name>_results/,
 # import.json, replay.py and the CASA log are written there. Override with
 # --workdir DIR or HVLA_WORK_DIR=DIR.

@@ -116,4 +116,5 @@ Then, from anywhere -- the run writes into the directory you call it from:
   $NAME -rs          # search the archive, download, and run
   $NAME --workdir ~/runs/3c84   # ...or into a directory you name
   $NAME --noexport   # arguments pass straight through to run.sh
+  $NAME update       # pull the latest version from GitHub (main)
 EOF
