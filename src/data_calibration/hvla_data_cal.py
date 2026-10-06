@@ -212,10 +212,9 @@ def calibrated_split(options:Options):
   parse.log_listobs(options.calibrated_filename,options)
 
 def build_setjy(options):
-  visfile = MS_SUB_PATH + options.proj_name +'.ms'
-  #setjy runs on the full pre-split MS, so select the amp cal by name: names are stable
-  #across the calibrator split, unlike field IDs (which renumber). initial_ms_fieldID
-  #retains the split-MS id for main_calibrations; it is not valid against this full MS.
+  #the split calibration runs on; a model set on the full MS doesn't carry over
+  visfile = options.initial_calibration_filename + '.ms'
+  #by name: field IDs renumber in the split
   amp_field = options.flux_cal.casa_field
   #manual mode: the user named a calibrator with no Perley-Butler model and gave its
   #flux density, so set the scale from that instead (1.99's manual flux calibration)
