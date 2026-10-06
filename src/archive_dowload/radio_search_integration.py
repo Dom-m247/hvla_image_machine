@@ -10,6 +10,7 @@ import pprint
 import re
 import socket
 import subprocess
+import sys
 import paramiko
 import getpass
 from pathlib import Path
@@ -20,7 +21,7 @@ from typing import Optional, cast
 SSH_CONNECT_TIMEOUT = 30
 RADIO_SEARCH_TIMEOUT = 300
 
-def load_creds(required=('host', 'user', 'password')):
+def load_creds(required=('host', 'user')):
     """Credentials, via classes.creds which owns the file's location.
 
     `required` lists the keys that must be present and non-empty; raises otherwise.
@@ -113,10 +114,19 @@ class RadioSearch2:
             connect_kwargs["key_filename"] = key_filename
         elif password:
             connect_kwargs["password"] = password
-        else:
+        try:
+            #with neither, paramiko offers the ssh agent and ~/.ssh/id_* keys -- the
+            #same passwordless login a plain `ssh user@host` makes
+            self.client.connect(**connect_kwargs)
+        except paramiko.SSHException as exc:
+            #no key was accepted (or none was found): ask for the password, but only
+            #when nothing else was configured and someone is at the terminal to type it
+            refused = (isinstance(exc, paramiko.AuthenticationException)
+                       or 'authentication' in str(exc).lower())
+            if password or key_filename or not refused or not sys.stdin.isatty():
+                raise
             connect_kwargs["password"] = getpass.getpass(f"{user}@{host} password: ")
-        
-        self.client.connect(**connect_kwargs)
+            self.client.connect(**connect_kwargs)
     
     def __call__(self, *args, timeout=RADIO_SEARCH_TIMEOUT):
         quoted_args = " ".join(f"'{a}'" for a in args)
@@ -284,11 +294,15 @@ class RadioSearchIntegration:
     """An open search session, built from the credentials file.
 
     The only place that turns credentials into a connection, so callers -- the
-    CLI flow below, the GUI -- never handle them.
+    CLI flow below, the GUI -- never handle them. 'password' and 'key_filename'
+    are optional: with neither, the login uses your ssh keys, as a passwordless
+    `ssh user@host` does.
     """
-    values = load_creds(required=('host', 'user', 'password', 'radio_search_path'))
+    values = load_creds(required=('host', 'user', 'radio_search_path'))
+    key = values.get('key_filename')
     return RadioSearch2(host=values['host'], user=values['user'],
-                        password=values['password'],
+                        password=values.get('password') or None,
+                        key_filename=os.path.expanduser(key) if key else None,
                         remote_path=values['radio_search_path'])
 
   @staticmethod
@@ -330,24 +344,37 @@ class RadioSearchIntegration:
         #enter, or no segment picked: back to the observation table
 
   @staticmethod
-  def run_search(rs, options):
+  def run_search(rs, options, bands=None, epoch=None):
     """One radio_search2 query for the current source/band -> [nrao_observeration].
 
     'auto' (or empty) band means "all bands": radio_search2 wants NO 'BANDS'
     keyword in that case. Passing 'BANDS auto' makes the wrapper look up a
     non-existent band, drop the (empty) bandno token, and shift a config-group
     string into the int bandno slot -> "invalid literal for int()". Only pass
-    BANDS for a real band.
+    BANDS for a real band. `bands` (a list) overrides options.band, so one query
+    can cover several -- an all-band search takes minutes.
+
+    epoch=1950 searches on the source's B1950 coordinates. The archive holds some
+    early observations at positions never transformed to J2000; the default search
+    misses those, or reports them at the wrong separation. Each row is tagged with
+    the coordinates it was found on (row.search_epoch).
     """
     band = options.band if options.band and options.band != 'auto' else ''
-    args = (options.search_alias, 'BANDS', band) if band else (options.search_alias,)
+    bands = [b for b in (bands or ([band] if band else [])) if b]
+    args = (options.search_alias,) + (('BANDS', *bands) if bands else ())
+    if epoch:
+      args += ('EPOCH', str(epoch))
     #the remote search prints nothing until it finishes, so animate rather than
     #leaving a silent terminal that reads as a hang
     results = []
     LoadingAnimation.performing_action(
-      f"archive search for {options.search_alias}" + (f" in band {band}" if band else ""),
+      f"archive search for {options.search_alias}"
+      + (f" in band(s) {' '.join(bands)}" if bands else "")
+      + (f" on B{epoch} coordinates" if epoch else ""),
       target=lambda: results.append(rs(*args)))
     observations = parseObservations(results[0]) if results else []
+    for obs in observations:
+      obs.search_epoch = f"B{epoch}" if epoch else 'J2000'
     return RadioSearchIntegration._drop_modern(observations)
 
   @staticmethod
@@ -455,6 +482,12 @@ class DelosDownload:
     {file_name}; the base URL comes from the credentials file and the year from
     each file's --archfileinfo entry (falling back to the YY in the file name).
 
+    When Delos is mounted on this machine (a read-only NFS mount, say), set
+    'delos_path' in the credentials file to the directory holding those year
+    folders. Each file is then symlinked from {delos_path}/{year}/{file_name}
+    instead of copied over HTTP, and a file the mount lacks still comes over HTTP
+    if 'delos_url' is set too.
+
     Files land in <repo>/data_archive/<proj_code>/ and their paths are written to
     options.archive_files for do_vla_import/importvla. Designed to run on its own
     thread while CLI calibration info is gathered in parallel.
@@ -502,16 +535,24 @@ class DelosDownload:
 
     @classmethod
     def _archive_year(cls, entry):
-        """4-digit observation year for an entry. Uses the date field first, then a
-        year embedded in the file name. Handles both the old 2-digit form (e.g.
-        '87-Aug-20' / VLA_XH87021...) and the newer 4-digit form (e.g. '2003-11-17'
-        / vla2003-11-17.dat)."""
+        """4-digit Delos year directory for an entry.
+
+        Delos files each archive file under the year its NAME carries: the tape
+        label of VLA_XH86001_file1.dat (1986), the date of vla2008-01-01.dat (2008).
+        That holds for every file there, and it is not always the year the data
+        were taken: tape XH86001 holds a 1985-Dec-31 observation, which
+        --archfileinfo dates 85-Dec-31. So the name decides, and the entry's date
+        only covers a name in neither form."""
+        name = Path(str(cls._file_name(entry))).name
+        match = (re.match(r'VLA_XH(\d{2})\d{3}_', name, re.IGNORECASE)
+                 or re.match(r'vla((?:19|20)\d{2})-\d{2}-\d{2}', name, re.IGNORECASE))
+        if match and (year := cls._normalize_year(match.group(1))):
+            return year
         date = getattr(entry, 'date', None)
         if date:
             year = cls._normalize_year(str(date).split('-')[0])
             if year:
                 return year
-        name = str(cls._file_name(entry))
         #prefer a full 4-digit year in the name, else fall back to a 2-digit year
         match = re.search(r'(?:19|20)\d{2}', name) or re.search(r'\d{2}', name)
         year = cls._normalize_year(match.group(0)) if match else None
@@ -575,24 +616,82 @@ class DelosDownload:
             )
 
     def download(self):
-        """Fetch each archive file from Delos into local_dir; record the local paths."""
-        base_url = self._resolve_base_url()
-        self._check_reachable(base_url)
+        """Fetch each archive file from Delos into local_dir; record the local paths.
+
+        A file on a mounted Delos (delos_path) is linked, not copied; everything
+        else comes over HTTP from delos_url.
+        """
+        mount = self._mount_root()
+        base_url = None   #resolved and probed only once something needs HTTP
         self.local_dir.mkdir(parents=True, exist_ok=True)
         local_paths = []
         for entry in self.download_files:
-            url = self.remote_url(entry, base_url)
-            local_path = self.local_dir / Path(self._file_name(entry)).name
-            self._curl(url, local_path)
+            name = Path(self._file_name(entry)).name
+            local_path = self.local_dir / name
+            mounted = mount / self._archive_year(entry) / name if mount else None
+            if mounted is not None and mounted.is_file():
+                self._link(mounted, local_path)
+            elif mounted is not None and not self._has_url():
+                raise FileNotFoundError(f"{name} is not on the Delos mount ({mounted}) and "
+                                        f"no delos_url is set to fetch it over HTTP")
+            else:
+                if base_url is None:
+                    base_url = self._resolve_base_url()
+                    self._check_reachable(base_url)
+                self._curl(self.remote_url(entry, base_url), local_path)
             local_paths.append(str(local_path))
         #do_vla_import/importvla needs the local paths it can open
         self.options.archive_files = local_paths
         return local_paths
 
+    @staticmethod
+    def _mount_root():
+        """The mounted Delos archive ('delos_path' in the credentials), or None.
+
+        None also when the path is missing or empty: a share that failed to mount
+        (nofail) leaves an empty directory behind, and HTTP is the way round it.
+        """
+        try:
+            path = creds.load().get('delos_path')
+        except FileNotFoundError:
+            return None
+        if not path:
+            return None
+        root = Path(path).expanduser()
+        if root.is_dir() and any(root.iterdir()):
+            return root
+        print(f"WARNING: delos_path {root} is missing or empty (is Delos mounted?); "
+              f"falling back to HTTP.")
+        return None
+
+    def _has_url(self):
+        """True when HTTP is configured as well as the mount."""
+        try:
+            return bool(self.base_url or creds.load().get('delos_url'))
+        except FileNotFoundError:
+            return False
+
+    def _link(self, source, local_path):
+        """Symlink local_path to the archive file on the mount, so a sweep does not
+        copy the archive onto this disk. A complete copy from an earlier HTTP
+        download (same size) is left as it is."""
+        if (local_path.is_file() and not local_path.is_symlink()
+                and local_path.stat().st_size == source.stat().st_size):
+            return local_path
+        local_path.unlink(missing_ok=True)   #a stale link, or a partial download
+        local_path.symlink_to(source)
+        if self.verbose:
+            print(f"Linked {local_path} -> {source}")
+        return local_path
+
     def _curl(self, url, local_path):
         """Download one file with curl; raise on failure or empty result."""
         if self.verbose:
             print(f"Downloading {url} -> {local_path}")
+        #a link left from a mounted Delos would have curl write through it, into the
+        #archive itself: drop the link so the download lands in a file of our own
+        if local_path.is_symlink():
+            local_path.unlink()
         result = subprocess.run(
             self.CURL_BASE + ['-o', str(local_path), url],
             capture_output=True, text=True,

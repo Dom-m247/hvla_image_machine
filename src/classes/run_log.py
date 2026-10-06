@@ -196,24 +196,75 @@ def _final_image_rows(options):
     rows.append(('Measurements', _MISSING + ' (no fit record on this run)'))
     return rows + _extra.get('FINAL IMAGE', [])
   beam = fit.get('beam') or {}
+  rows += _target_rows(fit)
   rows += [
     ('Peak flux', _quantity(fit.get('peak_flux'))),
     ('Integrated flux', _quantity(fit.get('integrated_flux'))),
     ('Off-source RMS', f"{_number(fit.get('rms_jy_per_beam'), '.3e')} Jy/beam "
                        f"({fit.get('rms_method', '?')})"),
+    ('Stokes V noise', _stokes_v(fit)),
     ('Dynamic range', _number(fit.get('dynamic_range'), '.1f')),
     ('Restoring beam', _size(beam)),
     ('Frequency', f"{_number(fit.get('frequency_ghz'), '.6g')} GHz"),
     ('', ''),
-    ('2D Gaussian fit', 'converged' if fit.get('converged') else 'DID NOT CONVERGE'),
+    ('2D Gaussian fit', _converged(fit)),
+    ('Fit centred on', fit.get('fit_centre') or 'image peak'),
     ('Fit box', fit.get('fit_box')),
     ('Fitted position', _position(fit.get('position'))),
+    ('Offset from target', f"{_number(fit.get('offset_from_target_arcsec'), '.2f')} arcsec"),
     ('Convolved size', _size(fit.get('convolved_size'))),
     ('Deconvolved size', _size(fit.get('deconvolved_size'),
                                suffix=_resolved(fit))),
     ('Fit residual RMS', f"{_number(fit.get('residual_rms_jy_per_beam'), '.3e')} Jy/beam"),
   ]
   return rows + _extra.get('FINAL IMAGE', [])
+
+
+def _target_rows(fit):
+  '''Where the target was measured and whether it was there.'''
+  target, detection = fit.get('target') or {}, fit.get('detection') or {}
+  if not target:
+    return [('Target', 'no catalogue position -- measured at the IMAGE PEAK'), ('', '')]
+  rows = [
+    ('Target position', f"{_number(target.get('ra_deg'), '.6f')} "
+                        f"{_number(target.get('dec_deg'), '+.6f')} deg J2000 "
+                        f"({target.get('position_from', '?')})"),
+    ('From pointing centre', f"{_number(target.get('separation_from_pointing_arcsec'), '.1f')} arcsec"),
+    ('Primary-beam response', _number(target.get('pb_response'), '.3f')),
+  ]
+  if not target.get('in_image'):
+    return rows + [('Detection', 'TARGET OUTSIDE THE IMAGE -- measured at the image peak'),
+                   ('', '')]
+  sigma = _number(detection.get('threshold_sigma'), 'g')
+  if detection.get('detected'):
+    verdict = f"DETECTED at {_number(detection.get('snr'), '.1f')} sigma (threshold {sigma})"
+  else:
+    verdict = (f"NOT DETECTED: {_number(detection.get('snr'), '.1f')} sigma < {sigma}; "
+               f"upper limit {_number(detection.get('upper_limit_jy_per_beam'), '.3e')} "
+               f"Jy/beam before primary-beam correction")
+  return rows + [
+    ('Detection', verdict),
+    ('Peak near target', f"{_number(detection.get('peak_jy_per_beam'), '.3e')} Jy/beam within "
+                         f"{_number(detection.get('search_radius_arcsec'), '.1f')} arcsec"),
+    ('', ''),
+  ]
+
+
+def _converged(fit):
+  converged = fit.get('converged')
+  if converged is None:
+    return 'not attempted (no source at the target)'
+  return 'converged' if converged else 'DID NOT CONVERGE'
+
+
+def _stokes_v(fit):
+  noise = fit.get('stokes_v_rms_jy_per_beam')
+  if not noise:
+    return _MISSING
+  text = f"{noise:.3e} Jy/beam (I/V noise ratio {_number(fit.get('noise_ratio'), '.2f')})"
+  if fit.get('noise_limited') is False:
+    text += '  <-- Stokes I limited by dynamic range or calibration, not noise'
+  return text
 
 
 def _output_rows(options):

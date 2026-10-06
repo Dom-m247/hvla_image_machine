@@ -105,7 +105,9 @@ def gather_automatic(options):
     'observation_bandwidth': _bandwidth(options),
     'beam_size':         _beam_size(beam),
     'final_rms':         _jy(fit.get('rms_jy_per_beam')),
-    'core_flux':         _jy(fit.get('peak_flux') or fit.get('peak_jy_per_beam')),
+    #a target that was not detected has no core flux: the image's peak is something else
+    'core_flux':         ('' if (fit.get('detection') or {}).get('detected') is False
+                          else _jy(fit.get('peak_flux') or fit.get('peak_jy_per_beam'))),
     'total_flux':        _decimal(_jy(fit.get('image_flux_jy')
                                       or fit.get('integrated_flux'))),
     'casa_version':      _casa_version(),

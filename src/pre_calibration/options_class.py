@@ -12,16 +12,18 @@ class Options:
   '''values for Dictionary keys:
   source, bands, decisions'''
 
-  #Single source of truth for what round-trips through import.json. NED-derived
-  #source_ra/source_decl/search_alias are intentionally excluded -- they're
-  #re-derived from `source` on import (process_input_dict defaults them with .get()).
+  #Single source of truth for what round-trips through import.json. The NED-derived
+  #source_ra/source_decl are included because the target is imaged and measured at
+  #that position: a replay must measure at the same place, and nothing re-derives them
+  #on import (process_input_dict reads them with .get(), so older files still load).
   #cell_size/self_cal_cycles are conditionally appended in generate_dict.
   IMPORT_FIELDS = (
     'source', 'archive_file', 'archive_files', 'band', 'decisions',
+    'source_ra', 'source_decl', 'search_alias', 'redshift',
     'reference_antenna', 'flux_cal_name', 'flux_cal_manual', 'phase_cal_name',
     'flagging_methods', 'flag_selection', 'rms_region',
     'self_cal_plan', 'self_cal_ap', 'self_cal_blcal',
-    'min_snr', 'image_filename',
+    'min_snr', 'detection_sigma', 'image_filename',
     'image_size', 'interactive_image', 'use_custom_cell_size', 'deconvolver',
     'weighting', 'robust', 'test_image', 'mask',
   )
@@ -56,7 +58,8 @@ class Options:
     self.self_cal_ap = None        #guided answers to the two final passes; None = not asked yet
     self.self_cal_blcal = None
     self.min_snr = min_snr
-    self.source_ra = ''
+    self.detection_sigma = DETECTION_SIGMA  #target counts as detected at this many off-source rms
+    self.source_ra = ''            #NED J2000 position, degrees: where the target is imaged and measured
     self.source_decl = ''
     self.search_alias = ''
     self.redshift = ''             #from NED; '' when NED has no measured redshift
@@ -96,6 +99,8 @@ class Options:
     self.fit_record = {} #source_fit's measurements + Gaussian fit of the best image
     self.best_image_base = '' #image_filename base of the best (lowest-RMS) self-cal cycle
     self.coresub_base = '' #image base of the core-subtracted (jet) image, when it ran
+    self.image_phasecenter = None #tclean phasecenter every clean shares; None = not settled yet
+    self.stokes_v_rms = None #thermal-noise reference from a Stokes V image, Jy/beam
     self.val = 0 #debugging variable
     # validate inputs below; else throw err 
        
@@ -110,7 +115,7 @@ class Options:
       #import.json files carry only the single archive_file path
       self.set_archive(dict_in.get('archive_files') or dict_in['archive_file'])
       self.band = dict_in['band']
-      #NED-derived fields are not written to import.json; re-derived from `source`.
+      #NED-derived; older import.json files lack them, and source_fit then asks NED
       self.source_ra = dict_in.get('source_ra', '')
       self.source_decl = dict_in.get('source_decl', '')
       self.search_alias = dict_in.get('search_alias', '')
@@ -136,6 +141,7 @@ class Options:
       self.self_cal_blcal = dict_in.get('self_cal_blcal')
       self.reference_antenna = dict_in['reference_antenna']
       self.min_snr = dict_in['min_snr']
+      self.detection_sigma = float(dict_in.get('detection_sigma') or DETECTION_SIGMA)
       self.image_filename = dict_in['image_filename']
       self.image_size = dict_in['image_size']
       self.interactive_image = dict_in['interactive_image']

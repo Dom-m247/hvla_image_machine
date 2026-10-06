@@ -175,6 +175,135 @@ def restored_image(base):
   return ''
 
 
+def pb_image(base):
+  '''The primary-beam image an imaging cycle wrote: <base>.pb.tt0 or <base>.pb.
+  '' if neither.'''
+  for ext in ('.pb.tt0', '.pb'):
+    if base and Path(str(base) + ext).is_dir():
+      return str(base) + ext
+  return ''
+
+
+#------------------------------------------------------------- sky positions
+#Positions are converted with CASA's measures, never through an exported FITS header:
+#for old data CASA's frame is B1950_VLA, which exportfits labels EQUINOX 1979.9 and
+#every other reader then misplaces by ~20 arcmin.
+
+def sky_to_pixel(image, ra_deg, dec_deg):
+  '''Pixel (x, y) of a J2000 position in `image`, or None. Converted into the image's
+  own frame first, so this is right for an image in B1950_VLA as well as J2000.'''
+  import casatools
+  ia, me = casatools.image(), casatools.measures()
+  try:
+    ia.open(str(image))
+    coords = ia.coordsys()
+    frame = coords.referencecode('direction')[0]
+    direction = me.direction('J2000', f"{float(ra_deg)}deg", f"{float(dec_deg)}deg")
+    if frame != 'J2000':
+      me.doframe(coords.epoch())   #the B1950 frames want the observing epoch
+      direction = me.measure(direction, frame)
+    world = coords.referencevalue(format='n')['numeric']
+    world[0], world[1] = direction['m0']['value'], direction['m1']['value']
+    pixel = coords.topixel(world)['numeric']
+    coords.done()
+    return float(pixel[0]), float(pixel[1])
+  except Exception as exc:
+    print(f"image_data: could not place ({ra_deg}, {dec_deg}) on {image}: {exc}")
+    return None
+  finally:
+    ia.close()
+
+
+def field_centre_j2000(vis, field=0):
+  '''(ra_deg, dec_deg) of a field's phase centre in J2000, from whatever frame the
+  measurement set records it in. None if unreadable.'''
+  import casatools
+  msmd, me, qa = casatools.msmetadata(), casatools.measures(), casatools.quanta()
+  try:
+    msmd.open(str(vis))
+    centre = msmd.phasecenter(field)
+    if centre['refer'] != 'J2000':
+      me.doframe(msmd.timerangeforobs(0)['begin'])
+      centre = me.measure(centre, 'J2000')
+    return (qa.convert(centre['m0'], 'deg')['value'] % 360.0,
+            qa.convert(centre['m1'], 'deg')['value'])
+  except Exception as exc:
+    print(f"image_data: could not read the phase centre of {vis}: {exc}")
+    return None
+  finally:
+    msmd.close()
+
+
+def field_frame(vis, field=0):
+  '''The frame a measurement set records a field's phase centre in ('J2000',
+  'B1950_VLA', ...), or '' if unreadable.'''
+  import casatools
+  msmd = casatools.msmetadata()
+  try:
+    msmd.open(str(vis))
+    return str(msmd.phasecenter(field)['refer'])
+  except Exception:
+    return ''
+  finally:
+    msmd.close()
+
+
+def mean_frequency_ghz(vis):
+  '''Mean frequency of a measurement set's spectral windows, GHz, or None.'''
+  import casatools
+  msmd = casatools.msmetadata()
+  try:
+    msmd.open(str(vis))
+    freqs = [msmd.meanfreq(spw) for spw in range(msmd.nspw())]
+    return sum(freqs) / len(freqs) / 1e9 if freqs else None
+  except Exception as exc:
+    print(f"image_data: could not read the frequency of {vis}: {exc}")
+    return None
+  finally:
+    msmd.close()
+
+
+def separation_arcsec(ra1_deg, dec1_deg, ra2_deg, dec2_deg):
+  '''Angular separation of two J2000 positions given in degrees, arcsec.'''
+  from astropy.coordinates import SkyCoord
+  first = SkyCoord(float(ra1_deg) * u.Unit('deg'), float(dec1_deg) * u.Unit('deg'))
+  second = SkyCoord(float(ra2_deg) * u.Unit('deg'), float(dec2_deg) * u.Unit('deg'))
+  return float(cast(Any, first.separation(second)).arcsec)
+
+
+def pixel_value(image, x, y):
+  '''The image value at the pixel nearest (x, y), or None.'''
+  xi, yi = int(round(x)), int(round(y))
+  try:
+    data = (ct.imval(imagename=str(image), box=f"{xi},{yi},{xi},{yi}") or {}).get('data')
+  except Exception:
+    return None
+  return first_value(None if data is None else list(_flat(data)))
+
+
+def region_peak(image, x, y, radius_px):
+  '''(peak value, (px, py)) inside a circle of radius_px pixels around (x, y), or
+  (None, None) when it cannot be measured.'''
+  region = f"circle[[{x:.2f}pix,{y:.2f}pix],{max(float(radius_px), 1.0):.2f}pix]"
+  try:
+    stats = imstat_dict(imagename=str(image), region=region)
+  except Exception:
+    return None, None
+  position = stats.get('maxpos')
+  if position is None:
+    return None, None
+  return first_value(stats.get('max')), (int(position[0]), int(position[1]))
+
+
+def _flat(values):
+  '''Every element of a (possibly nested) array, flattened.'''
+  try:
+    import numpy as np
+    return np.ravel(values)
+  except Exception:
+    return values
+
+
 #----------------------------------------------------------------- header access
 
 def read_header(image):
@@ -263,9 +392,9 @@ def measure_off_source_rms(image, options=None):
     values = [rms for rms in (_box_rms(image, box) for box in corner_boxes(*shape)) if rms]
     if len(values) >= 2:
       return median(values), 'corner-boxes'
-  mad_sigma = _mad_sigma(image)
-  if mad_sigma:
-    return mad_sigma, 'mad'
+  sigma = mad_sigma(image)
+  if sigma:
+    return sigma, 'mad'
   return None, 'none'
 
 
@@ -334,7 +463,7 @@ def corner_boxes(nx, ny):
           for x in (near_x, far_x) for y in (near_y, far_y)]
 
 
-def _mad_sigma(image):
+def mad_sigma(image):
   '''Robust whole-image noise: 1.4826 * the median absolute deviation, which
   imstat reports directly as medabsdevmed.'''
   try:

@@ -4,9 +4,11 @@
     ./run_harness.py full-auto "3C 15" "3C 31, AL0405"             # deepest obs of each
     ./run_harness.py full-auto --targets-file ../names.txt --preset full_auto_selfcal
     ./run_harness.py lightcurve "4C 35.03" --bands C               # every epoch < 100"
+    ./run_harness.py lightcurve "4C 35.03" --bands C --sigma 3     # detect down to 3 sigma
     ./run_harness.py lightcurve "4C 35.03" --preset lightcurve_deep  # interactive, attended
     ./run_harness.py resume sweeps/full-auto_full_auto_20260924-150000
     ./run_harness.py summarize sweeps/lightcurve_lightcurve_20260924-161811
+    ./run_harness.py summarize sweeps/lightcurve_lightcurve_20260924-161811 --sigma 3
     ./run_harness.py presets
 
 A target is a source name, or 'name, PROJ' to hold it to a project. Settings come
@@ -30,7 +32,9 @@ from harness import sweep as sweep_module                  # noqa: E402
 #flag dest -> preset option. Defaults are None throughout: only a flag actually
 #given overrides the preset.
 RUN_OPTION_FLAGS = ('batch_size', 'cores', 'timeout', 'cleanup')
-SELECTION_OPTION_FLAGS = ('bands', 'projects', 'before_year', 'max_gb', 'limit', 'source_name')
+SELECTION_OPTION_FLAGS = ('bands', 'projects', 'before_year', 'max_gb', 'limit', 'source_name',
+                          'b1950_search')
+MEASURE_OPTION_FLAGS = ('sigma',)
 
 
 def _run_flags(parser):
@@ -71,6 +75,11 @@ def parse_args(argv=None):
     sub.add_argument('--limit', type=int, help='at most N observations per target')
     sub.add_argument('--source-name', choices=('archive', 'input'),
                      help="'archive' names the target as the observation does; 'input' as you did")
+    sub.add_argument('--no-b1950-search', dest='b1950_search', action='store_const', const=False,
+                     help="search the archive on J2000 coordinates only (skips early data the "
+                          "archive lists at untransformed B1950 positions)")
+    sub.add_argument('--sigma', type=float,
+                     help='detection threshold at the target, in off-source rms (default 5)')
     if 'all_obs' in kind.DEFAULT_OPTIONS:
       sub.add_argument('--all-obs', action='store_const', const=True,
                        help='run every runnable observation, not just the deepest')
@@ -87,6 +96,8 @@ def parse_args(argv=None):
   sub = commands.add_parser('summarize', help="rebuild a sweep's summary (the lightcurve "
                                               "plot) from the runs that have passed")
   sub.add_argument('sweep_dir', help='the sweep folder')
+  sub.add_argument('--sigma', type=float,
+                   help='re-decide detections at this threshold, without re-imaging')
 
   commands.add_parser('presets', help='list the presets and what they are for')
   return parser.parse_args(argv)
@@ -139,6 +150,11 @@ def main(argv=None):
     if not hasattr(KINDS.get(sweep.kind), 'summarize'):
       print(f"error: the {sweep.kind} harness has no summary", file=sys.stderr)
       return 2
+    if args.sigma is not None:
+      if not args.sigma > 0:
+        print("error: --sigma must be positive", file=sys.stderr)
+        return 2
+      sweep.options['sigma'] = args.sigma   #this summary only; sweep.json is untouched
     return 0 if sweep_module.summarize(sweep) else 1
 
   if args.command == 'resume':
@@ -159,7 +175,7 @@ def main(argv=None):
                                 f"harness, not {kind.NAME}")
     options = presets.resolve_options(
       kind.DEFAULT_OPTIONS, preset,
-      overrides(args, RUN_OPTION_FLAGS + SELECTION_OPTION_FLAGS
+      overrides(args, RUN_OPTION_FLAGS + SELECTION_OPTION_FLAGS + MEASURE_OPTION_FLAGS
                 + tuple(kind.DEFAULT_OPTIONS)))
     presets.validate(preset, options)
     check_attended(options)

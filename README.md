@@ -77,6 +77,10 @@ Ka, and Q**.
   sources (opt-in).
 - **Per-run results folder** — collects the science products (FITS, primary-beam-
   corrected image, PNG preview, clean mask, listobs, and the CASA log) in one place.
+- **Measured where the target is** — the image is made in J2000 and centred on the
+  target's NED position, and the target is measured there: detected when the peak within
+  a beam of it reaches `detection_sigma` (default 5) times the off-source rms, an upper
+  limit otherwise. Never a fit to whatever happens to be brightest in the field.
 - **Reproducible runs** — every run emits an `import.json` recipe *and* a standalone
   `replay.py` of the exact CASA task calls (with a provenance header) for hands-free,
   mask-aware reproduction.
@@ -206,6 +210,28 @@ tables must be downloaded once. In
 [`src/HVLA_image_machine.py`](src/HVLA_image_machine.py), uncomment the
 `update_config()` call inside `main()` where noted for your first run.
 
+### Credentials
+
+`Creds.json` at the project root (gitignored; a symlink to a private copy elsewhere
+works) holds what the archive search, the download and the submission form need.
+Each reader checks only the keys it uses:
+
+```jsonc
+{
+  "host": "...",               // the machine radio_search2 runs on, over SSH
+  "user": "...",
+  "password": "...",           // optional: leave it out to log in with your ssh keys
+  "key_filename": "...",       // optional: a specific private key
+  "radio_search_path": "...",  // the directory holding radio_search2 on that host
+  "delos_url": "...",          // http base of the archive on the Delos NAS (<year>/<file>)
+  "delos_path": "...",         // optional: where Delos is mounted (read-only NFS, say);
+                               //   its files are then linked from the mount, not copied
+  "archive_form_url": "..."    // the submission form's /viewform link, for --archive
+}
+```
+
+Keep it private (`chmod 600`): it holds a password.
+
 ## Providing Observations
 
 Two routes: let the tool find and download the observation for you, or point it at a
@@ -328,7 +354,8 @@ src/
 │   └── parse_listobs.py       #   listobs parsing + array-config / solint helpers
 └── image_generation/          # CASA imaging
     ├── image_maker.py         #   tclean, self-cal ladder, results folder + replay
-    └── source_fit.py          #   2D Gaussian fit of the target -> <name>.fit.json
+    └── source_fit.py          #   target measured at its NED position: detection or upper
+                               #   limit, 2D Gaussian fit -> <name>.fit.json
 
 tools/
 └── install_alias.sh           # One-time shell-function setup (see Installation)

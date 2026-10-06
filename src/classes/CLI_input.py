@@ -29,6 +29,7 @@ class CLI:
     if options.decision('flagging') in (VERIFY, MANUAL):
       options.flagging_methods = CLI.getFlaggingMethods()
     options.min_snr = CLI.getMinSNR()
+    options.detection_sigma = CLI.getDetectionSigma()
     options.image_filename = CLI.getImageFilename()
     options.image_size = CLI.getImageSize()
     options.interactive_image = CLI.getYesNo("Enable interactive imaging?")
@@ -58,6 +59,7 @@ class CLI:
     if options.decision('flagging') in (VERIFY, MANUAL):
       options.flagging_methods = CLI.getFlaggingMethods()
     options.min_snr = CLI.getMinSNR()
+    options.detection_sigma = CLI.getDetectionSigma()
     options.image_filename = CLI.getImageFilename()
     options.image_size = CLI.getImageSize()
     options.interactive_image = CLI.getYesNo("Enable interactive imaging?")
@@ -418,6 +420,23 @@ class CLI:
         if snr > 0:
           return snr
         print("SNR must be positive.")
+      except ValueError:
+        print("Invalid input. Please enter a number.")
+
+  @staticmethod
+  def getDetectionSigma() -> float:
+    '''Detection threshold at the target position, in off-source rms; enter for the
+    default. Below it the target is reported as an upper limit of this many rms.'''
+    while True:
+      val = input(f"Detection threshold at the target, in sigma "
+                  f"(or press enter for {DETECTION_SIGMA:g}): ").strip()
+      if val == '':
+        return DETECTION_SIGMA
+      try:
+        sigma = float(val)
+        if sigma > 0:
+          return sigma
+        print("The threshold must be positive.")
       except ValueError:
         print("Invalid input. Please enter a number.")
 

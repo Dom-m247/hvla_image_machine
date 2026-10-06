@@ -133,7 +133,8 @@ def select(sweep, kind, oversight):
   options = sweep.options
   selections, skipped, seen = [], [], set()
   try:
-    selector = Selector(before_year=options['before_year'])
+    selector = Selector(before_year=options['before_year'],
+                        b1950_search=options.get('b1950_search', True))
     selector.__enter__()
   except Exception as exc:
     print(f"!! could not open a radio_search session: {exc!r}")
@@ -166,6 +167,7 @@ def select(sweep, kind, oversight):
       for selection in chosen:
         oversight.event('selected', slug=selection.slug, date=selection.date,
                         sensitivity=selection.sensitivity, separation=selection.separation,
+                        search_epoch=selection.search_epoch,
                         gb=round(selection.total_mb / 1024, 2))
       selections += chosen
   finally:
@@ -189,8 +191,11 @@ def select(sweep, kind, oversight):
 def _print_table(selections):
   print(f"  {len(selections)} observation(s):")
   for index, s in enumerate(selections, 1):
+    #B1950: found on B1950 coordinates -- the archive's position was never
+    #transformed to J2000, so this separation is the one measured that way
+    where = s.separation + (' (B1950)' if s.search_epoch == 'B1950' else '')
     print(f"  {index:>3}. {s.label:<24} {s.config + '-config':<10} {s.date:<10} "
-          f"{s.sensitivity:<12} {s.separation:<7} {s.archive_name}")
+          f"{s.sensitivity:<12} {where:<16} {s.archive_name}")
 
 
 def _selection_failed(sweep, oversight, selection, exc):
@@ -218,8 +223,11 @@ def run_one(selection, sweep, cores, oversight, dry_run=False, fresh=False):
   to the next batch.
   """
   options, label = sweep.options, f"{selection.name}: {selection.label}"
+  overrides = dict(sweep.preset.seed)
+  if options.get('sigma'):   #--sigma beats the preset's detection_sigma
+    overrides['detection_sigma'] = options['sigma']
   try:
-    run_seed = seed.build(selection, sweep.preset.seed, options['source_name'])
+    run_seed = seed.build(selection, overrides, options['source_name'])
     run_dir = runner.prepare(selection, sweep.runs_dir, run_seed, fresh=fresh)
   except Exception as exc:
     print(f"  !! {label}: could not prepare the run directory: {exc}")

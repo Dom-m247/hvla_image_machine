@@ -1,6 +1,6 @@
 {
   "harness": "lightcurve",
-  "label": "every epoch within 100\"; fixed imaging so epochs compare",
+  "label": "every epoch within 100\"; same imaging recipe for every epoch, measured at the target",
   "options": {
     "batch_size": 4,
     "max_sep_arcsec": 100,
@@ -9,11 +9,10 @@
   "seed": {
     "decisions": {"self_cal": "off"},
     "image_size": [1024, 1024],
-    "use_custom_cell_size": true,
-    "cell_size": "0.08arcsec",
     "deconvolver": "mtmfs",
     "weighting": "briggs",
     "robust": 0.5,
+    "detection_sigma": 5.0,
     "mask": ""
   }
 }

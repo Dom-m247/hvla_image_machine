@@ -117,6 +117,27 @@ FIT_BOX_MIN_PIXELS = 32             #...but never smaller than this
 FIT_BOX_MAX_IMAGE_FRACTION = 0.25   #...and never more than this fraction of the shorter image
                                     #side, so an over-sampled image (many pixels per beam)
                                     #can't grow the box back to the whole frame
+#--- measuring the target where the catalogue puts it ---
+#The target is measured at its NED position, not wherever the image happens to peak:
+#otherwise a brighter field source, a sidelobe or a noise streak is fitted and
+#reported as the target. Below the threshold the result is an upper limit.
+DETECTION_SIGMA = 5.0               #default detection threshold, in off-source rms;
+                                    #options.detection_sigma (import.json) overrides it
+DETECTION_SEARCH_BEAMS = 1.0        #the target's peak is looked for within this many beams
+                                    #(major axis) of its catalogue position
+FIT_TARGET_BOX_BEAMS = 3            #imfit box half-side, in beams, around the target
+FIT_MIN_SNR = 3.0                   #below this S/N no Gaussian is fitted at all (it would fit
+                                    #noise); kept below DETECTION_SIGMA so a sweep can be
+                                    #re-thresholded down to it without re-imaging
+#Image centre: the target, when it is inside the primary beam. Without a catalogue
+#position, or with the target this far down the beam, the pointing centre instead.
+PB_FWHM_ARCMIN_GHZ = 45.0           #classic VLA 25 m primary beam FWHM ~ 45'/freq(GHz)
+TARGET_CENTRE_MIN_PB = 0.1          #don't centre the image on a target below this response
+#--- image quality ---
+#Stokes V is effectively source-free here, so Stokes I noise well above V's is structure
+#left in I: the image is limited by dynamic range or calibration, not by noise. V is
+#not the thermal noise itself -- bad data and short snapshots raise both together.
+NOISE_RATIO_WARN = 2.0              #flag an image whose I/V noise ratio is above this
 
 #class Band:
   #band name, GHZ range, MHZ range, Angular res, Solint?

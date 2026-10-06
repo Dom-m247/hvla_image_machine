@@ -10,8 +10,8 @@ import json
 from pathlib import Path
 
 from .pipeline import (
-  AUTO, CLEAN_ROBUST, DECISIONS, DEFAULT_IMAGE_SIZE, FLAG_METHODS_DEFAULT,
-  IMPORT_JSON, MIN_SNR, OFF, Options, delocalize,
+  AUTO, CLEAN_ROBUST, DECISIONS, DEFAULT_IMAGE_SIZE, DETECTION_SIGMA,
+  FLAG_METHODS_DEFAULT, IMPORT_JSON, MIN_SNR, OFF, Options, delocalize,
 )
 
 #Filled from the selected observation, never from a preset: a preset that set
@@ -49,10 +49,9 @@ def build(selection, overrides=None, source_name='archive'):
     'archive_files': paths,
     'band': selection.band,
     'proj_code': selection.proj_code,
-    #NED-derived fields. IMPORT_FIELDS omits these on export, but
-    #process_input_dict reads them back when present -- and it does not re-derive
-    #them, so an import without them has an empty search_alias and no SIMBAD
-    #aliases to fall back on when the target's name misses in listobs.
+    #NED-derived fields. Nothing re-derives them on import, so without them a run
+    #has no SIMBAD aliases to fall back on when the target's name misses in listobs,
+    #and no position to image and measure the target at.
     'search_alias': selection.alias,
     'source_ra': selection.ra,
     'source_decl': selection.decl,
@@ -73,6 +72,8 @@ def recipe(overrides=None):
     'reference_antenna': AUTO,
     'flagging_methods': list(FLAG_METHODS_DEFAULT),
     'min_snr': MIN_SNR,
+    #the target counts as detected at this many off-source rms; below, an upper limit
+    'detection_sigma': DETECTION_SIGMA,
     #no recorded answers: every stage resolves itself from the data
     'flux_cal_name': '', 'flux_cal_manual': None, 'phase_cal_name': '',
     'flag_selection': None, 'self_cal_plan': [],
@@ -125,6 +126,9 @@ def _check(seed):
       f"{k}={v!r} (one of {', '.join(DECISIONS[k]['modes'])})" for k, v in bad.items()))
   if seed['use_custom_cell_size'] and not seed.get('cell_size'):
     raise ValueError("use_custom_cell_size is set but no cell_size was given")
+  sigma = seed.get('detection_sigma', DETECTION_SIGMA)
+  if not isinstance(sigma, (int, float)) or sigma <= 0:
+    raise ValueError(f"detection_sigma must be a positive number, not {sigma!r}")
   #process_input_dict reads self_cal_cycles with [] whenever self-cal is on
   if seed['decisions'].get('self_cal', OFF) != OFF and 'self_cal_cycles' not in seed:
     raise ValueError("self_cal is on but no self_cal_cycles was given")

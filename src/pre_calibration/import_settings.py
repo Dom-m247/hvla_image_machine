@@ -43,8 +43,11 @@ def revmove_path(archivePath):
   path, root = Path(archivePath), creds.project_root()
   if path.parts and path.parts[0] == FOLDER_NAME:
     return str(path)
+  full = path if path.is_absolute() else root / path
   try:
-    rel = (path if path.is_absolute() else root / path).resolve().relative_to(root)
+    #resolve the folder, not the file: an archive file symlinked from a mounted
+    #Delos sits in data_archive/ even though the link itself points off the project
+    rel = (full.parent.resolve() / full.name).relative_to(root)
   except ValueError:
     return str(path)  #outside the project: not localizable, store as given
   return str(Path(FOLDER_NAME) / rel)

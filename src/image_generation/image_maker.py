@@ -8,6 +8,7 @@ from classes import run_log
 from typing import Any
 from pathlib import Path
 import casatasks as ct
+import math
 import os
 import shutil
 from classes.Loading_Animation import *
@@ -47,7 +48,7 @@ class Cleaner:
     '''tclean params shared by every imaging cycle, so the initial clean and the cycles
     scored against it are made identically. Callers add imagename, niter and the mask
     kwargs. Needs options.cell_size set (find_cell_size, in initial_cycle).'''
-    return {
+    kwargs = {
       'vis': options.calibrated_filename + '.ms',
       'deconvolver': options.deconvolver,
       'smallscalebias': CLEAN_SMALL_SCALE_BIAS,
@@ -61,6 +62,70 @@ class Cleaner:
       'imsize': options.image_size,
       'pblimit': CLEAN_PBLIMIT,
     }
+    if phasecenter := Cleaner._phasecenter(options):
+      kwargs['phasecenter'] = phasecenter
+    return kwargs
+
+  @staticmethod
+  def _phasecenter(options:Options) -> str:
+    '''The image centre every clean in the run shares, settled once.
+
+    The target's NED position when it is inside the primary beam, so the target is
+    the centre pixel wherever the observation pointed; otherwise the pointing centre.
+    Either way in J2000: old data record positions in B1950_VLA, which CASA reads
+    correctly but exportfits writes as EQUINOX 1979.9, and every other reader (DS9,
+    astropy) then misplaces the image by ~20 arcmin. '' -- tclean's own default --
+    for J2000 data with no catalogue position, which change nothing.
+
+    The phase centre moves the image grid only: the primary beam stays on the
+    pointing, so impbcor still corrects for the target's offset from it.'''
+    if options.image_phasecenter is not None:
+      return options.image_phasecenter
+    vis = options.calibrated_filename + '.ms'
+    pointing = image_data.field_centre_j2000(vis)
+    target = source_fit.target_position(options)
+    centre, why = None, 'the pointing centre (no catalogue position)'
+    if target and pointing:
+      offset = image_data.separation_arcsec(*target, *pointing)
+      ghz = image_data.mean_frequency_ghz(vis)
+      #Gaussian primary beam: good enough to tell "near the edge" from "inside"
+      response = (math.exp(-4 * math.log(2) * (offset / 60 * ghz / PB_FWHM_ARCMIN_GHZ) ** 2)
+                  if ghz else 1.0)
+      if response >= TARGET_CENTRE_MIN_PB:
+        centre, why = target, f'the target (NED), {offset:.1f}" from the pointing centre'
+      else:
+        why = (f"the pointing centre: the target is {offset / 60:.1f}' from it, where the "
+               f"primary beam is down to ~{response:.2f}")
+        print(f"WARNING: target is {offset / 60:.1f}' from the pointing centre, too far "
+              f"down the primary beam (~{response:.2f}) to centre the image on it.")
+    if centre is None and pointing and image_data.field_frame(vis) != 'J2000':
+      centre = pointing
+    options.image_phasecenter = (f"J2000 {centre[0]:.9f}deg {centre[1]:.9f}deg"
+                                 if centre else '')
+    run_log.note('IMAGING', 'Image centre',
+                 f"{options.image_phasecenter or 'pointing centre, as recorded'}   ({why})")
+    return options.image_phasecenter
+
+  @staticmethod
+  def stokes_v_noise(options:Options):
+    '''The noise (1.4826 x MAD) of a Stokes V dirty image made exactly like the
+    others: the yardstick for the Stokes I noise. Circular polarization is
+    negligible for these sources, so Stokes I noise well above V's is structure the
+    imaging left in I -- a dynamic-range or calibration limit. It is not the thermal
+    noise itself: bad data and short snapshots raise V as much as I. None when V
+    cannot be formed (single-polarization data) or measured.'''
+    name = options.image_filename + '_V'
+    Cleaner._clear_image(name)
+    try:
+      ct.tclean(**{**Cleaner._tclean_kwargs(options), 'imagename': name, 'stokes': 'V',
+                   'niter': 0, 'interactive': False, 'savemodel': 'none'})
+    except Exception as e:
+      print(f"Stokes V noise skipped: {e}")
+      return None
+    sigma = image_data.mad_sigma(image_data.restored_image(name))
+    if sigma:
+      print(f"Stokes V noise: {sigma:.3e} Jy/beam")
+    return sigma
 
   @staticmethod
   def initial_cycle(options:Options, niter=CLEAN_NITER):
@@ -647,6 +712,11 @@ class Cleaner:
     options.best_image_base = best['base']
     print(f"Best image: {best['base']} (cycle {best['cycle']}, DR {best['dr']:.1f})")
     run_log.event(f"best image: {best['base']} (cycle {best['cycle']}, DR {best['dr']:.1f})")
+    #Stokes V noise, the yardstick the source fit holds the image noise against
+    try:
+      options.stokes_v_rms = Cleaner.stokes_v_noise(options)
+    except Exception as e:
+      print(f"Stokes V noise reference failed: {e}")
     #gather the final products (FITS, pbcor, listobs, log) into a results folder;
     #optional core subtraction -- a separate product (the jet image), not a candidate
     #for best: it is a different source, so its dynamic range is not comparable.

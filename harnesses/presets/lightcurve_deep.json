@@ -9,11 +9,10 @@
   "seed": {
     "decisions": {"self_cal": "off"},
     "image_size": [1024, 1024],
-    "use_custom_cell_size": true,
-    "cell_size": "0.08arcsec",
     "deconvolver": "mtmfs",
     "weighting": "briggs",
     "robust": 0.5,
+    "detection_sigma": 5.0,
     "interactive_image": true,
     "mask": ""
   }

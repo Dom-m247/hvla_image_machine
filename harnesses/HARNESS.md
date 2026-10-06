@@ -8,10 +8,12 @@ recorded in the sweep's oversight log and does not stop the runs beside it.
 bash tools/run_harness.sh full-auto "3C 15" "3C 31, AL0405"              # deepest obs of each
 bash tools/run_harness.sh full-auto --targets-file names.txt --preset full_auto_selfcal
 bash tools/run_harness.sh lightcurve "4C 35.03" --bands C                # every epoch < 100"
+bash tools/run_harness.sh lightcurve "4C 35.03" --bands C --sigma 3      # detect down to 3 sigma
 bash tools/run_harness.sh lightcurve "4C 35.03" --preset lightcurve_deep # interactive, attended
 bash tools/run_harness.sh full-auto --targets-file names.txt --select-only   # search + download only
 bash tools/run_harness.sh resume harnesses/sweeps/full-auto_full_auto_20260924-150000  # re-run what didn't pass
 bash tools/run_harness.sh summarize harnesses/sweeps/lightcurve_lightcurve_20260924-161811  # re-plot a lightcurve
+bash tools/run_harness.sh summarize harnesses/sweeps/lightcurve_lightcurve_20260924-161811 --sigma 3  # ...at 3 sigma
 bash tools/run_harness.sh presets                                        # list presets
 ```
 
@@ -44,37 +46,83 @@ Calling it directly is the same thing:
 Both keep only observations from before `before_year` (2009). The Delos download
 only handles classic-VLA archive segments.
 
+Both search the archive twice: on the target's J2000 coordinates, and on its B1950
+coordinates (`EPOCH 1950`). The archive lists some early observations at positions
+never transformed to J2000, and the J2000 search misses those outright or reports
+them at the wrong separation (a 1983 A2218 pointing really 60" away comes back as
+426"). A run both searches find keeps the row that puts it nearer the target; the
+selection table marks one found on B1950 coordinates `(B1950)`.
+`--no-b1950-search` skips the second search.
+
+`--bands` is passed to the archive search itself, not only applied afterwards: an
+all-band search takes minutes.
+
+## Where the target is measured
+
+Every run images and measures the target at its catalogue position (NED, J2000),
+not wherever the image happens to peak:
+
+- The image is centred on the target when it is inside the primary beam (the
+  pointing centre otherwise), and is made in J2000. Old data record positions as
+  B1950_VLA, which CASA handles correctly but `exportfits` writes as `EQUINOX 1979.9`
+  -- every other reader (DS9, astropy) would put such an image ~20' from where it is.
+- The target is **detected** when the brightest pixel within one beam of its position
+  reaches `detection_sigma` (default **5**) times the off-source rms. A 2D Gaussian is
+  then fitted in a box around it.
+- Otherwise the result is an **upper limit** of `detection_sigma` times the rms.
+- A Gaussian is fitted whenever the peak reaches 3 sigma (`FIT_MIN_SNR`), so a sweep can
+  be re-thresholded down to that without re-imaging.
+
+`<name>.fit.json` records the target position, its separation from the pointing
+centre (from the data, converted by CASA), the primary-beam response there, the
+detection (peak, S/N, threshold, upper limit) and the fit, if any. It also records
+the noise of a Stokes V image made like the others. Stokes I noise well above it means
+the image is limited by dynamic range or calibration rather than noise. It is not the
+thermal noise itself: bad data and short snapshots raise V as much as I.
+
+Set the threshold with `--sigma` on a sweep, `detection_sigma` in a preset's seed, or
+(for a single run) at the CLI prompt or in `import.json`.
+
 ## Lightcurves
 
 After every pass, and again after each `resume`, the `lightcurve` harness collects
-the 2D Gaussian fit the pipeline makes of each passed run's final image
+the measurement the pipeline makes of each passed run's final image
 (`<name>.fit.json` in its results folder) and writes, into the sweep folder:
 
-- `lightcurve.csv`: one row per passed run with a fit, oldest first. Includes the
-  integrated and peak flux density with their errors, frequency, observing time
-  (ISO and MJD), primary-beam response, pointing separation, array config and beam.
+- `lightcurve.csv`: one row per passed run with a fit record, oldest first. Includes
+  detection (S/N, threshold), the integrated and peak flux density with their errors
+  or the upper limit, frequency, observing time (ISO and MJD), primary-beam response,
+  the pointing separation from the data and from the archive, the image noise in
+  Stokes I and V, array config and beam.
 - `lightcurve_<source>.png`: integrated and peak flux density against time, one row
-  of panels per band.
+  of panels per band; detections as points, upper limits as open triangles.
 
 Each time is the middle of the target's observing span, from the results folder's
 listobs. When that listobs is missing, the archive date is used instead.
 
-The pipeline fits the flat-noise image, which is not corrected for the primary
+Measurements are made on the flat-noise image, which is not corrected for the primary
 beam. That attenuates a source pointed off-centre, and this harness takes pointings
-up to `max_sep_arcsec` away. So every flux and error is divided by the primary-beam
-response at the fitted peak, read from `<name>.fits` and `<name>.pbcor.tt0`.
+up to `max_sep_arcsec` away. So every flux, error and limit is divided by the
+primary-beam response at the target.
 
 An epoch is listed in the CSV but left off the plot when:
 
-- the fit did not converge
-- there is no primary-beam response to correct it with
+- the data put the pointing further than `max_sep_arcsec` from the target, whatever
+  the archive said (an early observation found on B1950 coordinates can coincide by
+  chance with a field that is really arcminutes away)
+- the target is outside the image, or has no primary-beam response
 - it has no observing time
 
-The CSV's `note` column says which. Error bars are imfit's statistical errors only,
-with no flux-scale term.
+The `note` column says which. It also notes a plotted epoch whose pointing separation
+disagrees with the archive's by more than 10", and a detection whose Gaussian did not
+converge or landed more than a beam from the target -- plotted from its peak pixel,
+with no integrated flux. Error bars are imfit's statistical errors only, with no
+flux-scale term.
 
-`summarize <sweep folder>` rebuilds both files from whatever has passed so far,
-including for a sweep made before this existed.
+`summarize <sweep folder>` rebuilds both files from whatever has passed so far, and
+`summarize <sweep folder> --sigma N` re-decides every epoch at threshold N from the
+recorded S/N, without re-imaging. A run made before target-based measurement is read
+the old way, from the Gaussian at the image peak, and noted as such.
 
 ## Targets
 
@@ -99,9 +147,10 @@ path to a preset file somewhere else.
 
 **`options`** can be `batch_size`, `cores`, `timeout`, `bands`, `projects`,
 `before_year`, `max_gb`, `limit` (per target), `source_name` (`archive`|`input`),
-`cleanup` and `attended`. `full-auto` also takes `all_obs`, and `lightcurve` takes
-`max_sep_arcsec`. The flag for each one is the same name with dashes, e.g.
-`--batch-size`, except `--no-cleanup` and `--max-sep`.
+`cleanup`, `attended`, `sigma` (detection threshold; overrides the seed's
+`detection_sigma`) and `b1950_search`. `full-auto` also takes `all_obs`, and
+`lightcurve` takes `max_sep_arcsec`. The flag for each one is the same name with
+dashes, e.g. `--batch-size`, except `--no-cleanup`, `--no-b1950-search` and `--max-sep`.
 
 **`seed`** sets any `import.json` key except the ones that describe the
 observation (`source`, `archive_file(s)`, `band`, `proj_code`, NED fields). Those
@@ -126,12 +175,14 @@ to start if a preset:
 |---------------------|------------|
 | `full_auto`         | auto cal/flag/refant, one clean, no self-cal |
 | `full_auto_selfcal` | as above, plus the scored self-cal ladder (4 cycles) |
-| `lightcurve`        | fixed imaging (size, cell, weighting) so epochs can be compared; parallel |
+| `lightcurve`        | the same imaging recipe for every epoch, measured at the target (5 sigma); parallel |
 | `lightcurve_deep`   | as `lightcurve`, cleaned interactively; attended |
 
-The lightcurve presets use a fixed `cell_size` of `0.08arcsec`, which suits
-X-band A-config. Set it for your band and array, and pass `--bands` so every
-epoch really is comparable.
+The lightcurve presets leave the cell size to the pipeline: a tenth of the beam for
+each epoch's band and array configuration. A fixed cell cannot suit both: an
+archive's epochs span A to D configuration, and the 0.08" these presets once fixed
+gave a 1024-pixel image only 82" across, smaller than the D-configuration L-band beam.
+Pass `--bands` so every epoch really is comparable.
 
 ## Attended sweeps
 

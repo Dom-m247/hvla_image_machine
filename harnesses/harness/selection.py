@@ -84,12 +84,17 @@ class Selection:
   sensitivity: str = ''     #as reported, unit attached
   sensitivity_jy: float | None = None
   separation: str = ''      #pointing offset from the source, as reported (e.g. '0.7"')
+  #the coordinates the archive search found it on: 'J2000', or 'B1950' for an early
+  #observation the archive lists at positions never transformed to J2000 (whose
+  #separation is only right when measured on B1950 coordinates)
+  search_epoch: str = ''
   ra: str = ''
   decl: str = ''
   redshift: str = ''
   #the segment's archive files as {'name', 'date', 'size_mb'}. The date is kept per file,
-  #not taken from the observation row, because it is what DelosDownload reads to
-  #pick the Delos year directory -- and a segment can straddle a year boundary.
+  #not taken from the observation row, because a segment can straddle a year boundary.
+  #DelosDownload takes the Delos year directory from the file name, and falls back to
+  #this date only for a name it cannot read a year from.
   files: list = field(default_factory=list)
   archive_files: list = field(default_factory=list)  #local paths, set by download()
 
@@ -130,6 +135,22 @@ def normalize_band(band):
   when the pipeline has no entry for it."""
   code = BAND_ALIASES.get(str(band).strip(), str(band).strip())
   return code if code in BAND_GHZ_RANGES else None
+
+
+def canonical_band(band):
+  """A band as the user typed it ('c', 'ku', 'U') in the pipeline's spelling ('C',
+  'Ku'), which is also radio_search2's; returned as given when it is no known band."""
+  text = str(band).strip()
+  spellings = {code.upper(): code for code in BAND_GHZ_RANGES}
+  spellings.update({alias.upper(): code for alias, code in BAND_ALIASES.items()})
+  return spellings.get(text.upper(), text)
+
+
+def _depth_then_offset(observation):
+  """Sort key: deepest first, then nearest -- unreadable values last."""
+  depth = sensitivity_jy(observation)
+  offset = parse_separation_arcsec(getattr(observation, 'separation', ''))
+  return (depth is None, depth or 0.0, offset is None, offset or 0.0)
 
 
 def parse_separation_arcsec(text):
@@ -216,11 +237,17 @@ def rank_candidates(observations, before_year=PRE_EVLA_YEAR, projects=None, band
 
 
 class Selector:
-  """Chooses a source's observations over one radio_search2 session."""
+  """Chooses a source's observations over one radio_search2 session.
 
-  def __init__(self, before_year=PRE_EVLA_YEAR, log=print):
+  `b1950_search` adds a second search on the source's B1950 coordinates. The
+  archive lists some early observations at positions never transformed to J2000:
+  the J2000 search misses those outright (AB0216's 1983 A2218 data) or reports them
+  at the wrong separation (426" for a 1983 pointing that is really 60" away)."""
+
+  def __init__(self, before_year=PRE_EVLA_YEAR, log=print, b1950_search=True):
     self.before_year = before_year
     self.log = log
+    self.b1950_search = b1950_search
     self._rs = None
     self._archfiles = {}   #proj_code -> [nrao_segment]; a project is asked about once
 
@@ -267,12 +294,21 @@ class Selector:
     """
     resolved = self._resolve(source_name)
     projects = {p.upper() for p in projects or ()}
-    bands = {(normalize_band(b) or b).upper() for b in bands or ()}
+    #searched for directly -- an all-band search takes minutes -- and still filtered
+    #afterwards, since radio_search2's band edges are its own
+    wanted = [canonical_band(b) for b in bands or ()]
+    bands = {b.upper() for b in wanted}
 
     options = Options()
     options.search_alias = resolved['alias']
-    options.band = 'auto'          #search every band; --bands filters afterwards
-    observations = RadioSearchIntegration.run_search(self._rs, options)
+    options.band = 'auto'          #every band unless --bands names some
+    observations = RadioSearchIntegration.run_search(self._rs, options, bands=wanted)
+    if self.b1950_search:
+      observations += RadioSearchIntegration.run_search(self._rs, options, bands=wanted,
+                                                        epoch=1950)
+    #deepest first, as rank_candidates expects; a run both searches found keeps the
+    #row placing it nearer the source -- the one whose coordinates are the archive's own
+    observations.sort(key=_depth_then_offset)
     if not observations:
       raise SelectionError(f"radio_search found no observations for '{resolved['alias']}'")
 
@@ -337,6 +373,7 @@ class Selector:
       sensitivity=obs.sensitivity,
       sensitivity_jy=sensitivity_jy(obs),
       separation=str(getattr(obs, 'separation', '') or '').strip(),
+      search_epoch=getattr(obs, 'search_epoch', ''),
       ra=str(resolved['ra_decl']['ra']),
       decl=str(resolved['ra_decl']['decl']),
       redshift=str(resolved.get('redshift', '') or ''),
@@ -373,8 +410,8 @@ def download(selection: Selection, log=print, force=False):
 
   options = Options()
   options.proj_code = selection.proj_code
-  #rebuild the entries DelosDownload reads: it needs each file's own date to
-  #build its Delos year directory, which the local paths alone do not carry
+  #rebuild the entries DelosDownload reads: each file's own date is its fallback
+  #for the Delos year directory, which the local paths alone do not carry
   entries = [_Entry(f['name'], f.get('date') or selection.date)
              for f in (selection.files if force else wanted)]
   log(f"  downloading {len(entries)} of {len(expected)} archive file(s)")
