@@ -25,14 +25,14 @@ class source_info:
     if self.type == TYPE_FLUX_CAL:
       if not self.resolve_flux_cal(options):
         raise Exception('No Calibrator was detected for setJy')
-    elif self.type == TYPE_PHASE_CAL or (self.type == TYPE_TARGET and self.name is None): #would specifying a phase cal impede this logic?
+    elif self.type == TYPE_PHASE_CAL: #would specifying a phase cal impede this logic?
       #search through fullset observation data and find 2nd most observed field?
-      #also does source picking off most observed
       #self.detect_by_nrows(options,self.type) outdated, does not fuction consitiently
 
       self.find_phase_cal_distance(options)
-    elif self.type == TYPE_TARGET and (self.name is not None):
-      #a source was specified
+    elif self.type == TYPE_TARGET:
+      if not self.name:
+        self._ask_target(options)
       self.name = options.source
       #self.source_name = self.name
       self.source_id = self.find_source_id(options) #find source ID from source name may not work if given source name is doesn't match name in field.
@@ -109,6 +109,18 @@ class source_info:
     run_log.event(f"Target {self.name} not in listobs; user selected {chosen.name}")
     self.name = self.listobs_name = options.source = chosen.name
     return chosen.src_id
+
+  def _ask_target(self, options):
+    '''No source given: the user picks the target from listobs; an imported run stops.'''
+    from classes.CLI_input import CLI
+    from classes import decisions, run_log
+    if not decisions.is_interactive(options):
+      raise Exception("No source given: set 'source' in the import file.")
+    chosen = CLI.selectSource(list(options.observation_data.fields), '', [])
+    if chosen is None:
+      raise Exception('No source given and this MS lists no fields')
+    run_log.event(f"No source given; user selected {chosen.name}")
+    options.source = chosen.name
 
   def _fields_by_separation(self, options, target=None):
     '''(fields, {field_id: degrees}) sorted nearest `target`, defaulting to this
@@ -397,7 +409,7 @@ class source_info:
     Builds a dict of {field_id: (Fields, SkyCoord)} for all fields except the
     flux_cal and source target, sorts them by angular separation from the target,
     then picks the closest one that appears in the NRAO calibrator list for the
-    current band.  Falls back to the closest field if none match.
+    current band. If none match, the user picks; an imported run stops instead.
     '''
     from astropy.coordinates import SkyCoord
     from classes.nrao_calibrators import NRAOCalibrators
@@ -421,7 +433,7 @@ class source_info:
       if target_spws and not (self.spws_for_field(options, field.id) & target_spws):
         continue
       candidates[field.id] = (field, _to_skycoord(field.ra, field.decl))
-    if not candidates and self.type == TYPE_PHASE_CAL:
+    if not candidates:
       raise Exception(f"No phase calibrator candidate shares the target's spws "
                       f"({options.spw_selection}) besides the flux calibrator")
 
@@ -440,36 +452,38 @@ class source_info:
       self.field_id = field.id
       self.source_id = field.src_id
       self.set_RA_DECL(options)
-      if self.type == TYPE_PHASE_CAL:
-        options.phase_cal_name = field.name   #recorded so a replay reuses this exact field
+      options.phase_cal_name = field.name   #recorded so a replay reuses this exact field
       sep = _sep_deg(source_coord, coord)
       ct.casalog.post(f'Phase cal{note}: {self.name} ({sep:.2f} deg from target)')
       if sep > 10:
         ct.casalog.post(f'WARNING: Phase calibrator {self.name} is {sep:.2f} deg from target — calibration may be degraded.', priority='WARN')
         print(f"WARNING: Phase calibrator '{self.name}' is {sep:.2f} degrees from target source. Calibration quality may be degraded.")
 
-    #manual pick / recorded answer, for the phase cal only -- the target also lands
-    #here (name is None) and must never prompt
-    if self.type == TYPE_PHASE_CAL:
-      from classes import decisions
-      if recorded := decisions.resolved(options, 'phase_cal_name'):
-        for field_id, (field, coord) in sorted_candidates:
-          if field.name == recorded:
-            adopt(field, coord, ' (recorded)')
-            return
-        raise Exception(f'Recorded phase calibrator {recorded!r} is not in this MS')
-      if decisions.mode(options, 'phase_cal') == MANUAL:
-        def _describe(item):
-          field, coord = item[1]
-          entry = nrao.find_by_name(field.name)
-          known = 'NRAO' if entry and entry.get_band(options.band) else 'unlisted'
-          return f"{field.name:<15} {_sep_deg(source_coord, coord):6.2f} deg  {known}"
-        if picked := decisions.pick('Phase calibrator -- nearest fields first:',
-                                    sorted_candidates, formatter=_describe):
-          field, coord = picked[1]
-          adopt(field, coord, ' (picked)')
-          decisions.announce('phase_cal', field.name)
+    from classes import decisions
+
+    def _describe(item):
+      field, coord = item[1]
+      entry = nrao.find_by_name(field.name)
+      known = 'NRAO' if entry and entry.get_band(options.band) else 'unlisted'
+      return f"{field.name:<15} {_sep_deg(source_coord, coord):6.2f} deg  {known}"
+
+    def _pick(label):
+      picked = decisions.pick(label, sorted_candidates, formatter=_describe)
+      if picked is None:
+        raise Exception('No phase calibrator candidates to pick from')
+      field, coord = picked[1]
+      adopt(field, coord, ' (picked)')
+      decisions.announce('phase_cal', field.name)
+
+    if recorded := decisions.resolved(options, 'phase_cal_name'):
+      for field_id, (field, coord) in sorted_candidates:
+        if field.name == recorded:
+          adopt(field, coord, ' (recorded)')
           return
+      raise Exception(f'Recorded phase calibrator {recorded!r} is not in this MS')
+    if decisions.mode(options, 'phase_cal') == MANUAL:
+      _pick('Phase calibrator -- nearest fields first:')
+      return
 
     for field_id, (field, coord) in sorted_candidates:
       cal_entry = nrao.find_by_name(field.name)
@@ -477,10 +491,15 @@ class source_info:
         adopt(field, coord)
         return
 
-    # fallback: closest field even if not confirmed in NRAO list
-    if sorted_candidates:
-      field_id, (field, coord) = sorted_candidates[0]
-      adopt(field, coord, ' (NRAO unconfirmed)')
+    #no field matched any NRAO calibrator: something upstream is wrong, Crash out
+    names = ', '.join(item[1][0].name for item in sorted_candidates)
+    if not decisions.is_interactive(options):
+      raise Exception(f"No field matches an NRAO {options.band}-band calibrator ({names}); "
+                      f"set phase_cal_name in import.json")
+    print(f"WARNING: no field matches an NRAO {options.band}-band calibrator.")
+    if len(sorted_candidates) == 1 and not decisions.confirm(f"Use {names} as the phase calibrator?"):
+      raise Exception('No phase calibrator chosen') 
+    _pick('No calibrator found -- pick the phase calibrator from listobs:')
   
   @staticmethod
   def verify_model(data):

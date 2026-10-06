@@ -349,14 +349,17 @@ class CLI:
 
   @staticmethod
   def selectSource(fields, name, aliases, separations=None):
-    '''Pick the target field from listobs after name matching failed. Accepts a
-    number or a listobs name. None when the MS lists no fields.'''
+    '''Pick the target field from listobs when name matching failed, or no name was
+    given. Accepts a number or a listobs name. None when the MS lists no fields.'''
     if not fields:
       return None
     separations = separations or {}
     shown = fields[:CLI.SOURCE_LIST_LIMIT]
-    print(f"\nName parsing failed: '{name}' matches no source in this MS.")
-    print(f"  SIMBAD aliases tried: {', '.join(aliases) if aliases else '(none, SIMBAD could not resolve it)'}")
+    if name:
+      print(f"\nName parsing failed: '{name}' matches no source in this MS.")
+      print(f"  SIMBAD aliases tried: {', '.join(aliases) if aliases else '(none, SIMBAD could not resolve it)'}")
+    else:
+      print("\nNo source given.")
     order = 'nearest the resolved position first' if separations else 'listobs order'
     print(f"  Fields in listobs, {order} "
           f"({len(shown)} of {len(fields)} shown):")
