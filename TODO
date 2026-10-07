@@ -6,10 +6,31 @@
   residual RMS, fit frequency; log it (from 1.99 auto_gaussian).
 - Core subtraction: clean -> copy MS -> uvsub -> re-clean the core-subtracted ("jet")
   image -> pbcor + FITS (from 1.99 core_subtract).
-- Outlier fields: generate outliers.txt and feed outlier regions to tclean.
 - Off-source RMS box for the self-cal metric. Cleaner._dynamic_range currently uses
   whole-image RMS (contaminated by the source); an off-source annulus/box is more rigorous.
 - Optional: drop the .residual.tt0 (as FITS) into the results folder next to image/pbcor.
+
+## Open from the 2026-10-07 lightcurve work (branch lightcurve-fixes)
+- Position search: `--position "<ra> <dec>"` (opt-in, not the default), once radio_search2
+  gains its `POS <ra> <dec>` mode (patch + note handed to radio_search2's maintainer; it
+  runs on several machines and is updated in one go). Search with
+  `radio_search2 POS ra dec BANDS ...`, skip name resolution, set source_ra/decl directly;
+  carry it through CLI, GUI, harness and import.json.
+- Lightcurve plot: epochs whose target lies beyond PB_RELIABLE_FWHMS (0.75 FWHM) are
+  plotted like the others although their beam correction is uncertain by 2x or more --
+  drop them or give them a distinct marker (lightcurve_plot.py; user to choose).
+- First real case for the Airy vptable (below): the DDO52 fields (AH0927, AL0091, AS0622)
+  have a 456 mJy NVSS source 58' out, beyond the beam model and unmodelled; it probably
+  limits the 2008-07 D-config epoch (8.8 mJy limit).
+- resolve_source's NED fallback (a name SIMBAD lacks) is untested: NED timed out all day.
+- setjy flux-scale bug (fixed in cba6f69): every output made before it is low by the
+  flux calibrator's flux; old sweeps need re-running. Tell Dom.
+- No absolute thermal-noise QA: importvla weights and visibility scatter both come out
+  ~15-20x below the image noise for good and bad runs alike.
+- Spectral-line data is only channel-averaged (to MAX_IMAGING_CHANNELS); nothing else in
+  the pipeline knows about line setups (narrow 2-6 MHz bands, HI programs).
+- casaviewer: the PNG viewer can hang in imview(); reap_viewers() in the harness cleans
+  up after a run, but a single interactive run still relies on _shutdown_casaviewer().
 
 ## Wide-field imaging: outlier fields beyond CASA's primary-beam model
 Found 2026-10-07 on AB0596 (L band, D config, A2218). Kept here for a case that needs it.
@@ -100,6 +121,12 @@ Found 2026-10-07 on AB0596 (L band, D config, A2218). Kept here for a case that 
 
 
 ## Recently completed (for reference)
+- 2026-10-07 (lightcurve-fixes): target measured at its catalogue position with upper
+  limits; setjy flux-scale fix; catalogue flux rescue; J2000 imaging (EQUINOX 1979.9 fix);
+  1024-px main image + NVSS outlier fields + residual sweep; date-based archive files
+  (empty / catch-all segments, 2008 daily Delos files); data-pointing separation check;
+  importvla child process + file-by-file retry; line data averaged; SIMBAD-first name
+  resolution; casaviewer orphan cleanup.
 - Self-cal loop rewrite: data-driven solint ladder ('inf' -> geometric halving down to the
   integration time -> 'int', for any n cycles; fixed fallback ladder logged as WARN),
   phase-only cycles + one guarded final amp+phase pass (solnorm), dynamic-range metric,
