@@ -1252,11 +1252,14 @@ class Cleaner:
       with Xvfb():
         #casaviewer is chatty on stdout ("(N) waiting for viewer process...") -- swallow it
         with contextlib.redirect_stdout(io.StringIO()):
-          casaviewer.imview(raster={'file': image, 'colorwedge': True}, out=outfile)
-          #Shut the persistent viewer process down while $DISPLAY is still alive, so it
-          #closes its own X11 connection cleanly instead of printing "The X11 connection
-          #broke (error 1)" when the `with Xvfb()` block tears the display down underneath it.
-          Cleaner._shutdown_casaviewer()
+          try:
+            casaviewer.imview(raster={'file': image, 'colorwedge': True}, out=outfile)
+          finally:
+            #Shut the persistent viewer process down while $DISPLAY is still alive, so it
+            #closes its own X11 connection cleanly instead of printing "The X11 connection
+            #broke (error 1)" when the `with Xvfb()` block tears the display down underneath
+            #it -- and on a failed export too, or the viewer outlives the run.
+            Cleaner._shutdown_casaviewer()
       print(f"Wrote image PNG: {outfile}")
     except Exception as e:
       print(f"PNG export failed ({image}): {e}")

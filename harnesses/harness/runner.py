@@ -119,6 +119,7 @@ def execute(selection, run_dir, cores=None, timeout=DEFAULT_TIMEOUT, attended=Fa
         code = completed.returncode
     except subprocess.TimeoutExpired:
       sink.write(f"\n\n*** harness: killed after {timeout}s ***\n")
+      reap_viewers(run_dir)
       return RunResult(selection, run_dir, 'timeout', None,
                        time.perf_counter() - started,
                        f"exceeded the {timeout}s per-run timeout")
@@ -128,11 +129,39 @@ def execute(selection, run_dir, cores=None, timeout=DEFAULT_TIMEOUT, attended=Fa
                        time.perf_counter() - started, repr(exc))
 
   seconds = time.perf_counter() - started
+  reap_viewers(run_dir)
   collapse_progress(output)
   results_dir = find_results_dir(run_dir, since=launched)
   status, detail = _verdict(code, results_dir, output)
   return RunResult(selection, run_dir, status, code, seconds, detail,
                    str(results_dir or ''))
+
+
+def reap_viewers(run_dir):
+  """Stop casaviewer processes a finished run left behind.
+
+  export_png shuts its viewer down, but a run that is killed, times out or fails
+  mid-export leaves the casaviewer AppImage running (idle, holding a FUSE mount)
+  long after the run is gone: one overnight sweep left 127. Each viewer carries
+  --casalogfile=<the run's CASA log>, which is in the run directory, so a viewer
+  is this run's exactly when that path is under run_dir. Returns how many."""
+  prefix = f"--casalogfile={Path(run_dir).resolve()}/".encode()
+  stopped = 0
+  for entry in Path('/proc').iterdir():
+    if not entry.name.isdigit():
+      continue
+    try:
+      args = (entry / 'cmdline').read_bytes().split(b'\0')
+    except OSError:
+      continue
+    if (args and b'casaviewer' in args[0]
+        and any(arg.startswith(prefix) for arg in args)):
+      try:
+        os.kill(int(entry.name), 15)
+        stopped += 1
+      except OSError:
+        pass
+  return stopped
 
 
 def _run_attended(argv, run_dir, env, sink):
