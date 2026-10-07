@@ -81,6 +81,10 @@ class Cleaner:
     fields = (plan or {}).get('outliers') or []
     if outliers and fields and kwargs.get('imagename'):
       name = str(kwargs['imagename'])
+      #a clean on a saved mask needs one for every field: tclean stops the whole run
+      #("zero mask") as soon as any field's mask is empty, leaving the main field
+      #barely cleaned
+      user_mask = str(kwargs.get('mask') or '') if kwargs.get('usemask') == 'user' else ''
       lines = []
       for field in fields:
         lines += [f"imagename={name}_{field['suffix']}",
@@ -89,6 +93,8 @@ class Cleaner:
                   f"phasecenter=J2000 {field['ra_deg']:.9f}deg {field['dec_deg']:.9f}deg"]
         if kwargs.get('gridder') == 'wproject':
           lines += ['gridder=wproject', 'wprojplanes=-1']
+        if user_mask:
+          lines.append(f"mask={Cleaner._outlier_mask(user_mask, field, plan)}")
         lines.append('')
       outlier_file = f"{name}.outliers.txt"
       Path(outlier_file).write_text('\n'.join(lines))
@@ -96,6 +102,22 @@ class Cleaner:
     return ct.tclean(**kwargs)
 
   _plan = None   #this run's image plan, for _tclean (one run per process)
+
+  @staticmethod
+  def _outlier_mask(main_mask, field, plan):
+    '''The mask for an outlier field in a clean on a saved mask: that field's own mask
+    from the same earlier clean (<base>_<suffix>.mask) when it has anything in it,
+    else a circle of OUTLIER_MASK_BEAMS synthesized beams around the source the field
+    was made for.'''
+    base = main_mask[:-len('.mask')] if main_mask.endswith('.mask') else main_mask
+    own = f"{base}_{field['suffix']}.mask"
+    if Path(own).is_dir():
+      peak = image_data.first_value(image_data.imstat_dict(imagename=own).get('max'))
+      if peak and peak > 0:
+        return own
+    radius = OUTLIER_MASK_BEAMS * plan.get('beam_arcsec', 0) or 10 * plan['cell_arcsec']
+    return (f"circle[[{field['ra_deg']:.7f}deg, {field['dec_deg']:.7f}deg], "
+            f"{radius:.3g}arcsec]")
 
   @staticmethod
   def _phasecenter(options:Options) -> str:
@@ -124,11 +146,12 @@ class Cleaner:
     '''Settle the run's image geometry once: cell, image size, gridder, outlier fields.
 
     field_of_view 'primary_beam' (the default): the main image, centred on the
-    pointing, covers FOV_PB_FWHMS primary-beam FWHMs at CELLS_PER_BEAM pixels per
-    beam -- coarsened to MIN_CELLS_PER_BEAM, and then cut to MAX_IMAGE_PIXELS, when that
-    is too big. Catalogued (NVSS) sources beyond it that are bright enough after the
-    primary beam to matter, and the target if it falls outside, get outlier fields.
-    W-projection when the field is wide enough for the sky's curvature to matter.
+    pointing, is MAIN_IMAGE_PIXELS across at MAIN_CELLS_PER_BEAM pixels per beam (no
+    wider than FOV_PB_FWHMS primary-beam FWHMs). Catalogued (NVSS) sources beyond it
+    that are bright enough after the primary beam to matter, and the target if it falls
+    outside, get outlier fields, cleaned jointly with it; residual_sweep later adds any
+    the catalogue missed. W-projection when the field is wide enough for the sky's
+    curvature to matter.
 
     'fixed' (fast mode): image_size and cell as given, no outliers.'''
     if getattr(options, 'image_plan', None):
@@ -145,23 +168,20 @@ class Cleaner:
     ghz = image_data.mean_frequency_ghz(vis) or (sum(BAND_GHZ_RANGES[options.band]) / 2)
     fwhm = PB_FWHM_ARCMIN_GHZ / ghz * 60   #arcsec
     side = FOV_PB_FWHMS * fwhm
-    if options.use_custom_cell_size:
-      cell = Cleaner._arcsec_value(options.cell_size)
-    else:
-      cell = beam / CELLS_PER_BEAM
-      if side / cell > MAX_IMAGE_PIXELS:
-        cell = max(cell, min(beam / MIN_CELLS_PER_BEAM, side / MAX_IMAGE_PIXELS))
+    cell = (Cleaner._arcsec_value(options.cell_size) if options.use_custom_cell_size
+            else beam / MAIN_CELLS_PER_BEAM)
     import casatools
     imsize = int(casatools.synthesisutils().getOptimumSize(
-      int(min(MAX_IMAGE_PIXELS, math.ceil(side / cell)))))
+      int(min(MAIN_IMAGE_PIXELS, math.ceil(side / cell)))))
     half_rad = math.radians(imsize * cell / 2 / 3600)
     wavelength = 0.299792458 / ghz
     curvature = half_rad ** 2 * Cleaner._max_baseline_m(options) / wavelength
     plan = {'mode': FIELD_OF_VIEW_PRIMARY_BEAM, 'cell_arcsec': cell, 'imsize': imsize,
             'gridder': 'wproject' if curvature > WPROJECT_THRESHOLD else 'standard',
             'pb_fwhm_arcsec': fwhm, 'frequency_ghz': ghz, 'outliers': [],
-            'brightest_field_source_jy': None}
+            'brightest_field_source_jy': None, 'beam_arcsec': beam, 'unmodelled': []}
     pointing = image_data.field_centre_j2000(vis)
+    plan['pointing'] = pointing
     if pointing:
       plan['outliers'], plan['brightest_field_source_jy'] = Cleaner._outlier_fields(
         options, plan, pointing, beam)
@@ -198,6 +218,7 @@ class Cleaner:
     import casatools
     field_px = int(casatools.synthesisutils().getOptimumSize(field_px))
     field_half = field_px * plan['cell_arcsec'] / 2
+    plan['outlier_px'] = field_px
 
     def outside(ra, dec):
       #inside the square main image <=> both offsets within its half-width
@@ -240,6 +261,130 @@ class Cleaner:
                      'why': f"NVSS {flux14 * 1e3:.0f} mJy at 1.4 GHz, {sep / 60:.1f}' out, "
                             f"~{apparent * 1e3:.1f} mJy apparent"})
     return fields, brightest
+
+  @staticmethod
+  def residual_sweep(options:Options, base, add_fields=False, record=True):
+    '''Look for bright sources the model is missing, outside every imaged field.
+
+    Images the residual visibilities (corrected data - the model the last clean wrote)
+    of a copy of the MS: a dirty image SWEEP_PB_FWHMS primary-beam FWHMs across, tapered
+    to FWHM / SWEEP_BEAMS_PER_FWHM so it takes only a few hundred pixels. A peak outside
+    the main image and the outlier fields, above SWEEP_SIGMA x its noise and above
+    SWEEP_SIDELOBE_FRACTION of the brightest residual inside them, is a source the
+    catalogue missed. add_fields: give each one an outlier field (the caller re-cleans);
+    otherwise, when `record`, they are logged as unmodelled. Returns the sources
+    found; the caller keeps the ones for the image it adopts (plan['unmodelled'], for
+    the fit's warnings). Primary-beam mode only; best-effort.'''
+    plan = Cleaner._plan
+    if not plan or plan.get('mode') != FIELD_OF_VIEW_PRIMARY_BEAM or not plan.get('pointing'):
+      return []
+    vis = options.calibrated_filename + '.ms'
+    sweep_vis = options.calibrated_filename + '_sweep.ms'
+    name = base + '_sweep'
+    try:
+      found = Cleaner._sweep(options, plan, vis, sweep_vis, name)
+    except Exception as e:
+      print(f"Residual sweep failed: {e}")
+      run_log.note('IMAGING', 'Residual sweep', f"failed: {e}")
+      return []
+    finally:
+      if Path(sweep_vis).is_dir():
+        shutil.rmtree(sweep_vis, ignore_errors=True)
+    if not found:
+      print("Residual sweep: no unmodelled source outside the imaged fields.")
+      if record:
+        run_log.note('IMAGING', 'Residual sweep',
+                     f"{Path(name).name}: nothing outside the imaged fields")
+      return []
+    for src in found:
+      text = (f"{src['peak_jy'] * 1e3:.1f} mJy/beam ({src['snr']:.0f} sigma) at "
+              f"{src['ra_deg']:.5f} {src['dec_deg']:+.5f}, {src['sep_arcsec'] / 60:.1f}' "
+              f"from the pointing")
+      print(f"Residual sweep: unmodelled source {text}")
+      if add_fields:
+        suffix = f"out{len(plan['outliers']) + 1}"
+        plan['outliers'].append({'suffix': suffix, 'ra_deg': src['ra_deg'],
+                                 'dec_deg': src['dec_deg'], 'imsize': plan['outlier_px'],
+                                 'why': f"found by the residual sweep: {text}"})
+        run_log.note('IMAGING', 'Residual sweep', f"outlier {suffix} added: {text}")
+      elif record:
+        run_log.note('IMAGING', 'Residual sweep', f"UNMODELLED in {Path(name).name}: {text}")
+    return found
+
+  @staticmethod
+  def _sweep(options, plan, vis, sweep_vis, name):
+    import casatools
+    import numpy as np
+    if Path(sweep_vis).is_dir():
+      shutil.rmtree(sweep_vis)
+    shutil.copytree(vis, sweep_vis)
+    ct.uvsub(vis=sweep_vis)   #corrected -= model, in the copy only
+    fwhm, beam = plan['pb_fwhm_arcsec'], plan['beam_arcsec']
+    resolution = max(beam, fwhm / SWEEP_BEAMS_PER_FWHM)
+    cell = resolution / SWEEP_CELLS_PER_BEAM
+    imsize = int(casatools.synthesisutils().getOptimumSize(
+      int(math.ceil(SWEEP_PB_FWHMS * fwhm / cell))))
+    kwargs = {'vis': sweep_vis, 'imagename': name, 'datacolumn': 'corrected',
+              'imsize': [imsize, imsize], 'cell': f"{cell:.6g}arcsec", 'specmode': 'mfs',
+              'deconvolver': 'hogbom', 'gridder': 'standard', 'weighting': 'natural',
+              'niter': 0, 'interactive': False, 'savemodel': 'none',
+              'pblimit': -1e-6}   #negative: no primary-beam mask, the far field is the point
+    if resolution > beam * 1.05:
+      kwargs['uvtaper'] = [f"{resolution:.4g}arcsec"]
+    if phasecenter := Cleaner._phasecenter(options):
+      kwargs['phasecenter'] = phasecenter
+    Cleaner._clear_image(name)
+    ct.tclean(**kwargs)
+    Cleaner.export_png(name)
+
+    image = name + '.image'
+    ia = casatools.image()
+    ia.open(image)
+    try:
+      data = np.squeeze(ia.getchunk()).astype(float)
+      coords = ia.coordsys()
+      reference = list(coords.referencepixel()['numeric'])
+      centre = reference[:2]
+    finally:
+      ia.close()
+    nx, ny = data.shape
+    x, y = np.meshgrid(np.arange(nx), np.arange(ny), indexing='ij')
+    #which pixels the imaged fields cover: main image about the pointing, outliers about
+    #their own centres (squares; offsets measured in this image's pixels)
+    covered = np.zeros(data.shape, bool)
+    half_main = plan['imsize'] * plan['cell_arcsec'] / 2 / cell
+    covered |= (abs(x - centre[0]) <= half_main) & (abs(y - centre[1]) <= half_main)
+    for field in plan['outliers']:
+      pixel = image_data.sky_to_pixel(image, field['ra_deg'], field['dec_deg'])
+      if pixel:
+        half = field['imsize'] * plan['cell_arcsec'] / 2 / cell
+        covered |= (abs(x - pixel[0]) <= half) & (abs(y - pixel[1]) <= half)
+    radius = np.hypot(x - centre[0], y - centre[1]) * cell
+    searched = (radius <= SWEEP_PB_FWHMS * fwhm / 2) & ~covered & np.isfinite(data)
+    if not searched.any():
+      return []
+    noise = MAD_TO_SIGMA * np.median(abs(data[searched] - np.median(data[searched])))
+    inside = covered & np.isfinite(data)
+    inner_peak = float(np.max(abs(data[inside]))) if inside.any() else 0.0
+    threshold = max(SWEEP_SIGMA * noise, SWEEP_SIDELOBE_FRACTION * inner_peak)
+    blank = SWEEP_BLANK_BEAMS * resolution / cell
+    pointing = plan['pointing']
+    work = np.where(searched, data, -np.inf)
+    found = []
+    while len(found) < SWEEP_MAX_SOURCES:
+      px, py = np.unravel_index(np.argmax(work), work.shape)
+      peak = float(work[px, py])
+      if not np.isfinite(peak) or peak < threshold:
+        break
+      world = coords.toworld([float(px), float(py)] + reference[2:], 'n')['numeric']
+      ra, dec = math.degrees(world[0]) % 360, math.degrees(world[1])
+      found.append({'ra_deg': ra, 'dec_deg': dec, 'peak_jy': peak, 'snr': peak / noise,
+                    'sep_arcsec': image_data.separation_arcsec(ra, dec, *pointing)})
+      work[np.hypot(x - px, y - py) <= blank] = -np.inf
+    coords.done()
+    print(f"Residual sweep: {imsize} x {imsize} px of {cell:.3g}\" at {resolution:.3g}\" "
+          f"resolution; noise {noise * 1e3:.3g} mJy/beam, threshold {threshold * 1e3:.3g}")
+    return found
 
   @staticmethod
   def _model_flux(base):
@@ -686,9 +831,19 @@ class Cleaner:
     #optional test image: settle cell/imsize/robust before anything is scored
     Cleaner.test_image_cycle(options)
     #initial clean: the baseline the self-cal cycles must beat
-    initial = image_data.Image(options, Cleaner.initial_cycle(options=options), base=fn)
+    initial_stats = Cleaner.initial_cycle(options=options)
+    #a bright source the catalogue missed would corrupt every cycle that follows: find
+    #it in the residuals now, give it an outlier field and make the initial clean again
+    if Cleaner.residual_sweep(options, fn, add_fields=True):
+      for suffix in [''] + [f"_{f['suffix']}" for f in Cleaner._plan['outliers']]:
+        Cleaner._clear_image(fn + suffix)
+      initial_stats = Cleaner.initial_cycle(options=options)
+    initial = image_data.Image(options, initial_stats, base=fn)
+    #the residual sweep of an image has to run while the MS still holds the data and
+    #model that made it, so every adopted image is swept as it is adopted
     best = {'base': fn, 'dr': initial.dynamic_range(),
-            'flux': initial.total_flux(), 'image': initial, 'cycle': 'initial'}
+            'flux': initial.total_flux(), 'image': initial, 'cycle': 'initial',
+            'sweep': Cleaner.residual_sweep(options, fn, record=False)}
     run_log.cycle('initial', dynamic_range=best['dr'], decision='baseline to beat')
 
     if options.do_self_cal:
@@ -776,7 +931,8 @@ class Cleaner:
           adopted = curr_dr > best['dr']
           if adopted:
             best = {'base': f"{fn}_{i}", 'dr': curr_dr, 'flux': current.total_flux(),
-                    'image': current, 'cycle': i}
+                    'image': current, 'cycle': i,
+                    'sweep': Cleaner.residual_sweep(options, f"{fn}_{i}", record=False)}
 
           #guided keeps the same scoring but hands the stop to the user: the automatic
           #rules become advice, printed before the prompt
@@ -837,7 +993,8 @@ class Cleaner:
           print(f"Final a&p pass: DR {best['dr']:.1f} -> {ap_dr:.1f}, flux change {-flux_loss:+.1f}%")
           if ap_dr > best['dr'] and flux_loss <= SELF_CAL_AP_MAX_FLUX_LOSS_PCT:
             best = {'base': f"{fn}_{ap_idx}", 'dr': ap_dr, 'flux': ap_flux,
-                    'image': ap, 'cycle': f"{ap_idx} (a&p)"}
+                    'image': ap, 'cycle': f"{ap_idx} (a&p)",
+                    'sweep': Cleaner.residual_sweep(options, f"{fn}_{ap_idx}", record=False)}
             print("  adopted a&p pass.")
             run_log.cycle('a&p', 'inf', 'ap', ap_dr, -flux_loss,
                           'ADOPTED -- raised DR without losing flux')
@@ -871,7 +1028,8 @@ class Cleaner:
                   f"flux change {-bl_flux_loss:+.1f}%")
             if bl_dr > best['dr'] and bl_flux_loss <= SELF_CAL_AP_MAX_FLUX_LOSS_PCT:
               best = {'base': f"{fn}_blcal", 'dr': bl_dr, 'flux': bl_flux,
-                      'image': bl, 'cycle': 'blcal'}
+                      'image': bl, 'cycle': 'blcal',
+                      'sweep': Cleaner.residual_sweep(options, f"{fn}_blcal", record=False)}
               print("  adopted baseline cal.")
               run_log.cycle('blcal', '-', 'blcal', bl_dr, -bl_flux_loss,
                             'ADOPTED -- raised DR without losing flux')
@@ -885,6 +1043,13 @@ class Cleaner:
     options.best_image_base = best['base']
     print(f"Best image: {best['base']} (cycle {best['cycle']}, DR {best['dr']:.1f})")
     run_log.event(f"best image: {best['base']} (cycle {best['cycle']}, DR {best['dr']:.1f})")
+    #unmodelled sources in the adopted image's residuals: warned, not re-imaged
+    if Cleaner._plan is not None:
+      Cleaner._plan['unmodelled'] = best.get('sweep') or []
+      for src in Cleaner._plan['unmodelled']:
+        run_log.note('IMAGING', 'Residual sweep',
+                     f"UNMODELLED: {src['peak_jy'] * 1e3:.1f} mJy/beam ({src['snr']:.0f} sigma) "
+                     f"{src['sep_arcsec'] / 60:.1f}' from the pointing")
     #Stokes V noise, the yardstick the source fit holds the image noise against
     try:
       options.stokes_v_rms = Cleaner.stokes_v_noise(options)
@@ -977,6 +1142,10 @@ class Cleaner:
                       fitsimage=str(results_dir / f"{name}.target.fits"), overwrite=True)
       except Exception as e:
         print(f"results: target-field FITS export failed ({target_field}): {e}")
+
+    #3b3) the residual sweep's image: anything bright the model missed shows as a peak
+    if Path(base + '_sweep.png').is_file():
+      shutil.copy2(base + '_sweep.png', results_dir / f"{name}.sweep.png")
 
     #3c) core-subtracted (jet) image, when core subtraction ran: FITS + pbcor + PNG,
     #    named .coresub so it never collides with the main image's products
@@ -1124,9 +1293,8 @@ class Cleaner:
   @staticmethod
   def find_cell_size(options:Options):
     '''Return the tclean cell size as a clean '<N>arcsec' string, from the run's image
-    plan (plan_field): the custom value if set, else a tenth of the band's angular
-    resolution for the array config -- coarser when the primary-beam field would
-    otherwise need an image too big to make.'''
+    plan (plan_field): the custom value if set, else a fraction of the band's angular
+    resolution for the array config (MAIN_CELLS_PER_BEAM, or CELLS_PER_BEAM in fast mode).'''
     Cleaner.plan_field(options)
     return options.cell_size
 

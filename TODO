@@ -11,6 +11,27 @@
   whole-image RMS (contaminated by the source); an off-source annulus/box is more rigorous.
 - Optional: drop the .residual.tt0 (as FITS) into the results folder next to image/pbcor.
 
+## Wide-field imaging: outlier fields beyond CASA's primary-beam model
+Found 2026-10-07 on AB0596 (L band, D config, A2218). Kept here for a case that needs it.
+- CASA's VLA primary-beam model (the Perley polynomial, EVLA Memo 195) is exactly zero
+  beyond ~1.2 FWHM. tclean marks pixels there as invalid ("No valid values to
+  deconvolve"), so an outlier field around a bright source 1.3 FWHM out (NVSS 437 mJy,
+  ~7 mJy apparent, i.e. ~1.6% response measured) cannot be cleaned in the self-cal
+  cycles; the initial automask clean got some of it, the cycle cleans none. Self-cal
+  then stopped after one cycle (upper limit 2.6 vs 2.4 mJy without the outlier field).
+- Option A (preferred if needed): a custom vptable, vpmanager.setpbairy for a 25 m dish
+  with its blockage, maxrad 2-3 FWHM, and pblimit ~ -1e-6, so far fields have a nonzero
+  response. Airy patterns are CASA's default for ALMA and dishes without a stored
+  model; for the VLA it would be new. It also changes the main field's pb (the target's
+  beam correction) by a few % inside half power: compare both before adopting.
+- Option B: clean outlier fields only in the initial model, leave them out of cycles.
+- Option C: fall back to the 2xFWHM main image when a bright source lies beyond
+  ~1.2 FWHM (slow, L band only).
+- Same limit applies to the TARGET: a far-field target beyond ~1.2 FWHM has no beam
+  correction from CASA's model.
+- The Gaussian beam the NVSS outlier prediction uses underestimates the skirt (0.8%
+  vs 1.6% measured at 1.3 FWHM); PB_SIDELOBE_FLOOR is now 2% for that reason.
+
 ## Calibration
 - Reference antenna: replace "3rd closest by vibes" (find_refant -> anntennas_list[3])
   with a principled central / low-flagging / present-the-whole-track pick, chosen once

@@ -78,9 +78,10 @@ Ka, and Q**.
 - **Per-run results folder** — collects the science products (FITS, primary-beam-
   corrected image, PNG preview, clean mask, listobs, and the CASA log) in one place.
 - **The whole field, imaged properly** — by default the image is centred on the pointing,
-  in J2000, and covers the primary beam's field, with outlier fields for bright NVSS
-  sources beyond it (and for the target, if it falls outside), w-projection where the
-  field is wide, and self-cal judged on the whole field's flux. `field_of_view: fixed`
+  in J2000, 1024 pixels across, with outlier fields for bright NVSS sources beyond it
+  out to twice the primary-beam FWHM (and for the target, if it falls outside), a
+  tapered image of the residuals to catch bright sources the catalogue missed,
+  w-projection where the field is wide, and self-cal judged on the whole field's flux. `field_of_view: fixed`
   (or a typed image size) is the fast opt-out.
 - **Measured where the target is** — the target is measured at its NED position:
   detected when the peak within a beam of it reaches `detection_sigma` (default 5) times

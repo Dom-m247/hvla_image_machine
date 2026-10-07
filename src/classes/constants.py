@@ -133,22 +133,42 @@ PB_FWHM_ARCMIN_GHZ = 45.0           #classic VLA 25 m primary beam FWHM ~ 45'/fr
 #--- field of view (Cleaner.plan_field) ---
 #Every source in the primary beam that is bright enough to matter has to be in the
 #self-cal model, at the right place: a faint target can sit under the sidelobes of a
-#field source a thousand times brighter, whatever the exposure. So by default the image
-#is centred on the pointing and covers the field the primary beam sees; bright sources
-#beyond it, and the target if it falls outside, get small outlier fields of their own.
-FIELD_OF_VIEW_PRIMARY_BEAM = 'primary_beam' #image the beam's field, plus outlier fields
+#field source a thousand times brighter, whatever the exposure. That does not need one
+#huge image: a modest image centred on the pointing models the inner field, and every
+#catalogued source beyond it that is bright enough after the primary beam gets a small
+#outlier field of its own, cleaned jointly with it (as AIPS SETFC/IMAGR facets do).
+#A wide, tapered image of the residuals then catches what the catalogue missed.
+FIELD_OF_VIEW_PRIMARY_BEAM = 'primary_beam' #main image + outlier fields over the beam
 FIELD_OF_VIEW_FIXED = 'fixed'       #image_size and cell as given (fast mode)
-FOV_PB_FWHMS = 2.0                  #main image side, in primary-beam FWHMs (edge response ~6%)
-CELLS_PER_BEAM = 10                 #preferred sampling of the synthesized beam
-MIN_CELLS_PER_BEAM = 4              #coarsest; below it the image is cut down instead
-MAX_IMAGE_PIXELS = 8192             #largest image side; past it outlier fields cover the rest
+MAIN_IMAGE_PIXELS = 1024            #main image side, pixels...
+MAIN_CELLS_PER_BEAM = 5             #...at this many pixels per synthesized beam
+FOV_PB_FWHMS = 2.0                  #never wider than this many primary-beam FWHMs (D config)
+CELLS_PER_BEAM = 10                 #fixed (fast) mode's default sampling of the beam
 WPROJECT_THRESHOLD = 0.3            #w-projection when (half-width, rad)^2 * Bmax/lambda exceeds this
 OUTLIER_SEARCH_FWHMS = 2.0          #catalogue (NVSS) sources this far out are considered
 OUTLIER_MIN_APPARENT_JY = 0.005     #...and kept when their beam-attenuated flux reaches this
 OUTLIER_SPECTRAL_INDEX = -0.7       #to carry NVSS 1.4 GHz fluxes to the observing frequency
-PB_SIDELOBE_FLOOR = 0.01            #response assumed outside the main lobe (first sidelobe ~1-2%)
+PB_SIDELOBE_FLOOR = 0.02            #response floor out to OUTLIER_SEARCH_FWHMS: the Gaussian beam
+                                    #underestimates the skirt (an L-band source 1.3 FWHM out
+                                    #measured 1.6%, the Gaussian says 0.8%)
 OUTLIER_FIELD_BEAMS = 40            #outlier field side, in synthesized beams (at least 64 pixels)
-MAX_OUTLIER_FIELDS = 10
+MAX_OUTLIER_FIELDS = 20
+OUTLIER_MASK_BEAMS = 5              #mask radius, in beams, for an outlier field with no mask of
+                                    #its own in a clean on saved masks
+#--- residual sweep (Cleaner.residual_sweep) ---
+#The catalogue misses some bright sources: flat-spectrum ones at high frequency, ones
+#that have flared since NVSS, and the sky south of -40 deg. Any of them left out of the
+#model sprays its sidelobes over the main image. A dirty image of the residual
+#visibilities (data - model), tapered to low resolution so it covers a wide field in
+#few pixels, shows such a source as a peak at its true position.
+SWEEP_PB_FWHMS = 3.0                #residual image side, in primary-beam FWHMs
+SWEEP_BEAMS_PER_FWHM = 40           #taper to a beam of FWHM / this (no finer than the array's)
+SWEEP_CELLS_PER_BEAM = 4
+SWEEP_SIGMA = 6.0                   #a residual peak this many sigma outside every field...
+SWEEP_SIDELOBE_FRACTION = 0.2       #...and at least this fraction of the brightest residual
+                                    #inside the fields (else it may be that field's sidelobe)
+SWEEP_MAX_SOURCES = 5               #outlier fields added per sweep
+SWEEP_BLANK_BEAMS = 3               #radius blanked around each found peak before the next
 #--- automatic clean masks (auto-multithresh) ---
 #CASA's defaults are tuned for ALMA. A classic-VLA snapshot's PSF has sidelobes of
 #~0.4, so the default 3x-sidelobe threshold masks nothing, and what the 2x VLA value

@@ -64,15 +64,23 @@ can sit under the sidelobes of a field source a thousand times brighter, whateve
 exposure. So by default (`field_of_view: primary_beam`) every epoch is imaged properly,
 whichever source you are after:
 
-- The image is centred on the **pointing**, in J2000, and covers twice the primary-beam
-  FWHM (about 60' at L band, 18' at C) at a tenth of a beam per pixel -- coarsened to a
-  quarter beam, then capped at 8192 pixels, where that is too big. Old data record
-  positions as B1950_VLA, which CASA handles correctly but `exportfits` writes as
-  `EQUINOX 1979.9`; imaging in J2000 avoids every other reader (DS9, astropy) putting
-  the image ~20' from where it is.
-- NVSS sources beyond the image whose flux after the primary beam reaches 5 mJy get
-  small **outlier fields**, imaged alongside so they are in the self-cal model. So does
-  the target, if it falls outside the main image (it is then measured there).
+- The main image is centred on the **pointing**, in J2000, and is 1024 pixels across at
+  a fifth of a beam per pixel (never wider than twice the primary-beam FWHM, which only
+  matters in D configuration). Old data record positions as B1950_VLA, which CASA
+  handles correctly but `exportfits` writes as `EQUINOX 1979.9`; imaging in J2000 avoids
+  every other reader (DS9, astropy) putting the image ~20' from where it is.
+- NVSS sources beyond the main image, out to twice the primary-beam FWHM, whose flux
+  after the primary beam reaches 5 mJy get small **outlier fields**, cleaned jointly
+  with the main image so they are in the self-cal model at their own positions (as AIPS
+  SETFC/IMAGR facets do). So does the target, if it falls outside the main image (it is
+  then measured there).
+- A **residual sweep** catches what the catalogue misses (flat-spectrum sources at high
+  frequency, sources that flared after NVSS, the sky south of -40 deg): the residual
+  visibilities (data minus model) are imaged dirty over three primary-beam FWHMs at low,
+  tapered resolution. After the initial clean, any peak outside every imaged field
+  above 6 sigma (and above a fifth of the brightest residual inside them, so it is not
+  a sidelobe) gets an outlier field and the initial clean is made again. The same sweep
+  after the last cycle only warns; its image is saved as `<name>.sweep.png`.
 - **W-projection** switches on when the field is wide enough for the sky's curvature to
   matter (most L-band fields, high-resolution wide fields).
 - **Self-cal** is on in the lightcurve presets. Whether to try it is judged on the whole

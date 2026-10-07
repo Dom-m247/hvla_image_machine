@@ -220,6 +220,10 @@ def _field_warnings(options, record):
     warnings.append(f"a catalogued field source of ~{brightest * 1e3:.0f} mJy (after the "
                     f"primary beam) is {brightest / rms:.0f}x the image noise: dynamic range "
                     f"may limit faint detections")
+  for src in plan.get('unmodelled') or []:
+    warnings.append(f"unmodelled source in the residual sweep: {src['peak_jy'] * 1e3:.1f} "
+                    f"mJy/beam ({src['snr']:.0f} sigma) {src['sep_arcsec'] / 60:.1f}' from "
+                    f"the pointing, outside every imaged field: its sidelobes may be in the image")
   return warnings
 
 
