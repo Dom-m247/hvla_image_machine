@@ -35,6 +35,9 @@ class Cleaner:
       kw['mask'] = str(use_mask)
     elif not options.interactive_image:
       kw['usemask'] = 'auto-multithresh'
+      kw.update(AUTOMASK_VLA)
+      if Cleaner._config_index(options) == Cleaner.CONFIG_INDEX['A']:
+        kw['noisethreshold'] = AUTOMASK_NOISE_A_CONFIG
     return kw
 
   @staticmethod
@@ -64,47 +67,203 @@ class Cleaner:
     }
     if phasecenter := Cleaner._phasecenter(options):
       kwargs['phasecenter'] = phasecenter
+    plan = getattr(options, 'image_plan', None) or {}
+    if plan.get('gridder') == 'wproject':
+      kwargs.update(gridder='wproject', wprojplanes=-1)
     return kwargs
 
   @staticmethod
+  def _tclean(outliers=True, **kwargs):
+    '''tclean, plus the run's outlier fields (Cleaner.plan_field) when there are any:
+    each is written to <imagename>.outliers.txt and imaged alongside the main field, so
+    the model that feeds self-cal holds every bright source at its own position.'''
+    plan = Cleaner._plan
+    fields = (plan or {}).get('outliers') or []
+    if outliers and fields and kwargs.get('imagename'):
+      name = str(kwargs['imagename'])
+      lines = []
+      for field in fields:
+        lines += [f"imagename={name}_{field['suffix']}",
+                  f"imsize=[{field['imsize']},{field['imsize']}]",
+                  f"cell=[{kwargs['cell']},{kwargs['cell']}]",
+                  f"phasecenter=J2000 {field['ra_deg']:.9f}deg {field['dec_deg']:.9f}deg"]
+        if kwargs.get('gridder') == 'wproject':
+          lines += ['gridder=wproject', 'wprojplanes=-1']
+        lines.append('')
+      outlier_file = f"{name}.outliers.txt"
+      Path(outlier_file).write_text('\n'.join(lines))
+      kwargs['outlierfile'] = outlier_file
+    return ct.tclean(**kwargs)
+
+  _plan = None   #this run's image plan, for _tclean (one run per process)
+
+  @staticmethod
   def _phasecenter(options:Options) -> str:
-    '''The image centre every clean in the run shares, settled once.
+    '''The image centre every clean in the run shares: the pointing centre, settled once.
 
-    The target's NED position when it is inside the primary beam, so the target is
-    the centre pixel wherever the observation pointed; otherwise the pointing centre.
-    Either way in J2000: old data record positions in B1950_VLA, which CASA reads
-    correctly but exportfits writes as EQUINOX 1979.9, and every other reader (DS9,
-    astropy) then misplaces the image by ~20 arcmin. '' -- tclean's own default --
-    for J2000 data with no catalogue position, which change nothing.
-
-    The phase centre moves the image grid only: the primary beam stays on the
-    pointing, so impbcor still corrects for the target's offset from it.'''
+    Centred on the pointing because self-calibration has to model the field the
+    observation was set up for; our target need only lie inside the image (or in an
+    outlier field of its own, see plan_field). Given in J2000 when the data are not:
+    old data record positions in B1950_VLA, which CASA reads correctly but exportfits
+    writes as EQUINOX 1979.9, and every other reader (DS9, astropy) then misplaces the
+    image by ~20 arcmin. '' -- tclean's own default -- for J2000 data.'''
     if options.image_phasecenter is not None:
       return options.image_phasecenter
     vis = options.calibrated_filename + '.ms'
     pointing = image_data.field_centre_j2000(vis)
-    target = source_fit.target_position(options)
-    centre, why = None, 'the pointing centre (no catalogue position)'
-    if target and pointing:
-      offset = image_data.separation_arcsec(*target, *pointing)
-      ghz = image_data.mean_frequency_ghz(vis)
-      #Gaussian primary beam: good enough to tell "near the edge" from "inside"
-      response = (math.exp(-4 * math.log(2) * (offset / 60 * ghz / PB_FWHM_ARCMIN_GHZ) ** 2)
-                  if ghz else 1.0)
-      if response >= TARGET_CENTRE_MIN_PB:
-        centre, why = target, f'the target (NED), {offset:.1f}" from the pointing centre'
-      else:
-        why = (f"the pointing centre: the target is {offset / 60:.1f}' from it, where the "
-               f"primary beam is down to ~{response:.2f}")
-        print(f"WARNING: target is {offset / 60:.1f}' from the pointing centre, too far "
-              f"down the primary beam (~{response:.2f}) to centre the image on it.")
-    if centre is None and pointing and image_data.field_frame(vis) != 'J2000':
-      centre = pointing
+    centre = pointing if pointing and image_data.field_frame(vis) != 'J2000' else None
     options.image_phasecenter = (f"J2000 {centre[0]:.9f}deg {centre[1]:.9f}deg"
                                  if centre else '')
     run_log.note('IMAGING', 'Image centre',
-                 f"{options.image_phasecenter or 'pointing centre, as recorded'}   ({why})")
+                 (f"{options.image_phasecenter}   (the pointing centre, in J2000)" if centre
+                  else "the pointing centre, as recorded (J2000)"))
     return options.image_phasecenter
+
+  @staticmethod
+  def plan_field(options:Options):
+    '''Settle the run's image geometry once: cell, image size, gridder, outlier fields.
+
+    field_of_view 'primary_beam' (the default): the main image, centred on the
+    pointing, covers FOV_PB_FWHMS primary-beam FWHMs at CELLS_PER_BEAM pixels per
+    beam -- coarsened to MIN_CELLS_PER_BEAM, and then cut to MAX_IMAGE_PIXELS, when that
+    is too big. Catalogued (NVSS) sources beyond it that are bright enough after the
+    primary beam to matter, and the target if it falls outside, get outlier fields.
+    W-projection when the field is wide enough for the sky's curvature to matter.
+
+    'fixed' (fast mode): image_size and cell as given, no outliers.'''
+    if getattr(options, 'image_plan', None):
+      return options.image_plan
+    beam = BAND_ANGULAR_RESOLUTION[options.band][Cleaner._config_index(options)]
+    if getattr(options, 'field_of_view', FIELD_OF_VIEW_FIXED) != FIELD_OF_VIEW_PRIMARY_BEAM:
+      cell = (Cleaner._arcsec_value(options.cell_size) if options.use_custom_cell_size
+              else beam / CELLS_PER_BEAM)
+      plan = {'mode': FIELD_OF_VIEW_FIXED, 'cell_arcsec': cell, 'imsize': options.image_size[0],
+              'gridder': 'standard', 'outliers': []}
+      return Cleaner._adopt_plan(options, plan)
+
+    vis = options.calibrated_filename + '.ms'
+    ghz = image_data.mean_frequency_ghz(vis) or (sum(BAND_GHZ_RANGES[options.band]) / 2)
+    fwhm = PB_FWHM_ARCMIN_GHZ / ghz * 60   #arcsec
+    side = FOV_PB_FWHMS * fwhm
+    if options.use_custom_cell_size:
+      cell = Cleaner._arcsec_value(options.cell_size)
+    else:
+      cell = beam / CELLS_PER_BEAM
+      if side / cell > MAX_IMAGE_PIXELS:
+        cell = max(cell, min(beam / MIN_CELLS_PER_BEAM, side / MAX_IMAGE_PIXELS))
+    import casatools
+    imsize = int(casatools.synthesisutils().getOptimumSize(
+      int(min(MAX_IMAGE_PIXELS, math.ceil(side / cell)))))
+    half_rad = math.radians(imsize * cell / 2 / 3600)
+    wavelength = 0.299792458 / ghz
+    curvature = half_rad ** 2 * Cleaner._max_baseline_m(options) / wavelength
+    plan = {'mode': FIELD_OF_VIEW_PRIMARY_BEAM, 'cell_arcsec': cell, 'imsize': imsize,
+            'gridder': 'wproject' if curvature > WPROJECT_THRESHOLD else 'standard',
+            'pb_fwhm_arcsec': fwhm, 'frequency_ghz': ghz, 'outliers': [],
+            'brightest_field_source_jy': None}
+    pointing = image_data.field_centre_j2000(vis)
+    if pointing:
+      plan['outliers'], plan['brightest_field_source_jy'] = Cleaner._outlier_fields(
+        options, plan, pointing, beam)
+    return Cleaner._adopt_plan(options, plan)
+
+  @staticmethod
+  def _adopt_plan(options, plan):
+    options.image_plan = plan
+    Cleaner._plan = plan
+    options.cell_size = Cleaner._as_arcsec(f"{plan['cell_arcsec']:.6g}")
+    options.image_size = [plan['imsize'], plan['imsize']]
+    text = (f"{plan['imsize']} x {plan['imsize']} pixels of {options.cell_size}"
+            f" ({plan['imsize'] * plan['cell_arcsec'] / 60:.1f}' across), {plan['gridder']} gridder")
+    if plan['mode'] == FIELD_OF_VIEW_PRIMARY_BEAM:
+      text += (f"; primary beam FWHM {plan['pb_fwhm_arcsec'] / 60:.1f}' at "
+               f"{plan['frequency_ghz']:.3g} GHz; {len(plan['outliers'])} outlier field(s)")
+    else:
+      text += '; fixed field (fast mode)'
+    print(f"Image plan: {text}")
+    run_log.note('IMAGING', 'Field of view', text)
+    for field in plan['outliers']:
+      run_log.note('IMAGING', '', f"outlier {field['suffix']}: {field['why']}")
+    return plan
+
+  @staticmethod
+  def _outlier_fields(options, plan, pointing, beam):
+    '''Outlier fields: the target when it falls outside the main image, then the
+    catalogued (NVSS) sources beyond it whose flux after the primary beam reaches
+    OUTLIER_MIN_APPARENT_JY. Returns (fields, brightest apparent field source in Jy).'''
+    from API_integrations import nvss
+    fwhm, ghz = plan['pb_fwhm_arcsec'], plan['frequency_ghz']
+    half = plan['imsize'] * plan['cell_arcsec'] / 2
+    field_px = max(64, int(OUTLIER_FIELD_BEAMS * beam / plan['cell_arcsec']))
+    import casatools
+    field_px = int(casatools.synthesisutils().getOptimumSize(field_px))
+    field_half = field_px * plan['cell_arcsec'] / 2
+
+    def outside(ra, dec):
+      #inside the square main image <=> both offsets within its half-width
+      dx = (ra - pointing[0] + 540) % 360 - 180
+      dx *= math.cos(math.radians(pointing[1])) * 3600
+      dy = (dec - pointing[1]) * 3600
+      return abs(dx) > half - field_half / 4 or abs(dy) > half - field_half / 4
+
+    def response(sep):
+      gauss = math.exp(-4 * math.log(2) * (sep / fwhm) ** 2)
+      return max(gauss, PB_SIDELOBE_FLOOR) if sep <= OUTLIER_SEARCH_FWHMS * fwhm else gauss
+
+    fields = []
+    target = source_fit.target_position(options)
+    if target and outside(*target):
+      sep = image_data.separation_arcsec(*target, *pointing)
+      fields.append({'suffix': 'target', 'ra_deg': target[0], 'dec_deg': target[1],
+                     'imsize': field_px, 'why': f'the target, {sep / 60:.1f}\' from the pointing'})
+    catalogue = nvss.sources_near(pointing[0], pointing[1], OUTLIER_SEARCH_FWHMS * fwhm / 60)
+    if catalogue is None:
+      run_log.note('IMAGING', 'Outlier fields', 'NVSS could not be queried: none added')
+      return fields, None
+    brightest = None
+    candidates = []
+    for ra, dec, flux14 in catalogue:
+      sep = image_data.separation_arcsec(ra, dec, *pointing)
+      apparent = flux14 * (ghz / 1.4) ** OUTLIER_SPECTRAL_INDEX * response(sep)
+      brightest = max(brightest or 0.0, apparent)
+      if apparent >= OUTLIER_MIN_APPARENT_JY and outside(ra, dec):
+        candidates.append((apparent, ra, dec, sep, flux14))
+    for apparent, ra, dec, sep, flux14 in sorted(candidates, reverse=True):
+      if len(fields) >= MAX_OUTLIER_FIELDS + (1 if fields and fields[0]['suffix'] == 'target' else 0):
+        break
+      #one field per patch of sky: a source inside an earlier field is already imaged
+      if any(image_data.separation_arcsec(ra, dec, f['ra_deg'], f['dec_deg']) < field_half
+             for f in fields):
+        continue
+      fields.append({'suffix': f"out{len(fields) + 1}", 'ra_deg': ra, 'dec_deg': dec,
+                     'imsize': field_px,
+                     'why': f"NVSS {flux14 * 1e3:.0f} mJy at 1.4 GHz, {sep / 60:.1f}' out, "
+                            f"~{apparent * 1e3:.1f} mJy apparent"})
+    return fields, brightest
+
+  @staticmethod
+  def _model_flux(base):
+    '''Total flux in a clean's model, Jy: the main field plus its outlier fields.'''
+    total, found = 0.0, False
+    for model in [Path(base + '.model.tt0'), Path(base + '.model')] + \
+                 sorted(Path().glob(base + '_*.model.tt0')):
+      #only this clean's own outlier fields (<base>_target, <base>_out<N>), not cycles
+      if model.name.split('.model')[0] not in (Path(base).name,) and \
+         not any(model.name.startswith(f"{Path(base).name}_{s}") for s in ('target', 'out')):
+        continue
+      if model.is_dir():
+        value = image_data.first_value(image_data.imstat_dict(imagename=str(model)).get('sum'))
+        if value is not None:
+          total, found = total + value, True
+    return total if found else None
+
+  @staticmethod
+  def _max_baseline_m(options):
+    '''Longest baseline in the array, metres, from the antenna offsets in listobs.'''
+    antennas = getattr(options.observation_data, 'antennas', None) or []
+    coords = [(a.east_offset, a.north_offset) for a in antennas]
+    return max((math.hypot(a[0] - b[0], a[1] - b[1]) for i, a in enumerate(coords)
+                for b in coords[i + 1:]), default=0.0)
 
   @staticmethod
   def stokes_v_noise(options:Options):
@@ -117,7 +276,7 @@ class Cleaner:
     name = options.image_filename + '_V'
     Cleaner._clear_image(name)
     try:
-      ct.tclean(**{**Cleaner._tclean_kwargs(options), 'imagename': name, 'stokes': 'V',
+      Cleaner._tclean(outliers=False, **{**Cleaner._tclean_kwargs(options), 'imagename': name, 'stokes': 'V',
                    'niter': 0, 'interactive': False, 'savemodel': 'none'})
     except Exception as e:
       print(f"Stokes V noise skipped: {e}")
@@ -140,7 +299,7 @@ class Cleaner:
       #shallow: this model only has to feed the first gaincal, not be a finished image
       niter = SELF_CAL_INITIAL_NITER
     #add nmajor=1/2 instead of lowering niter?
-    ct.tclean(imagename=options.image_filename,
+    Cleaner._tclean(imagename=options.image_filename,
                   niter=niter,
                   **Cleaner._tclean_kwargs(options),
                   **mask_kwargs
@@ -163,7 +322,7 @@ class Cleaner:
 
     `mask`: a saved/carried mask to reuse for this clean (see _mask_kwargs).'''
     name = options.image_filename + '_' + str(label)
-    ct.tclean(imagename=name,
+    Cleaner._tclean(imagename=name,
                   niter=CLEAN_NITER,
                   **Cleaner._tclean_kwargs(options),
                   **Cleaner._mask_kwargs(options, mask, nsigma)
@@ -223,7 +382,7 @@ class Cleaner:
       Cleaner._clear_image(name)  #a test image is always a fresh look, never a restart
       print(f"\nTest image {attempt + 1}: cell={options.cell_size}, "
             f"imsize={options.image_size}, robust={options.robust}")
-      ct.tclean(**{**Cleaner._tclean_kwargs(options), 'imagename': name,
+      Cleaner._tclean(outliers=False, **{**Cleaner._tclean_kwargs(options), 'imagename': name,
                    'niter': TEST_IMAGE_NITER, 'interactive': False,
                    **Cleaner._mask_kwargs(options)})
       png = Cleaner.export_png(name)
@@ -253,6 +412,10 @@ class Cleaner:
     #the settled cell must survive initial_cycle's find_cell_size, which otherwise
     #recomputes it from the band table and discards what was just chosen
     options.use_custom_cell_size = True
+    if attempt:
+      #geometry chosen by hand: it replaces the automatic primary-beam plan
+      options.field_of_view = FIELD_OF_VIEW_FIXED
+      options.image_plan = None
     run_log.note('IMAGING', 'Test image',
                  f"{attempt + 1} pass(es); kept cell={options.cell_size}, "
                  f"imsize={options.image_size}, robust={options.robust}")
@@ -331,7 +494,7 @@ class Cleaner:
     Cleaner._clear_image(core_base)
     Cleaner._clear_image(name)
     #1) model the core only -- savemodel writes it into the copy's MODEL column
-    ct.tclean(**{**shared, 'vis': sub_vis, 'imagename': core_base,
+    Cleaner._tclean(outliers=False, **{**shared, 'vis': sub_vis, 'imagename': core_base,
                  'interactive': interactive, 'niter': CLEAN_NITER,
                  'nsigma': SELF_CAL_NSIGMA,
                  **({'usemask': 'user', 'mask': core_mask} if core_mask else {})})
@@ -339,7 +502,7 @@ class Cleaner:
     LoadingAnimation.performing_action(action='uvsub (core subtraction)',
                                        target=ct.uvsub, args=(sub_vis,))
     #3) image what is left
-    ct.tclean(**{**shared, 'vis': sub_vis, 'imagename': name, 'niter': CLEAN_NITER,
+    Cleaner._tclean(**{**shared, 'vis': sub_vis, 'imagename': name, 'niter': CLEAN_NITER,
                  **Cleaner._mask_kwargs(options)})
     ct.impbcor(imagename=name+'.image.tt0', pbimage=name+'.pb.tt0',
                outfile=name+'.pbcorimage', overwrite=True)
@@ -522,16 +685,19 @@ class Cleaner:
     run_log.cycle('initial', dynamic_range=best['dr'], decision='baseline to beat')
 
     if options.do_self_cal:
-      peak = initial.peak()
-      if peak is None or peak < MIN_FLUX_FOR_SELF_CAL or best['dr'] <= 0:
-        #self-cal on a too-faint source (or a degenerate zero-RMS image) just solves
+      #judged on the whole field: gaincal solves against everything in the model, so a
+      #faint target in a field with bright sources self-cals fine on those
+      model_flux = Cleaner._model_flux(fn)
+      if model_flux is None or model_flux < MIN_MODEL_FLUX_FOR_SELF_CAL or best['dr'] <= 0:
+        #self-cal on a too-faint field (or a degenerate zero-RMS image) just solves
         #the noise -> skip it entirely
-        measured = 'unmeasurable' if peak is None else f"{peak:.3g}"
-        print(f"Peak {measured} Jy/beam < {MIN_FLUX_FOR_SELF_CAL} floor (or non-positive DR) "
-              f"-> too faint to self-cal; keeping the initial image.")
-        run_log.cycle('self-cal', decision=f"SKIPPED -- peak {measured} Jy/beam below the "
-                                           f"{MIN_FLUX_FOR_SELF_CAL} Jy/beam floor")
+        measured = 'unmeasurable' if model_flux is None else f"{model_flux:.3g}"
+        print(f"Field model {measured} Jy < {MIN_MODEL_FLUX_FOR_SELF_CAL} Jy floor (or "
+              f"non-positive DR) -> too faint to self-cal; keeping the initial image.")
+        run_log.cycle('self-cal', decision=f"SKIPPED -- field model {measured} Jy below the "
+                                           f"{MIN_MODEL_FLUX_FOR_SELF_CAL} Jy floor")
       else:
+        print(f"Field model {model_flux:.3g} Jy: self-calibrating on the whole field.")
         schedule = Cleaner._solint_schedule(options, max(0, options.self_cal_cycles))
         prev_dr = best['dr']
         diverged = False
@@ -797,6 +963,14 @@ class Cleaner:
       options.mask = str(mask_dest)
       print(f"results: saved clean mask -> {mask_dest} (import.json will reference it)")
 
+    #3b2) the target's own outlier field, when it fell outside the main image
+    if target_field := image_data.restored_image(base + '_target'):
+      try:
+        ct.exportfits(imagename=target_field,
+                      fitsimage=str(results_dir / f"{name}.target.fits"), overwrite=True)
+      except Exception as e:
+        print(f"results: target-field FITS export failed ({target_field}): {e}")
+
     #3c) core-subtracted (jet) image, when core subtraction ran: FITS + pbcor + PNG,
     #    named .coresub so it never collides with the main image's products
     if coresub := getattr(options, 'coresub_base', ''):
@@ -942,13 +1116,12 @@ class Cleaner:
 
   @staticmethod
   def find_cell_size(options:Options):
-    '''Return the tclean cell size as a clean '<N>arcsec' string. Uses the custom
-    value if set, else 1/10th of the band's angular resolution for the array config.'''
-    if options.use_custom_cell_size:
-      cell = options.cell_size
-    else:
-      cell = BAND_ANGULAR_RESOLUTION[options.band][Cleaner._config_index(options)] / 10
-    return Cleaner._as_arcsec(cell)
+    '''Return the tclean cell size as a clean '<N>arcsec' string, from the run's image
+    plan (plan_field): the custom value if set, else a tenth of the band's angular
+    resolution for the array config -- coarser when the primary-beam field would
+    otherwise need an image too big to make.'''
+    Cleaner.plan_field(options)
+    return options.cell_size
 
   @staticmethod
   def _config_index(options:Options):

@@ -37,9 +37,10 @@ from classes.image_data import (beam_from_header, convert_unit, field_centre_j20
                                 first_value, header_value, image_shape, imstat_dict,
                                 pb_image, pixel_scale_arcsec, pixel_value, region_peak,
                                 separation_arcsec, sky_to_pixel, to_arcsec)
-from classes.constants import (DETECTION_SEARCH_BEAMS, DETECTION_SIGMA, FIT_BOX_BEAMS,
-                               FIT_BOX_MAX_IMAGE_FRACTION, FIT_BOX_MIN_PIXELS,
-                               FIT_MIN_SNR, FIT_TARGET_BOX_BEAMS, NOISE_RATIO_WARN)
+from classes.constants import (DETECTION_SEARCH_BEAMS, DETECTION_SIGMA, DR_WARN_RATIO,
+                               FIT_BOX_BEAMS, FIT_BOX_MAX_IMAGE_FRACTION, FIT_BOX_MIN_PIXELS,
+                               FIT_MIN_SNR, FIT_TARGET_BOX_BEAMS, LOW_FREQUENCY_BANDS,
+                               LOW_PB_WARN, NOISE_RATIO_WARN)
 from pre_calibration.options_class import Options
 
 #see image_data: astropy's unit attributes are built dynamically, so u.Unit() is
@@ -75,9 +76,17 @@ def fit_best_image(options: Options, image):
   fit_files = {'logfile': results_dir / f"{name}.imfit.log",
                'residual': results_dir / f"{name}.imfit.residual"}
 
-  record = {**image.measurements(), **_noise_check(options, rms),
-            'flux_scale': flux_scale(options)}
   target = locate_target(options, image, header)
+  measured_on = 'main image'
+  if target and not target['in_image']:
+    #beyond the main image: plan_field gave the target an outlier field of its own
+    field = _target_field(options, image)
+    if field is not None:
+      image, header, measured_on = field, field.header(), 'target outlier field'
+      rms = image.off_source_rms()
+      target = locate_target(options, image, header)
+  record = {**image.measurements(), **_noise_check(options, rms),
+            'flux_scale': flux_scale(options), 'measured_on': measured_on}
   if target and target['in_image']:
     detection = detect(image, target, rms, header, _sigma(options))
     record.update(target=target, detection=detection, fit_centre='target')
@@ -99,6 +108,7 @@ def fit_best_image(options: Options, image):
     if fit is None and not target:
       return None
     record.update(fit_centre='image peak', fit_box=box or '(whole image)', **(fit or {}))
+  record['field_warnings'] = _field_warnings(options, record)
   #imfit only reports a frequency when the component carries a spectrum; the image
   #header always has one, so fall back to it rather than archiving a null
   if record.get('frequency_ghz') is None:
@@ -193,6 +203,35 @@ def detect(image, target, rms, header, sigma):
     'detected': detected,
     'upper_limit_jy_per_beam': None if detected or not rms else sigma * rms,
   }
+
+
+def _field_warnings(options, record):
+  '''Why this epoch may struggle to detect a faint target -- warnings, not verdicts:
+  a low-frequency band (big primary beam, many bright field sources) with the target
+  far out in it, or a catalogued field source thousands of times the image noise.'''
+  warnings = []
+  band = getattr(options, 'band', '')
+  response = (record.get('target') or {}).get('pb_response')
+  if band in LOW_FREQUENCY_BANDS and response is not None and response < LOW_PB_WARN:
+    warnings.append(f"target far out in the {band}-band primary beam (response {response:.2f})")
+  plan = getattr(options, 'image_plan', None) or {}
+  brightest, rms = plan.get('brightest_field_source_jy'), record.get('rms_jy_per_beam')
+  if brightest and rms and brightest >= DR_WARN_RATIO * rms:
+    warnings.append(f"a catalogued field source of ~{brightest * 1e3:.0f} mJy (after the "
+                    f"primary beam) is {brightest / rms:.0f}x the image noise: dynamic range "
+                    f"may limit faint detections")
+  return warnings
+
+
+def _target_field(options, image):
+  '''The target's outlier field from the same clean as `image` (<base>_target), as an
+  image_data.Image, or None when there is none.'''
+  from classes.image_data import Image, restored_image
+  base = f"{image.base}_target"
+  path = restored_image(base)
+  if not path:
+    return None
+  return Image(options, imstat_dict(imagename=path), base=base)
 
 
 def flux_scale(options):
@@ -323,6 +362,10 @@ def fit_source(image, rms=None, box='', logfile=None, residual=None) -> dict[str
 def print_summary(record):
   '''One human-readable block at the end of a run, to stdout and the CASA log.'''
   lines = _target_lines(record)
+  if record.get('measured_on') == 'target outlier field':
+    lines.append("  (the target is outside the main image: measured in its own outlier field)")
+  for warning in record.get('field_warnings') or []:
+    lines.append(f"  WARNING: {warning}")
   scale = record.get('flux_scale') or {}
   if scale.get('origin') == 'catalogue':
     lines.append(f"  FLUX SCALE FROM CATALOGUE: {scale.get('calibrator')} at {scale.get('flux_jy'):g} Jy "

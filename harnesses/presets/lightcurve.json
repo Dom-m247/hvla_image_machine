@@ -1,18 +1,21 @@
 {
   "harness": "lightcurve",
-  "label": "every epoch within 100\"; same imaging recipe for every epoch, measured at the target",
+  "label": "every epoch within 100\"; the primary beam's field imaged and self-calibrated, target measured at its position",
   "options": {
     "batch_size": 4,
     "max_sep_arcsec": 100,
     "max_gb": 20
   },
   "seed": {
-    "decisions": {"self_cal": "off"},
-    "image_size": [1024, 1024],
+    "decisions": {
+      "self_cal": "auto"
+    },
     "deconvolver": "mtmfs",
     "weighting": "briggs",
     "robust": 0.5,
     "detection_sigma": 5.0,
-    "mask": ""
+    "mask": "",
+    "self_cal_cycles": 4,
+    "field_of_view": "primary_beam"
   }
 }

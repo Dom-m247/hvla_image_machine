@@ -77,10 +77,15 @@ Ka, and Q**.
   sources (opt-in).
 - **Per-run results folder** — collects the science products (FITS, primary-beam-
   corrected image, PNG preview, clean mask, listobs, and the CASA log) in one place.
-- **Measured where the target is** — the image is made in J2000 and centred on the
-  target's NED position, and the target is measured there: detected when the peak within
-  a beam of it reaches `detection_sigma` (default 5) times the off-source rms, an upper
-  limit otherwise. Never a fit to whatever happens to be brightest in the field.
+- **The whole field, imaged properly** — by default the image is centred on the pointing,
+  in J2000, and covers the primary beam's field, with outlier fields for bright NVSS
+  sources beyond it (and for the target, if it falls outside), w-projection where the
+  field is wide, and self-cal judged on the whole field's flux. `field_of_view: fixed`
+  (or a typed image size) is the fast opt-out.
+- **Measured where the target is** — the target is measured at its NED position:
+  detected when the peak within a beam of it reaches `detection_sigma` (default 5) times
+  the off-source rms, an upper limit otherwise. Never a fit to whatever happens to be
+  brightest in the field.
 - **Reproducible runs** — every run emits an `import.json` recipe *and* a standalone
   `replay.py` of the exact CASA task calls (with a provenance header) for hands-free,
   mask-aware reproduction.

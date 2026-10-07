@@ -129,10 +129,42 @@ FIT_TARGET_BOX_BEAMS = 3            #imfit box half-side, in beams, around the t
 FIT_MIN_SNR = 3.0                   #below this S/N no Gaussian is fitted at all (it would fit
                                     #noise); kept below DETECTION_SIGMA so a sweep can be
                                     #re-thresholded down to it without re-imaging
-#Image centre: the target, when it is inside the primary beam. Without a catalogue
-#position, or with the target this far down the beam, the pointing centre instead.
 PB_FWHM_ARCMIN_GHZ = 45.0           #classic VLA 25 m primary beam FWHM ~ 45'/freq(GHz)
-TARGET_CENTRE_MIN_PB = 0.1          #don't centre the image on a target below this response
+#--- field of view (Cleaner.plan_field) ---
+#Every source in the primary beam that is bright enough to matter has to be in the
+#self-cal model, at the right place: a faint target can sit under the sidelobes of a
+#field source a thousand times brighter, whatever the exposure. So by default the image
+#is centred on the pointing and covers the field the primary beam sees; bright sources
+#beyond it, and the target if it falls outside, get small outlier fields of their own.
+FIELD_OF_VIEW_PRIMARY_BEAM = 'primary_beam' #image the beam's field, plus outlier fields
+FIELD_OF_VIEW_FIXED = 'fixed'       #image_size and cell as given (fast mode)
+FOV_PB_FWHMS = 2.0                  #main image side, in primary-beam FWHMs (edge response ~6%)
+CELLS_PER_BEAM = 10                 #preferred sampling of the synthesized beam
+MIN_CELLS_PER_BEAM = 4              #coarsest; below it the image is cut down instead
+MAX_IMAGE_PIXELS = 8192             #largest image side; past it outlier fields cover the rest
+WPROJECT_THRESHOLD = 0.3            #w-projection when (half-width, rad)^2 * Bmax/lambda exceeds this
+OUTLIER_SEARCH_FWHMS = 2.0          #catalogue (NVSS) sources this far out are considered
+OUTLIER_MIN_APPARENT_JY = 0.005     #...and kept when their beam-attenuated flux reaches this
+OUTLIER_SPECTRAL_INDEX = -0.7       #to carry NVSS 1.4 GHz fluxes to the observing frequency
+PB_SIDELOBE_FLOOR = 0.01            #response assumed outside the main lobe (first sidelobe ~1-2%)
+OUTLIER_FIELD_BEAMS = 40            #outlier field side, in synthesized beams (at least 64 pixels)
+MAX_OUTLIER_FIELDS = 10
+#--- automatic clean masks (auto-multithresh) ---
+#CASA's defaults are tuned for ALMA. A classic-VLA snapshot's PSF has sidelobes of
+#~0.4, so the default 3x-sidelobe threshold masks nothing, and what the 2x VLA value
+#leaves above it is smaller than the default 0.3-beam pruning size: nothing is cleaned
+#and the field's sidelobes stay in the image (an L-band snapshot measured 5x noisier).
+#The CASA automasking guide's VLA values, with pruning lowered to keep the first peaks.
+AUTOMASK_VLA = {'sidelobethreshold': 2.0, 'noisethreshold': 4.25, 'lownoisethreshold': 1.5,
+                'minbeamfrac': 0.1, 'negativethreshold': 0.0}
+AUTOMASK_NOISE_A_CONFIG = 5.0       #noisethreshold the guide gives for A configuration
+#--- self-calibration gate ---
+#Judged on the whole field: the model of everything cleaned is what gaincal solves against.
+MIN_MODEL_FLUX_FOR_SELF_CAL = 0.02  #Jy summed over the field model; below, too faint to solve on
+#--- warnings: epochs where a faint target will be hard ---
+LOW_FREQUENCY_BANDS = ('4', 'P', 'L', 'S', 'C')  #big primary beams, many bright field sources
+LOW_PB_WARN = 0.5                   #target this far down the beam at a low frequency
+DR_WARN_RATIO = 1000                #a catalogued field source this many times the image rms
 #--- image quality ---
 #Stokes V is effectively source-free here, so Stokes I noise well above V's is structure
 #left in I: the image is limited by dynamic range or calibration, not by noise. V is

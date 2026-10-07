@@ -84,7 +84,8 @@ def recipe(overrides=None):
 
     #--- imaging --------------------------------------------------------------
     'image_filename': None,        #auto-generated as <proj>_<source>_<band>
-    'image_size': list(DEFAULT_IMAGE_SIZE),
+    'field_of_view': 'primary_beam',  #the beam's whole field, plus outliers (Cleaner.plan_field)
+    'image_size': list(DEFAULT_IMAGE_SIZE),   #used only with field_of_view 'fixed'
     'interactive_image': False,    #tclean must not open a window and wait
     'use_custom_cell_size': False, #let find_cell_size size it from band + config
     'deconvolver': 'mtmfs',

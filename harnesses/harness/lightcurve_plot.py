@@ -181,6 +181,9 @@ def _target_epoch(row, fit, selection, sigma, max_sep):
   Gaussian fit (or, failing a usable fit, its peak pixel), or an upper limit."""
   target, detection = fit.get('target') or {}, fit.get('detection') or {}
   notes = []
+  if fit.get('measured_on') == 'target outlier field':
+    notes.append('target outside the main image: measured in its own outlier field')
+  notes += [f"WARNING: {w}" for w in fit.get('field_warnings') or []]
   scale = fit.get('flux_scale') or {}
   if scale.get('origin') == 'catalogue':
     notes.append(f"FLUX SCALE FROM CATALOGUE ({scale.get('calibrator')} at "

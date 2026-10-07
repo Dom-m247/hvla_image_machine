@@ -24,7 +24,7 @@ class Options:
     'flagging_methods', 'flag_selection', 'rms_region',
     'self_cal_plan', 'self_cal_ap', 'self_cal_blcal',
     'min_snr', 'detection_sigma', 'image_filename',
-    'image_size', 'interactive_image', 'use_custom_cell_size', 'deconvolver',
+    'field_of_view', 'image_size', 'interactive_image', 'use_custom_cell_size', 'deconvolver',
     'weighting', 'robust', 'test_image', 'mask',
   )
 
@@ -100,6 +100,11 @@ class Options:
     self.best_image_base = '' #image_filename base of the best (lowest-RMS) self-cal cycle
     self.coresub_base = '' #image base of the core-subtracted (jet) image, when it ran
     self.image_phasecenter = None #tclean phasecenter every clean shares; None = not settled yet
+    #'primary_beam': image the field the primary beam sees, plus outlier fields (the
+    #default); 'fixed': image_size/cell as given (fast mode). See Cleaner.plan_field.
+    self.field_of_view = FIELD_OF_VIEW_PRIMARY_BEAM
+    self.image_size = list(DEFAULT_IMAGE_SIZE)
+    self.image_plan = None #cell, size, gridder, outlier fields: settled once per run
     self.stokes_v_rms = None #thermal-noise reference from a Stokes V image, Jy/beam
     self.val = 0 #debugging variable
     # validate inputs below; else throw err 
@@ -144,6 +149,9 @@ class Options:
       self.detection_sigma = float(dict_in.get('detection_sigma') or DETECTION_SIGMA)
       self.image_filename = dict_in['image_filename']
       self.image_size = dict_in['image_size']
+      #files from before the primary-beam plan (and the GUI, which sets a size) keep
+      #imaging the fixed field they always did
+      self.field_of_view = dict_in.get('field_of_view') or FIELD_OF_VIEW_FIXED
       self.interactive_image = dict_in['interactive_image']
       self.use_custom_cell_size = dict_in['use_custom_cell_size']
       if self.use_custom_cell_size:

@@ -57,15 +57,39 @@ selection table marks one found on B1950 coordinates `(B1950)`.
 `--bands` is passed to the archive search itself, not only applied afterwards: an
 all-band search takes minutes.
 
+## How each epoch is imaged
+
+Self-calibration has to model the field the observation was set up for: a faint target
+can sit under the sidelobes of a field source a thousand times brighter, whatever the
+exposure. So by default (`field_of_view: primary_beam`) every epoch is imaged properly,
+whichever source you are after:
+
+- The image is centred on the **pointing**, in J2000, and covers twice the primary-beam
+  FWHM (about 60' at L band, 18' at C) at a tenth of a beam per pixel -- coarsened to a
+  quarter beam, then capped at 8192 pixels, where that is too big. Old data record
+  positions as B1950_VLA, which CASA handles correctly but `exportfits` writes as
+  `EQUINOX 1979.9`; imaging in J2000 avoids every other reader (DS9, astropy) putting
+  the image ~20' from where it is.
+- NVSS sources beyond the image whose flux after the primary beam reaches 5 mJy get
+  small **outlier fields**, imaged alongside so they are in the self-cal model. So does
+  the target, if it falls outside the main image (it is then measured there).
+- **W-projection** switches on when the field is wide enough for the sky's curvature to
+  matter (most L-band fields, high-resolution wide fields).
+- **Self-cal** is on in the lightcurve presets. Whether to try it is judged on the whole
+  field's cleaned flux (at least 20 mJy), not the target's; each cycle is kept only if it
+  raises the dynamic range.
+- An epoch likely to be hard for a faint target is **warned about**, not skipped: a
+  low-frequency band (4, P, L, S, C) with the target below half power in the beam, or a
+  catalogued field source more than 1000 times the image noise.
+
+The `lightcurve_fast` preset is the opt-out: for a bright, point-like target that is the
+pointing target of every epoch chosen, a small fixed field and no self-cal.
+
 ## Where the target is measured
 
-Every run images and measures the target at its catalogue position (NED, J2000),
-not wherever the image happens to peak:
+Every run measures the target at its catalogue position (NED, J2000), not wherever the
+image happens to peak:
 
-- The image is centred on the target when it is inside the primary beam (the
-  pointing centre otherwise), and is made in J2000. Old data record positions as
-  B1950_VLA, which CASA handles correctly but `exportfits` writes as `EQUINOX 1979.9`
-  -- every other reader (DS9, astropy) would put such an image ~20' from where it is.
 - The target is **detected** when the brightest pixel within one beam of its position
   reaches `detection_sigma` (default **5**) times the off-source rms. A 2D Gaussian is
   then fitted in a box around it.
@@ -182,8 +206,9 @@ to start if a preset:
 |---------------------|------------|
 | `full_auto`         | auto cal/flag/refant, one clean, no self-cal |
 | `full_auto_selfcal` | as above, plus the scored self-cal ladder (4 cycles) |
-| `lightcurve`        | the same imaging recipe for every epoch, measured at the target (5 sigma); parallel |
+| `lightcurve`        | each epoch's primary-beam field imaged and self-calibrated, target measured at its position (5 sigma); parallel |
 | `lightcurve_deep`   | as `lightcurve`, cleaned interactively; attended |
+| `lightcurve_fast`   | bright point target at the pointing centre of every epoch: small field, no self-cal |
 
 The lightcurve presets leave the cell size to the pipeline: a tenth of the beam for
 each epoch's band and array configuration. A fixed cell cannot suit both: an

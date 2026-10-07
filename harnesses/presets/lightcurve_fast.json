@@ -1,0 +1,24 @@
+{
+  "harness": "lightcurve",
+  "label": "FAST: a bright point target that is the pointing target of every epoch; small field, no self-cal",
+  "options": {
+    "batch_size": 4,
+    "max_sep_arcsec": 30,
+    "max_gb": 20
+  },
+  "seed": {
+    "decisions": {
+      "self_cal": "off"
+    },
+    "field_of_view": "fixed",
+    "image_size": [
+      256,
+      256
+    ],
+    "deconvolver": "mtmfs",
+    "weighting": "briggs",
+    "robust": 0.5,
+    "detection_sigma": 5.0,
+    "mask": ""
+  }
+}

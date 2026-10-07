@@ -31,7 +31,10 @@ class CLI:
     options.min_snr = CLI.getMinSNR()
     options.detection_sigma = CLI.getDetectionSigma()
     options.image_filename = CLI.getImageFilename()
-    options.image_size = CLI.getImageSize()
+    size = CLI.getImageSize()
+    #enter: cover the field the primary beam sees (Cleaner.plan_field); a number: that fixed field
+    options.field_of_view = FIELD_OF_VIEW_PRIMARY_BEAM if size is None else FIELD_OF_VIEW_FIXED
+    options.image_size = size or list(DEFAULT_IMAGE_SIZE)
     options.interactive_image = CLI.getYesNo("Enable interactive imaging?")
     options.use_custom_cell_size = CLI.getYesNo("Use a custom cell size?")
     if options.use_custom_cell_size:
@@ -61,7 +64,10 @@ class CLI:
     options.min_snr = CLI.getMinSNR()
     options.detection_sigma = CLI.getDetectionSigma()
     options.image_filename = CLI.getImageFilename()
-    options.image_size = CLI.getImageSize()
+    size = CLI.getImageSize()
+    #enter: cover the field the primary beam sees (Cleaner.plan_field); a number: that fixed field
+    options.field_of_view = FIELD_OF_VIEW_PRIMARY_BEAM if size is None else FIELD_OF_VIEW_FIXED
+    options.image_size = size or list(DEFAULT_IMAGE_SIZE)
     options.interactive_image = CLI.getYesNo("Enable interactive imaging?")
     options.use_custom_cell_size = CLI.getYesNo("Use a custom cell size?")
     if options.use_custom_cell_size:
@@ -447,13 +453,13 @@ class CLI:
     return val if val else None
 
   @staticmethod
-  def getImageSize() -> list:
-    '''Get image size as a single side length (square); enter for default.'''
-    default = DEFAULT_IMAGE_SIZE[0]
+  def getImageSize() -> list | None:
+    '''Get image size as a single side length (square). Enter returns None: size the
+    image to the primary beam, with outlier fields for bright sources beyond it.'''
     while True:
-      val = input(f"Enter image size in pixels (or press enter for {default}): ").strip()
+      val = input("Enter image size in pixels (or press enter to cover the primary beam): ").strip()
       if val == '':
-        return [default, default]
+        return None
       try:
         size = int(val)
         if size > 0:

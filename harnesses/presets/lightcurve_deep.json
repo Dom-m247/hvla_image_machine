@@ -7,13 +7,16 @@
     "max_gb": 20
   },
   "seed": {
-    "decisions": {"self_cal": "off"},
-    "image_size": [1024, 1024],
+    "decisions": {
+      "self_cal": "auto"
+    },
     "deconvolver": "mtmfs",
     "weighting": "briggs",
     "robust": 0.5,
     "detection_sigma": 5.0,
     "interactive_image": true,
-    "mask": ""
+    "mask": "",
+    "self_cal_cycles": 4,
+    "field_of_view": "primary_beam"
   }
 }
