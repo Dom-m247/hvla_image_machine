@@ -124,12 +124,13 @@ def _source_rows(options):
   band = _get(options, 'band')
   rows = [
     ('Source', _get(options, 'source')),
-    ('NED alias', _get(options, 'search_alias')),
+    ('Search name', _get(options, 'search_alias')),
     ('Name in listobs', _attr_of(source, 'listobs_name')),
     ('Field ID', _attr_of(source, 'field_id')),
     ('Source ID', _attr_of(source, 'source_id')),
     ('RA / Dec (listobs)', f"{_attr_of(source, 'ra')} / {_attr_of(source, 'decl')}"),
-    ('RA / Dec (NED)', f"{_get(options, 'source_ra')} / {_get(options, 'source_decl')}"),
+    (f"RA / Dec ({getattr(options, 'position_from', '') or 'catalogue'})",
+     f"{_get(options, 'source_ra')} / {_get(options, 'source_decl')}"),
     ('Band', f"{band}   ({_band_origin(options)})"),
     ('Spectral windows', _get(options, 'spw_selection')),
   ]

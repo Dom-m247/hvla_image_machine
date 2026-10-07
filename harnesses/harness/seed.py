@@ -49,13 +49,14 @@ def build(selection, overrides=None, source_name='archive'):
     'archive_files': paths,
     'band': selection.band,
     'proj_code': selection.proj_code,
-    #NED-derived fields. Nothing re-derives them on import, so without them a run
+    #catalogue-derived fields (SIMBAD, else NED). Nothing re-derives them on import, so without them a run
     #has no SIMBAD aliases to fall back on when the target's name misses in listobs,
     #and no position to image and measure the target at.
     'search_alias': selection.alias,
     'source_ra': selection.ra,
     'source_decl': selection.decl,
     'redshift': selection.redshift,
+    'position_from': getattr(selection, 'position_from', ''),
     **recipe(overrides),
   }
   _check(seed)

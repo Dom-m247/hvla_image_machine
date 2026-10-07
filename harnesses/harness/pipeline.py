@@ -19,6 +19,7 @@ if str(SRC) not in sys.path:
 
 #--- pipeline modules (import order matters only in that SRC must be on the path) ---
 from API_integrations.NED import NED_API                      # noqa: E402
+from API_integrations.resolve import resolve_source           # noqa: E402
 from archive_dowload.radio_search_integration import (        # noqa: E402
   DelosDownload, RadioSearchIntegration, parseArchFileInfo, sensitivity_jy, size_mb,
 )
@@ -50,7 +51,7 @@ __all__ = [
   'AUTO', 'BAND_GHZ_RANGES', 'CLEAN_ROBUST', 'CLI', 'DECISIONS', 'DETECTION_SIGMA',
   'DEFAULT_IMAGE_SIZE', 'DelosDownload', 'FIT_MIN_SNR', 'FLAG_METHODS_DEFAULT',
   'FOLDER_NAME', 'FORCE',
-  'IMPORT_JSON', 'MAIN_SCRIPT', 'MIN_SNR', 'MS_SUB_PATH', 'NED_API', 'OFF',
+  'IMPORT_JSON', 'MAIN_SCRIPT', 'MIN_SNR', 'MS_SUB_PATH', 'NED_API', 'OFF', 'resolve_source',
   'first_value', 'imstat_dict',
   'Options', 'PRE_EVLA_YEAR', 'REPO_ROOT', 'RadioSearchIntegration', 'SRC',
   'VENV_PYTHON', 'creds', 'parseArchFileInfo', 'revmove_path', 'sensitivity_jy',

@@ -104,3 +104,26 @@ class simbad:
         if candidate and candidate not in all_names:
           all_names.append(candidate)
     return all_names
+  @staticmethod
+  def resolve(source_name):
+    '''{'ra_decl': {'ra', 'decl'} (deg), 'alias', 'redshift'} for a name SIMBAD knows,
+    else False. 'alias' is the name as given: SIMBAD resolves it, so radio_search2
+    (which resolves through SIMBAD too) will find it under the same name.'''
+    def query(name):
+      lookup = Simbad()
+      lookup.add_votable_fields('rvz_redshift')
+      return lookup.query_object(name)
+    result = _query(f"position of {source_name}", query, source_name)
+    if result is None or simbad.check_result(result) is False:
+      return False
+    row = result[0]
+    try:
+      ra, decl = float(row['ra']), float(row['dec'])
+    except (TypeError, ValueError):
+      return False
+    redshift = row['rvz_redshift'] if 'rvz_redshift' in result.colnames else None
+    if redshift is None or np.ma.is_masked(redshift) or not np.isfinite(redshift):
+      redshift = ''
+    return {'ra_decl': {'ra': ra, 'decl': decl}, 'alias': source_name,
+            'redshift': float(redshift) if redshift != '' else '',
+            'main_id': str(row['main_id'])}

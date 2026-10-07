@@ -1,6 +1,6 @@
 """The science target's measurement on the best image, and the archived record of it.
 
-The target is measured where the catalogue puts it (NED, J2000), not wherever the
+The target is measured where the catalogue puts it (SIMBAD, else NED; J2000), not wherever the
 image happens to peak: a brighter field source, a sidelobe or a noise streak would
 otherwise be fitted and reported as the target. Around that position:
 
@@ -49,7 +49,7 @@ DEGREE = u.Unit('deg')
 HOURANGLE = u.Unit('hourangle')
 GIGAHERTZ = u.Unit('GHz')
 
-_ned_asked = set()   #names already looked up this run, so NED is asked once
+_ned_asked = set()   #names already looked up this run, so the catalogues are asked once
 
 
 def fit_best_image(options: Options, image):
@@ -129,9 +129,10 @@ def fit_best_image(options: Options, image):
 def target_position(options):
   '''The science target's J2000 position as (ra_deg, dec_deg), or None.
 
-  NED's position, which the CLI, the GUI's source check, the archive search and
-  every harness run carry as source_ra/source_decl. A run without one (an older
-  import.json, a GUI source never checked) asks NED once here and keeps the answer
+  The catalogue position (SIMBAD, else NED), which the CLI, the GUI's source check,
+  the archive search and every harness run carry as source_ra/source_decl. A run
+  without one (an older import.json, a GUI source never checked) asks once here and
+  keeps the answer
   on options, so the import.json this run writes carries it for a replay.'''
   ra = _float(getattr(options, 'source_ra', ''))
   dec = _float(getattr(options, 'source_decl', ''))
@@ -141,15 +142,16 @@ def target_position(options):
   if not name or name in _ned_asked:
     return None
   _ned_asked.add(name)
-  from API_integrations.NED import NED_API   #lazy: astroquery is slow to import
-  print(f"No catalogue position recorded for {name}; asking NED ...")
-  resolved = NED_API.obj_exists(name)
+  from API_integrations.resolve import resolve_source   #lazy: astroquery is slow to import
+  print(f"No catalogue position recorded for {name}; asking SIMBAD/NED ...")
+  resolved = resolve_source(name)
   if not resolved:
-    print(f"NED could not place {name}: the image is measured at its peak instead.")
+    print(f"Neither SIMBAD nor NED could place {name}: the image is measured at its peak instead.")
     return None
   options.source_ra = resolved['ra_decl']['ra']
   options.source_decl = resolved['ra_decl']['decl']
   options.search_alias = options.search_alias or resolved['alias']
+  options.position_from = resolved['resolver']
   return float(options.source_ra) % 360.0, float(options.source_decl)
 
 
@@ -170,7 +172,8 @@ def locate_target(options, image, header):
   pointing = field_centre_j2000(getattr(options, 'calibrated_filename', '') + '.ms')
   pb = pb_image(image.base)
   return {
-    'ra_deg': ra, 'dec_deg': dec, 'position_from': 'NED',
+    'ra_deg': ra, 'dec_deg': dec,
+    'position_from': getattr(options, 'position_from', '') or 'catalogue',
     'pixel': [round(pixel[0], 2), round(pixel[1], 2)] if pixel else None,
     'in_image': inside,
     'pb_response': pixel_value(pb, *pixel) if (inside and pb and pixel) else None,
@@ -436,7 +439,7 @@ def _target_lines(record):
   if not target:
     return ["Target: no catalogue position -- measured at the IMAGE PEAK, which may "
             "not be the target"]
-  where = (f"Target (NED J2000 {target['ra_deg']:.5f} {target['dec_deg']:+.5f})")
+  where = (f"Target ({target.get('position_from') or 'catalogue'} J2000 {target['ra_deg']:.5f} {target['dec_deg']:+.5f})")
   sep = target.get('separation_from_pointing_arcsec')
   if sep is not None:
     where += f", {sep:.1f}\" from the pointing centre"

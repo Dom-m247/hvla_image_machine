@@ -37,9 +37,10 @@ The HVLA Image Machine wraps that sequence into a single, repeatable pipeline.
 
 Given a source name and a local observation file, the tool:
 
-1. **Resolves** the object against the [NED](https://ned.ipac.caltech.edu/) and
-   [SIMBAD](https://simbad.u-strasbg.fr/simbad/) catalogs to confirm it exists
-   and recover its coordinates.
+1. **Resolves** the object against [SIMBAD](https://simbad.u-strasbg.fr/simbad/)
+   (the same resolver the archive search uses), falling back to
+   [NED](https://ned.ipac.caltech.edu/) for names only NED knows, to confirm it
+   exists and recover its coordinates and redshift.
 2. **Imports** your raw VLA archive into a CASA measurement set and parses its
    `listobs` metadata.
 3. **Calibrates** the measurement set (flux scaling with `setjy`, bandpass,
@@ -56,8 +57,8 @@ Ka, and Q**.
 
 - **Three ways to run** — a guided Tkinter GUI, an interactive CLI, and a
   fully imported/automated mode.
-- **Automatic source resolution** via NED and SIMBAD, including coordinate
-  lookup and flux checks.
+- **Automatic source resolution** via SIMBAD (NED as fallback), including coordinate
+  lookup; NED photometry for the self-cal flux check.
 - **Archive search and download** — `--radio_search` queries the observation archive
   for your source and pulls the segment straight from the Delos NAS, downloading in
   parallel with the calibration prompts.
@@ -83,7 +84,7 @@ Ka, and Q**.
   tapered image of the residuals to catch bright sources the catalogue missed,
   w-projection where the field is wide, and self-cal judged on the whole field's flux. `field_of_view: fixed`
   (or a typed image size) is the fast opt-out.
-- **Measured where the target is** — the target is measured at its NED position:
+- **Measured where the target is** — the target is measured at its catalogue position:
   detected when the peak within a beam of it reaches `detection_sigma` (default 5) times
   the off-source rms, an upper limit otherwise. Never a fit to whatever happens to be
   brightest in the field.
@@ -347,6 +348,7 @@ src/
 │   └── constants.py           #   Band tables, defaults, decision registry
 ├── API_integrations/          # External catalog clients
 │   ├── NED.py                 #   NED queries + self-cal flux check
+│   ├── resolve.py             #   name -> position: SIMBAD first, NED fallback
 │   └── simbad.py              #   SIMBAD queries
 ├── archive_dowload/           # Observation archive search & download
 │   └── radio_search_integration.py  #   radio_search query + Delos NAS download
@@ -360,7 +362,7 @@ src/
 │   └── parse_listobs.py       #   listobs parsing + array-config / solint helpers
 └── image_generation/          # CASA imaging
     ├── image_maker.py         #   tclean, self-cal ladder, results folder + replay
-    └── source_fit.py          #   target measured at its NED position: detection or upper
+    └── source_fit.py          #   target measured at its catalogue position: detection or upper
                                #   limit, 2D Gaussian fit -> <name>.fit.json
 
 tools/

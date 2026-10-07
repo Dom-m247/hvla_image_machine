@@ -16,8 +16,8 @@ from types import SimpleNamespace
 from pathlib import Path
 
 from .pipeline import (
-  BAND_GHZ_RANGES, CLI, DelosDownload, NED_API, Options, PRE_EVLA_YEAR,
-  RadioSearchIntegration, parseArchFileInfo, sensitivity_jy, size_mb,
+  BAND_GHZ_RANGES, CLI, DelosDownload, Options, PRE_EVLA_YEAR,
+  RadioSearchIntegration, parseArchFileInfo, resolve_source, sensitivity_jy, size_mb,
 )
 
 #radio_search2 writes Ku band as 'U' in some rows; every other band code it emits
@@ -25,11 +25,11 @@ from .pipeline import (
 #have no spw range or angular-resolution entry, so a run on one cannot be sized.
 BAND_ALIASES = {'U': 'Ku'}
 
-#NED_API.obj_exists returns False for a name it does not know AND for a query it
-#could not make -- a read timeout looks identical to a bad name, so retry before
-#believing it.
-NED_ATTEMPTS = 3
-NED_RETRY_SECONDS = 5
+#resolve_source returns False for a name neither SIMBAD nor NED knows AND for a
+#query it could not make -- a read timeout looks identical to a bad name, so retry
+#before believing it.
+RESOLVE_ATTEMPTS = 3
+RESOLVE_RETRY_SECONDS = 5
 
 
 class SelectionError(Exception):
@@ -75,7 +75,8 @@ def read_targets(path):
 class Selection:
   """One source's chosen observation and the archive files it needs."""
   name: str                 #the name as the user listed it
-  alias: str = ''           #NED's own name for it, for SIMBAD/NED lookups
+  alias: str = ''           #the name the archive search uses: as listed when SIMBAD
+                            #knows it, else NED's own name for it
   archive_name: str = ''    #the Name column of the chosen row: the archive's own
   proj_code: str = ''
   segment: str = ''
@@ -92,6 +93,7 @@ class Selection:
   ra: str = ''
   decl: str = ''
   redshift: str = ''
+  position_from: str = ''   #the catalogue that resolved the name: SIMBAD or NED
   #the segment's archive files as {'name', 'date', 'size_mb'}. The date is kept per file,
   #not taken from the observation row, because a segment can straddle a year boundary.
   #DelosDownload takes the Delos year directory from the file name, and falls back to
@@ -317,17 +319,18 @@ class Selector:
       self._rs = None
 
   def _resolve(self, source_name):
-    """NED's record for a source, retried before it is called unresolvable."""
-    for attempt in range(1, NED_ATTEMPTS + 1):
-      if resolved := NED_API.obj_exists(source_name):
+    """The catalogue record for a source (SIMBAD, else NED), retried before it is
+    called unresolvable."""
+    for attempt in range(1, RESOLVE_ATTEMPTS + 1):
+      if resolved := resolve_source(source_name):
         return resolved
-      if attempt < NED_ATTEMPTS:
-        self.log(f"  NED gave nothing for '{source_name}' "
-                 f"(attempt {attempt}/{NED_ATTEMPTS}); retrying")
-        time.sleep(NED_RETRY_SECONDS)
+      if attempt < RESOLVE_ATTEMPTS:
+        self.log(f"  SIMBAD/NED gave nothing for '{source_name}' "
+                 f"(attempt {attempt}/{RESOLVE_ATTEMPTS}); retrying")
+        time.sleep(RESOLVE_RETRY_SECONDS)
     raise SelectionError(
-      f"NED returned nothing for '{source_name}' in {NED_ATTEMPTS} attempts "
-      f"(the name is unknown, or NED was unreachable -- its own message is above)")
+      f"Neither SIMBAD nor NED resolved '{source_name}' in {RESOLVE_ATTEMPTS} attempts "
+      f"(the name is unknown, or both were unreachable -- their messages are above)")
 
   def segments_for(self, proj_code):
     """--archfileinfo for a project, parsed and cached for the session."""
@@ -356,9 +359,8 @@ class Selector:
 
     options = Options()
     options.band = 'auto'          #every band unless --bands names some
-    #radio_search2 resolves names through SIMBAD, which may not know NED's preferred
-    #name (NED calls SDSS J082905.98+420204.3 'WISEA J082905.97+420204.2'): then the
-    #name as given is tried
+    #radio_search2 resolves names through SIMBAD. A name SIMBAD resolved is searched
+    #as given; one only NED knows is searched under NED's preferred name, then as given
     observations = []
     for name in dict.fromkeys([resolved['alias'], source_name]):
       options.search_alias = name
@@ -455,6 +457,7 @@ class Selector:
       ra=str(resolved['ra_decl']['ra']),
       decl=str(resolved['ra_decl']['decl']),
       redshift=str(resolved.get('redshift', '') or ''),
+      position_from=resolved.get('resolver', ''),
       files=[{'name': f.file_name, 'date': f.date, 'size_mb': size_mb(f)}
              for f in files],
       #the local paths DelosDownload will write to, derived from the same entries

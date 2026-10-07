@@ -232,7 +232,7 @@ def archive_existing(folder):
   """Build a submission from an already-finished results folder.
 
   Recovers the measurements from <name>.fit.json and the observation from the
-  saved listobs; re-queries NED for the coordinates, which are derived from the
+  saved listobs; re-queries SIMBAD/NED for the coordinates, which are derived from the
   source name rather than stored. Returns the prefilled URL, or None.
   """
   path = Path(folder).expanduser()
@@ -337,14 +337,14 @@ def _load_ned(run):
   if not run.source:
     return
   try:
-    from API_integrations.NED import NED_API
-    result = NED_API.obj_exists(run.source)
+    from API_integrations.resolve import resolve_source
+    result = resolve_source(run.source)
     if result:
       run.source_ra = result['ra_decl']['ra']
       run.source_decl = result['ra_decl']['decl']
       run.redshift = result.get('redshift', '')
   except Exception as exc:
-    print(f"archive: NED lookup failed for {run.source!r}: {exc}")
+    print(f"archive: SIMBAD/NED lookup failed for {run.source!r}: {exc}")
 
 
 def submit(options):

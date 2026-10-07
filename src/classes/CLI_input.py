@@ -7,7 +7,7 @@ import sys
 from pre_calibration.options_class import Options
 from classes.constants import *
 from API_integrations.simbad import simbad
-from API_integrations.NED import NED_API
+from API_integrations.resolve import resolve_source
 class CLI:
   
   '''Helper functions for terminal interactions, managing input'''
@@ -90,6 +90,7 @@ class CLI:
     options.source_decl = source_dict['ra_decl']['decl']
     options.search_alias = source_dict['alias']
     options.redshift = source_dict.get('redshift', '')
+    options.position_from = source_dict.get('resolver', '')
     options.band = CLI.getBand()
 
   @staticmethod
@@ -287,12 +288,12 @@ class CLI:
     while True:
       try:
         source = input("Enter Source Name (or press enter to quit): ").strip()
-        #test for the cancel BEFORE the lookup: NED does not resolve '', so an
+        #test for the cancel BEFORE the lookup: '' resolves nowhere, so an
         #empty name would otherwise come back "not found" and re-prompt forever
         if(source == ''):
           sys.exit() #maybe auto/hold off till after import?
-        if not (result := NED_API.obj_exists(source)):
-          raise ValueError(f"Source {source} not found by NED. Please enter a valid source.")
+        if not (result := resolve_source(source)):
+          raise ValueError(f"Source {source} not found in SIMBAD or NED. Please enter a valid source.")
         break
       except ValueError:
         print("source not found. Please enter a valid name or press enter to cancel.")

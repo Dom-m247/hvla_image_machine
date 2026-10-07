@@ -95,7 +95,7 @@ pointing target of every epoch chosen, a small fixed field and no self-cal.
 
 ## Where the target is measured
 
-Every run measures the target at its catalogue position (NED, J2000), not wherever the
+Every run measures the target at its catalogue position (SIMBAD, else NED; J2000), not wherever the
 image happens to peak:
 
 - The target is **detected** when the brightest pixel within one beam of its position
@@ -192,7 +192,7 @@ path to a preset file somewhere else.
 dashes, e.g. `--batch-size`, except `--no-cleanup`, `--no-b1950-search` and `--max-sep`.
 
 **`seed`** sets any `import.json` key except the ones that describe the
-observation (`source`, `archive_file(s)`, `band`, `proj_code`, NED fields). Those
+observation (`source`, `archive_file(s)`, `band`, `proj_code`, catalogue fields). Those
 always come from the selected observation. `decisions` is merged key by key into
 the baseline (everything `auto`, with self-cal, blcal and core subtraction `off`),
 so a preset only lists what it changes. The defaults are in `harness/seed.py`
@@ -293,7 +293,7 @@ The run directory itself is left as it was, so you can inspect it.
 The pipeline's `-rs` flag can't be automated, because it prompts for everything.
 So the harness calls the same modules `-rs` uses:
 
-1. NED resolves the name.
+1. SIMBAD resolves the name (NED if SIMBAD does not know it).
 2. `RadioSearchIntegration.run_search` searches every band.
 3. The harness filters and ranks the results.
 4. `DelosDownload` fetches the segment into the shared `data_archive/<proj>/`.

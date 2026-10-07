@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from classes.constants import *
 from classes import creds
-from API_integrations import NED
+from API_integrations.resolve import resolve_source
 
 class SourceInputWindow:
     def __init__(self, master, app):
@@ -162,8 +162,8 @@ class SourceInputWindow:
         """Enable Get Observations only when it could actually do something.
 
         Two gates: credentials for the remote search, and a validated source to
-        search for -- the query goes out under the NED-resolved alias, not the
-        raw typed text, so validation has to happen first.
+        search for -- the query goes out under the resolved search name, so
+        validation has to happen first.
         """
         if not self.creds_available:
             self.get_obs_button.config(state="disabled")
@@ -213,10 +213,9 @@ class SourceInputWindow:
             return
         # Validation logic goes here
         #messagebox.showinfo("Validation", f"Source '{source}' validation logic here")
-        #results = NED.NED_API.obj_exists(source)
         messagebox.showinfo("source Validation","this may take a moment")
         try:
-            results = NED.NED_API.obj_exists(source)
+            results = resolve_source(source)
             if results is False:
                 messagebox.showwarning("validation error", "Please check your identifier and try again")
                 return
@@ -230,6 +229,7 @@ class SourceInputWindow:
         self.source_decl = results['ra_decl']['decl']
         self.search_alias = results['alias']
         self.redshift = results.get('redshift', '')
+        self.position_from = results.get('resolver', '')
         self._refresh_get_obs_state()
 
         # Display source info
@@ -397,6 +397,7 @@ class SourceInputWindow:
             "source_decl":self.source_decl,
             "search_alias": self.search_alias,
             "redshift": self.redshift,
+            "position_from": getattr(self, 'position_from', ''),
             "proj_code": self.proj_code,
         }
         # Close this window and open breakpoints window
@@ -812,6 +813,7 @@ class BreakpointsWindow:
             "source_decl": source_info['source_decl'],
             "search_alias": source_info['search_alias'],
             "redshift": source_info.get('redshift', ''),
+            "position_from": source_info.get('position_from', ''),
             "proj_code": source_info.get('proj_code', ''),
             "decisions": decisions_chosen,
             "solint": self.solint_var.get(),

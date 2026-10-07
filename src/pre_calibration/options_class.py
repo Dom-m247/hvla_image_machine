@@ -12,14 +12,14 @@ class Options:
   '''values for Dictionary keys:
   source, bands, decisions'''
 
-  #Single source of truth for what round-trips through import.json. The NED-derived
-  #source_ra/source_decl are included because the target is imaged and measured at
+  #Single source of truth for what round-trips through import.json. The catalogue
+  #source_ra/source_decl (SIMBAD, or NED when SIMBAD lacks the name) are included because the target is imaged and measured at
   #that position: a replay must measure at the same place, and nothing re-derives them
   #on import (process_input_dict reads them with .get(), so older files still load).
   #cell_size/self_cal_cycles are conditionally appended in generate_dict.
   IMPORT_FIELDS = (
     'source', 'archive_file', 'archive_files', 'band', 'decisions',
-    'source_ra', 'source_decl', 'search_alias', 'redshift',
+    'source_ra', 'source_decl', 'search_alias', 'redshift', 'position_from',
     'reference_antenna', 'flux_cal_name', 'flux_cal_manual', 'phase_cal_name',
     'flagging_methods', 'flag_selection', 'rms_region',
     'self_cal_plan', 'self_cal_ap', 'self_cal_blcal',
@@ -64,7 +64,8 @@ class Options:
     self.source_ra = ''            #NED J2000 position, degrees: where the target is imaged and measured
     self.source_decl = ''
     self.search_alias = ''
-    self.redshift = ''             #from NED; '' when NED has no measured redshift
+    self.redshift = ''             #from the catalogue; '' when it has no measured redshift
+    self.position_from = ''        #which catalogue gave source_ra/source_decl: SIMBAD or NED
     self.proj_code = ''            #project code of selected radio_search observation
     self.array_config = ''         #VLA config (A/B/C/D, incl. hybrids like BnA) of the selected observation; sizes the imaging cell in find_cell_size
     self.proj_name = ''            #proj_code + suffix, used for MS/file naming (set in convert_to_ms)
@@ -127,6 +128,7 @@ class Options:
       self.source_decl = dict_in.get('source_decl', '')
       self.search_alias = dict_in.get('search_alias', '')
       self.redshift = dict_in.get('redshift', '')
+      self.position_from = dict_in.get('position_from', '')
       #set when the observation came from an archive search; absent from older exports
       self.proj_code = dict_in.get('proj_code', '')
       if 'decisions' not in dict_in:
