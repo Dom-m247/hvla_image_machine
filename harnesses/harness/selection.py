@@ -12,6 +12,7 @@ import re
 import time
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
+from types import SimpleNamespace
 from pathlib import Path
 
 from .pipeline import (
@@ -181,6 +182,50 @@ def observation_date(selection):
   return datetime.max
 
 
+SEGMENT_MAX_SPAN_DAYS = 3   #a segment's files spanning longer than this is a catch-all
+
+
+def _file_date(archfile):
+  for fmt in ('%y-%b-%d', '%Y-%m-%d'):
+    try:
+      return datetime.strptime(str(archfile.date).strip(), fmt).date()
+    except ValueError:
+      continue
+  return None
+
+
+def _span_days(files):
+  dates = [d for d in map(_file_date, files) if d]
+  return (max(dates) - min(dates)).days if dates else 0
+
+
+def files_on_date(segments, date_text):
+  """The archive files holding an observation that started on `date_text`: every
+  file of the project starting that day, and the one before (a file can run past
+  midnight). From 2008 Delos holds one file per day, vla<yyyy>-<mm>-<dd>.dat, and
+  the NRAO listing can miss some days: then that day's file and the next are used
+  (importvla keeps only this project's records). [] when nothing fits."""
+  day = _file_date(SimpleNamespace(date=date_text))
+  if day is None:
+    return []
+  every = {}
+  for segment in segments or []:
+    for archfile in segment.files:
+      every.setdefault(Path(archfile.file_name).name, archfile)
+  ordered = sorted((f for f in every.values() if _file_date(f)),
+                   key=lambda f: (_file_date(f), str(f.start)))
+  on_day = [f for f in ordered if _file_date(f) == day]
+  if on_day:
+    before = [f for f in ordered if _file_date(f) < day]
+    return before[-1:] + on_day
+  if day.year >= 2008:
+    from datetime import timedelta
+    return [SimpleNamespace(file_name=f"vla{d:%Y-%m-%d}.dat", date=f"{d:%Y-%m-%d}",
+                            start='', size='')
+            for d in (day, day + timedelta(days=1))]
+  return []
+
+
 def within_size(selections, max_gb):
   """(kept, rejected): drop selections whose archive files exceed max_gb (0 = no cap)."""
   if not max_gb:
@@ -228,7 +273,9 @@ def rank_candidates(observations, before_year=PRE_EVLA_YEAR, projects=None, band
       continue
     if bands and band.upper() not in bands:
       continue
-    key = (obs.proj_code, obs.seg, band)
+    #the date too: a catch-all segment (NVSS files all its pointings under 'XX')
+    #holds observations on many days, each its own run
+    key = (obs.proj_code, obs.seg, band, obs.date)
     if key in seen:
       continue
     seen.add(key)
@@ -300,17 +347,26 @@ class Selector:
     bands = {b.upper() for b in wanted}
 
     options = Options()
-    options.search_alias = resolved['alias']
     options.band = 'auto'          #every band unless --bands names some
-    observations = RadioSearchIntegration.run_search(self._rs, options, bands=wanted)
-    if self.b1950_search:
-      observations += RadioSearchIntegration.run_search(self._rs, options, bands=wanted,
-                                                        epoch=1950)
+    #radio_search2 resolves names through SIMBAD, which may not know NED's preferred
+    #name (NED calls SDSS J082905.98+420204.3 'WISEA J082905.97+420204.2'): then the
+    #name as given is tried
+    observations = []
+    for name in dict.fromkeys([resolved['alias'], source_name]):
+      options.search_alias = name
+      observations = RadioSearchIntegration.run_search(self._rs, options, bands=wanted)
+      if self.b1950_search:
+        observations += RadioSearchIntegration.run_search(self._rs, options, bands=wanted,
+                                                          epoch=1950)
+      if observations:
+        break
+      self.log(f"  nothing found as '{name}'")
     #deepest first, as rank_candidates expects; a run both searches found keeps the
     #row placing it nearer the source -- the one whose coordinates are the archive's own
     observations.sort(key=_depth_then_offset)
     if not observations:
-      raise SelectionError(f"radio_search found no observations for '{resolved['alias']}'")
+      raise SelectionError(f"radio_search found no observations for '{resolved['alias']}'"
+                           + (f" or '{source_name}'" if source_name != resolved['alias'] else ''))
 
     if missing := projects - {o.proj_code.upper() for o in observations}:
       self.log(f"  !! no observations of '{resolved['alias']}' in project(s): "
@@ -335,11 +391,25 @@ class Selector:
       with contextlib.redirect_stdout(io.StringIO()):
         files = RadioSearchIntegration.select_segment_files(
           self.segments_for(obs.proj_code), obs)
+      segment = obs.seg
+      if not files or _span_days(files) > SEGMENT_MAX_SPAN_DAYS:
+        #no files listed for the segment, or a catch-all one (the NVSS project files
+        #all of its 690 under 'XX'): take the files of the observing date instead
+        dated = files_on_date(self.segments_for(obs.proj_code), obs.date)
+        if dated:
+          self.log(f"  {obs.proj_code} seg {obs.seg}: "
+                   + (f"segment spans {_span_days(files)} days" if files
+                      else 'segment lists no files')
+                   + f"; using the {len(dated)} file(s) of {obs.date}")
+          files = dated
+          #named by date as well: several runs can share the segment
+          day = _file_date(SimpleNamespace(date=obs.date))
+          segment = f"{obs.seg}-{day:%y%m%d}" if day else obs.seg
       if files:
-        selections.append(self._build(source_name, resolved, obs, files))
+        selections.append(self._build(source_name, resolved, obs, files, segment))
       else:
         rejected.append((f"{obs.proj_code} seg {obs.seg} {obs.band}-band",
-                         'the archive segment lists no files'))
+                         'the archive lists no files for this observation'))
     return selections, rejected
 
   def _near(self, observations, max_sep_arcsec):
@@ -360,13 +430,13 @@ class Selector:
     return near
 
   @staticmethod
-  def _build(source_name, resolved, obs, files) -> Selection:
+  def _build(source_name, resolved, obs, files, segment=None) -> Selection:
     return Selection(
       name=source_name,
       alias=resolved['alias'],
       archive_name=obs.name,
       proj_code=obs.proj_code,
-      segment=obs.seg,
+      segment=segment or obs.seg,
       band=normalize_band(obs.band) or obs.band,
       date=obs.date,
       config=obs.cfg,
