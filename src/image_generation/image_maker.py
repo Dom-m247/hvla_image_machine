@@ -275,9 +275,16 @@ class Cleaner:
     cannot be formed (single-polarization data) or measured.'''
     name = options.image_filename + '_V'
     Cleaner._clear_image(name)
+    #only a noise level is wanted, so a central cutout does: at full size on a wide
+    #high-resolution field this image cost as long as the science image (44 min)
+    size = [min(n, STOKES_V_MAX_PIXELS) for n in options.image_size]
+    kwargs = {**Cleaner._tclean_kwargs(options), 'imagename': name, 'stokes': 'V',
+              'niter': 0, 'interactive': False, 'savemodel': 'none', 'imsize': size}
+    if max(size) < max(options.image_size):
+      kwargs.pop('gridder', None)
+      kwargs.pop('wprojplanes', None)
     try:
-      Cleaner._tclean(outliers=False, **{**Cleaner._tclean_kwargs(options), 'imagename': name, 'stokes': 'V',
-                   'niter': 0, 'interactive': False, 'savemodel': 'none'})
+      Cleaner._tclean(outliers=False, **kwargs)
     except Exception as e:
       print(f"Stokes V noise skipped: {e}")
       return None

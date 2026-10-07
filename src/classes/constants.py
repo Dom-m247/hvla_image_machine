@@ -170,6 +170,7 @@ DR_WARN_RATIO = 1000                #a catalogued field source this many times t
 #left in I: the image is limited by dynamic range or calibration, not by noise. V is
 #not the thermal noise itself -- bad data and short snapshots raise both together.
 NOISE_RATIO_WARN = 2.0              #flag an image whose I/V noise ratio is above this
+STOKES_V_MAX_PIXELS = 1024          #the V image is a central cutout: only its noise is used
 
 #class Band:
   #band name, GHZ range, MHZ range, Angular res, Solint?
