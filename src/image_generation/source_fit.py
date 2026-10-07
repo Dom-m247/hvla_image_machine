@@ -40,7 +40,7 @@ from classes.image_data import (beam_from_header, convert_unit, field_centre_j20
 from classes.constants import (DETECTION_SEARCH_BEAMS, DETECTION_SIGMA, DR_WARN_RATIO,
                                FIT_BOX_BEAMS, FIT_BOX_MAX_IMAGE_FRACTION, FIT_BOX_MIN_PIXELS,
                                FIT_MIN_SNR, FIT_TARGET_BOX_BEAMS, LOW_FREQUENCY_BANDS,
-                               LOW_PB_WARN, NOISE_RATIO_WARN)
+                               LOW_PB_WARN, NOISE_RATIO_WARN, PB_RELIABLE_FWHMS)
 from pre_calibration.options_class import Options
 
 #see image_data: astropy's unit attributes are built dynamically, so u.Unit() is
@@ -215,11 +215,21 @@ def _field_warnings(options, record):
   if band in LOW_FREQUENCY_BANDS and response is not None and response < LOW_PB_WARN:
     warnings.append(f"target far out in the {band}-band primary beam (response {response:.2f})")
   plan = getattr(options, 'image_plan', None) or {}
+  sep = (record.get('target') or {}).get('separation_from_pointing_arcsec')
+  fwhm = plan.get('pb_fwhm_arcsec')
+  if sep and fwhm and sep > PB_RELIABLE_FWHMS * fwhm:
+    warnings.append(f"target {sep / fwhm:.2f} primary-beam FWHMs from the pointing: beyond "
+                    f"~{PB_RELIABLE_FWHMS} FWHM CASA's beam model is uncertain (by 2x or more), "
+                    f"so the beam-corrected flux is too")
   brightest, rms = plan.get('brightest_field_source_jy'), record.get('rms_jy_per_beam')
   if brightest and rms and brightest >= DR_WARN_RATIO * rms:
     warnings.append(f"a catalogued field source of ~{brightest * 1e3:.0f} mJy (after the "
                     f"primary beam) is {brightest / rms:.0f}x the image noise: dynamic range "
                     f"may limit faint detections")
+  for src in plan.get('beyond_model') or []:
+    warnings.append(f"NVSS source of {src['nvss_jy'] * 1e3:.0f} mJy {src['sep_arcsec'] / 60:.1f}' "
+                    f"from the pointing (~{src['apparent_jy'] * 1e3:.1f} mJy apparent) is beyond "
+                    f"CASA's primary-beam model and not in the self-cal model")
   for src in plan.get('unmodelled') or []:
     warnings.append(f"unmodelled source in the residual sweep: {src['peak_jy'] * 1e3:.1f} "
                     f"mJy/beam ({src['snr']:.0f} sigma) {src['sep_arcsec'] / 60:.1f}' from "

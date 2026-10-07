@@ -179,7 +179,8 @@ class Cleaner:
     plan = {'mode': FIELD_OF_VIEW_PRIMARY_BEAM, 'cell_arcsec': cell, 'imsize': imsize,
             'gridder': 'wproject' if curvature > WPROJECT_THRESHOLD else 'standard',
             'pb_fwhm_arcsec': fwhm, 'frequency_ghz': ghz, 'outliers': [],
-            'brightest_field_source_jy': None, 'beam_arcsec': beam, 'unmodelled': []}
+            'brightest_field_source_jy': None, 'beam_arcsec': beam, 'unmodelled': [],
+            'beyond_model': []}
     pointing = image_data.field_centre_j2000(vis)
     plan['pointing'] = pointing
     if pointing:
@@ -232,6 +233,7 @@ class Cleaner:
       return max(gauss, PB_SIDELOBE_FLOOR) if sep <= OUTLIER_SEARCH_FWHMS * fwhm else gauss
 
     fields = []
+    plan['beyond_model'] = []
     target = source_fit.target_position(options)
     if target and outside(*target):
       sep = image_data.separation_arcsec(*target, *pointing)
@@ -248,7 +250,15 @@ class Cleaner:
       apparent = flux14 * (ghz / 1.4) ** OUTLIER_SPECTRAL_INDEX * response(sep)
       brightest = max(brightest or 0.0, apparent)
       if apparent >= OUTLIER_MIN_APPARENT_JY and outside(ra, dec):
+        if sep > OUTLIER_MAX_FWHMS * fwhm:
+          plan['beyond_model'].append({'ra_deg': ra, 'dec_deg': dec, 'sep_arcsec': sep,
+                                       'apparent_jy': apparent, 'nvss_jy': flux14})
+          continue
         candidates.append((apparent, ra, dec, sep, flux14))
+    for src in plan['beyond_model']:
+      run_log.note('IMAGING', 'Outlier fields',
+                   f"NOT MODELLED: NVSS {src['nvss_jy'] * 1e3:.0f} mJy {src['sep_arcsec'] / 60:.1f}' "
+                   f"out (~{src['apparent_jy'] * 1e3:.1f} mJy apparent), beyond CASA's beam model")
     for apparent, ra, dec, sep, flux14 in sorted(candidates, reverse=True):
       if len(fields) >= MAX_OUTLIER_FIELDS + (1 if fields and fields[0]['suffix'] == 'target' else 0):
         break
@@ -301,7 +311,10 @@ class Cleaner:
               f"{src['ra_deg']:.5f} {src['dec_deg']:+.5f}, {src['sep_arcsec'] / 60:.1f}' "
               f"from the pointing")
       print(f"Residual sweep: unmodelled source {text}")
-      if add_fields:
+      if add_fields and src['sep_arcsec'] > OUTLIER_MAX_FWHMS * plan['pb_fwhm_arcsec']:
+        print("  beyond CASA's beam model: no outlier field can be made there")
+        run_log.note('IMAGING', 'Residual sweep', f"beyond CASA's beam model, not modelled: {text}")
+      elif add_fields:
         suffix = f"out{len(plan['outliers']) + 1}"
         plan['outliers'].append({'suffix': suffix, 'ra_deg': src['ra_deg'],
                                  'dec_deg': src['dec_deg'], 'imsize': plan['outlier_px'],

@@ -151,6 +151,9 @@ OUTLIER_SPECTRAL_INDEX = -0.7       #to carry NVSS 1.4 GHz fluxes to the observi
 PB_SIDELOBE_FLOOR = 0.02            #response floor out to OUTLIER_SEARCH_FWHMS: the Gaussian beam
                                     #underestimates the skirt (an L-band source 1.3 FWHM out
                                     #measured 1.6%, the Gaussian says 0.8%)
+OUTLIER_MAX_FWHMS = 1.0            #no outlier field further out: CASA's VLA beam model is zero
+                                    #beyond ~1.1 FWHM and tclean then cannot clean the field
+                                    #("No valid values to deconvolve"); such sources are warned of
 OUTLIER_FIELD_BEAMS = 40            #outlier field side, in synthesized beams (at least 64 pixels)
 MAX_OUTLIER_FIELDS = 20
 OUTLIER_MASK_BEAMS = 5              #mask radius, in beams, for an outlier field with no mask of
@@ -184,6 +187,9 @@ MIN_MODEL_FLUX_FOR_SELF_CAL = 0.02  #Jy summed over the field model; below, too 
 #--- warnings: epochs where a faint target will be hard ---
 LOW_FREQUENCY_BANDS = ('4', 'P', 'L', 'S', 'C')  #big primary beams, many bright field sources
 LOW_PB_WARN = 0.5                   #target this far down the beam at a low frequency
+PB_RELIABLE_FWHMS = 0.75            #beyond this CASA's VLA beam model drops well below what is
+                                    #measured (0.8 FWHM: 0.10 vs Gaussian 0.17; zero past 1.1,
+                                    #where a source was seen at 1.6%): the correction is uncertain
 DR_WARN_RATIO = 1000                #a catalogued field source this many times the image rms
 #--- image quality ---
 #Stokes V is effectively source-free here, so Stokes I noise well above V's is structure

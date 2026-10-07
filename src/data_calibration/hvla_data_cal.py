@@ -122,13 +122,53 @@ def do_vla_import(archive_files,output_ms:str,project=''):
   try:
     _importvla(archive_files, vis, project)
   except Exception as exc:
+    reason = str(exc).splitlines()[-1][-120:]
+    if len(archive_files) > 1:
+      #one bad record must not cost every file after it (they may hold the target):
+      #import the files one at a time and join what each gives
+      print(f"\nWARNING: importvla stopped early ({reason}); importing the files one by one.")
+      run_log.event(f"WARNING: importvla stopped early ({reason}); importing file by file")
+      shutil.rmtree(vis, ignore_errors=True)
+      if _import_one_by_one(archive_files, vis, project):
+        return
+      raise
     if not (_ms_rows(vis) and _ms_rows(vis + '/OBSERVATION')):
       raise
-    msg = (f"importvla stopped early ({str(exc).splitlines()[-1][-120:]}); "
+    msg = (f"importvla stopped early ({reason}); "
            f"continuing with the {_ms_rows(vis)} rows it imported before that")
     print(f"\nWARNING: {msg}")
     ct.casalog.post(msg, priority='WARN')
     run_log.event(f"WARNING: {msg}")
+
+def _import_one_by_one(archive_files, vis, project):
+  '''Import each archive file into its own MS (keeping a partial one when importvla
+  stops part-way through a file), then concat them into `vis`. True when anything
+  was imported. The per-file MSs are removed once joined.'''
+  parts = []
+  for i, archive_file in enumerate(archive_files):
+    part = f"{vis[:-3]}_part{i}.ms"
+    shutil.rmtree(part, ignore_errors=True)
+    try:
+      _importvla([archive_file], part, project)
+    except Exception as exc:
+      print(f"  {Path(archive_file).name}: importvla stopped early "
+            f"({str(exc).splitlines()[-1][-80:]}); keeping {_ms_rows(part)} rows")
+    if _ms_rows(part) and _ms_rows(part + '/OBSERVATION'):
+      parts.append(part)
+      run_log.event(f"importvla: {Path(archive_file).name} -> {_ms_rows(part)} rows")
+    else:
+      shutil.rmtree(part, ignore_errors=True)
+      run_log.event(f"importvla: {Path(archive_file).name} gave nothing usable")
+  if not parts:
+    return False
+  if len(parts) == 1:
+    shutil.move(parts[0], vis)
+  else:
+    ct.concat(vis=parts, concatvis=vis)
+    for part in parts:
+      shutil.rmtree(part, ignore_errors=True)
+  print(f"Imported {len(parts)} of {len(archive_files)} file(s) one by one: {_ms_rows(vis)} rows")
+  return True
 
 def _importvla(archive_files, vis, project):
   if not project:
