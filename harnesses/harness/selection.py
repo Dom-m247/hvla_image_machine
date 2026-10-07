@@ -114,14 +114,21 @@ class Selection:
 
   @property
   def slug(self) -> str:
-    """Filesystem-safe stem identifying this run, e.g. '3C_15__AM0221_B_C'.
+    """Filesystem-safe stem identifying this run, e.g. '3C_15__AM0221_B_C__3C15'.
 
-    Segment and band are both in it: one source has many observations, and one
-    segment can hold several bands.
+    Segment, band and field are all in it: one source has many observations, one
+    segment can hold several bands, and a survey's segment several pointings near
+    the source on one day.
     """
     safe = re.sub(r'[^A-Za-z0-9.+-]+', '_', self.name).strip('_') or 'source'
     return (f"{safe}__{self.proj_code or 'noproj'}_{self.segment or 'noseg'}_"
-            f"{self.band or 'noband'}")
+            f"{self.band or 'noband'}{self.field_tag}")
+
+  @property
+  def field_tag(self) -> str:
+    """'__<field>' naming the observation's pointing, or '' when it has none."""
+    field = re.sub(r'[^A-Za-z0-9.+-]+', '_', self.archive_name or '').strip('_')
+    return f"__{field}" if field else ''
 
   def to_dict(self):
     return asdict(self)

@@ -35,7 +35,7 @@ def failure_dir_name(selection):
   if not selection.proj_code:
     return f"{safe}_failed"
   return (f"{safe}_{selection.proj_code}_{selection.segment or 'noseg'}_"
-          f"{selection.band or 'noband'}_failed")
+          f"{selection.band or 'noband'}{getattr(selection, 'field_tag', '')}_failed")
 
 
 def record(result, failed_root, oversight, error=None, log=print):
