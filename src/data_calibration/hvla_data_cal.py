@@ -120,7 +120,7 @@ def do_vla_import(archive_files,output_ms:str,project=''):
   print(f"\nImporting {archive_files} to {vis}" + (f" (project {project})" if project else '') + "...")
   run_log.event(f"importvla: {archive_files} -> {vis}" + (f", project={project}" if project else ''))
   try:
-    _importvla(archive_files, vis, project)
+    _importvla_isolated(archive_files, vis, project)
   except Exception as exc:
     reason = str(exc).splitlines()[-1][-120:]
     if len(archive_files) > 1:
@@ -149,7 +149,7 @@ def _import_one_by_one(archive_files, vis, project):
     part = f"{vis[:-3]}_part{i}.ms"
     shutil.rmtree(part, ignore_errors=True)
     try:
-      _importvla([archive_file], part, project)
+      _importvla_isolated([archive_file], part, project)
     except Exception as exc:
       print(f"  {Path(archive_file).name}: importvla stopped early "
             f"({str(exc).splitlines()[-1][-80:]}); keeping {_ms_rows(part)} rows")
@@ -167,8 +167,49 @@ def _import_one_by_one(archive_files, vis, project):
     ct.concat(vis=parts, concatvis=vis)
     for part in parts:
       shutil.rmtree(part, ignore_errors=True)
+  for i in range(len(archive_files)):   #importvla's flag backups of the pieces
+    shutil.rmtree(f"{vis[:-3]}_part{i}.ms.flagversions", ignore_errors=True)
   print(f"Imported {len(parts)} of {len(archive_files)} file(s) one by one: {_ms_rows(vis)} rows")
   return True
+
+def _importvla_isolated(archive_files, vis, project):
+  """_importvla in a child process. An importvla that fails part-way leaves its MS
+  open in CASA's table cache; delete that MS (to retry file by file) and the cache
+  later flushes into the deleted directory, breaking whatever CASA runs next. A
+  child process takes its cache with it. Raises RuntimeError with importvla's
+  message when it failed (the partial MS is left for the caller to judge)."""
+  import json, subprocess
+  src = str(Path(__file__).resolve().parents[1])
+  code = ("import sys, json; sys.path.insert(0, sys.argv[1]); "
+          "from data_calibration.hvla_data_cal import _importvla_child; "
+          "sys.exit(_importvla_child(*json.loads(sys.argv[2])))")
+  done = subprocess.run([sys.executable, '-c', code, src,
+                         json.dumps([list(archive_files), vis, project])],
+                        capture_output=True, text=True)
+  if done.returncode:
+    lines = [l for l in (done.stderr or '').splitlines() if l.strip()]
+    raise RuntimeError(lines[-1] if lines else f"importvla exited {done.returncode}")
+
+def _importvla_child(archive_files, vis, project):
+  """The child's side of _importvla_isolated. A failed importvla leaves what it read
+  in CASA's table cache, unwritten (the MS on disk has no OBSERVATION row): every
+  cached table is flushed so the partial MS is whole. Returns the exit status."""
+  status = 0
+  try:
+    _importvla(archive_files, vis, project)
+  except Exception as exc:
+    print(str(exc).splitlines()[-1] if str(exc) else repr(exc), file=sys.stderr)
+    status = 1
+  import casatools
+  tb = casatools.table()
+  for table in sorted(tb.showcache(), key=len, reverse=True):   #subtables first
+    try:
+      tb.open(table, nomodify=False)
+      tb.flush()
+      tb.close()
+    except Exception:
+      pass
+  return status
 
 def _importvla(archive_files, vis, project):
   if not project:
