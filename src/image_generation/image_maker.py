@@ -183,10 +183,30 @@ class Cleaner:
             'beyond_model': []}
     pointing = image_data.field_centre_j2000(vis)
     plan['pointing'] = pointing
+    Cleaner._check_target_separation(options, pointing)
     if pointing:
       plan['outliers'], plan['brightest_field_source_jy'] = Cleaner._outlier_fields(
         options, plan, pointing, beam)
     return Cleaner._adopt_plan(options, plan)
+
+  @staticmethod
+  def _check_target_separation(options, pointing):
+    '''Stop when the data's own pointing is further from the target than
+    options.max_target_sep_arcsec: the archive search placed the observation by its
+    listing, which can be wrong (positions searched as untransformed B1950 that were
+    J2000 all along), and imaging a field the target is not in only wastes the time.'''
+    limit = getattr(options, 'max_target_sep_arcsec', None)
+    target = source_fit.target_position(options)
+    if not (limit and pointing and target):
+      return
+    sep = image_data.separation_arcsec(*target, *pointing)
+    run_log.note('IMAGING', 'Target separation',
+                 f"{sep:.0f}\" from the data's pointing (limit {float(limit):.0f}\")")
+    if sep > float(limit):
+      raise RuntimeError(
+        f"the target is {sep:.0f}\" ({sep / 60:.1f}') from this observation's pointing as "
+        f"recorded in the data, beyond max_sep {float(limit):.0f}\": the archive listing "
+        f"placed it nearer than it is")
 
   @staticmethod
   def _adopt_plan(options, plan):
@@ -237,6 +257,14 @@ class Cleaner:
     target = source_fit.target_position(options)
     if target and outside(*target):
       sep = image_data.separation_arcsec(*target, *pointing)
+    if target and outside(*target) and sep > OUTLIER_MAX_FWHMS * fwhm:
+      #no beam model there: tclean cannot image the field, and nothing could correct
+      #the flux for the beam if it did
+      print(f"Target {sep / 60:.1f}' ({sep / fwhm:.2f} FWHM) from the pointing, beyond CASA's "
+            f"primary-beam model: it cannot be measured in this observation.")
+      run_log.note('IMAGING', 'Target field', f"NOT MADE: the target is {sep / fwhm:.2f} FWHM "
+                                              f"out, beyond CASA's primary-beam model")
+    elif target and outside(*target):
       fields.append({'suffix': 'target', 'ra_deg': target[0], 'dec_deg': target[1],
                      'imsize': field_px, 'why': f'the target, {sep / 60:.1f}\' from the pointing'})
     catalogue = nvss.sources_near(pointing[0], pointing[1], OUTLIER_SEARCH_FWHMS * fwhm / 60)

@@ -275,7 +275,8 @@ def rank_candidates(observations, before_year=PRE_EVLA_YEAR, projects=None, band
       continue
     #the date too: a catch-all segment (NVSS files all its pointings under 'XX')
     #holds observations on many days, each its own run
-    key = (obs.proj_code, obs.seg, band, obs.date)
+    #and the field: one segment can point at several (a survey's grid)
+    key = (obs.proj_code, obs.seg, band, obs.date, obs.name)
     if key in seen:
       continue
     seen.add(key)

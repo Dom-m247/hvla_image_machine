@@ -224,6 +224,8 @@ def run_one(selection, sweep, cores, oversight, dry_run=False, fresh=False):
   """
   options, label = sweep.options, f"{selection.name}: {selection.label}"
   overrides = dict(sweep.preset.seed)
+  if options.get('max_sep_arcsec'):   #checked again against the data's own pointing
+    overrides['max_target_sep_arcsec'] = options['max_sep_arcsec']
   if options.get('sigma'):   #--sigma beats the preset's detection_sigma
     overrides['detection_sigma'] = options['sigma']
   try:
