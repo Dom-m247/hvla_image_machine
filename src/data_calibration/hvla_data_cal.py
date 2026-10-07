@@ -247,9 +247,35 @@ def calibrated_split(options:Options):
     print(f"The calibrated data exists, not splitting")
     ct.casalog.post(f"{options.initial_calibration_filename+'.ms'} -> {options.calibrated_filename+'.ms'}")
   else:
-    ct.split(vis=options.initial_calibration_filename+'.ms',outputvis=options.calibrated_filename+'.ms',datacolumn = 'corrected', field=options.source_ids.casa_field)
+    ct.split(vis=options.initial_calibration_filename+'.ms',outputvis=options.calibrated_filename+'.ms',datacolumn = 'corrected', field=options.source_ids.casa_field,
+             width=_continuum_width(options.initial_calibration_filename+'.ms'))
     ct.casalog.post(f"{options.initial_calibration_filename+'.ms'} -> {options.calibrated_filename+'.ms'}")
   parse.log_listobs(options.calibrated_filename,options)
+
+def _continuum_width(vis):
+  """split's `width` for the calibrated target: channels averaged so no spectral window
+  keeps more than MAX_IMAGING_CHANNELS. Spectral-line observations (the HI of a
+  nearby galaxy: 255 channels in 1.5 MHz) image as continuum with no loss of
+  sensitivity and no extra bandwidth smearing that way, at a fraction of the cost.
+  1 (no averaging) for continuum data, or when the channels cannot be read."""
+  import casatools
+  msmd = casatools.msmetadata()
+  try:
+    msmd.open(vis)
+    nchans = [msmd.nchan(spw) for spw in range(msmd.nspw())]
+    widths = [msmd.chanwidths(spw) for spw in range(msmd.nspw())]
+  except Exception:
+    return 1
+  finally:
+    msmd.close()
+  if not nchans or max(nchans) <= MAX_IMAGING_CHANNELS:
+    return 1
+  factors = [max(1, -(-n // MAX_IMAGING_CHANNELS)) for n in nchans]
+  text = ', '.join(f"spw {i}: {n} x {abs(float(w[0])) / 1e3:.3g} kHz -> {-(-n // f)} channels"
+                   for i, (n, w, f) in enumerate(zip(nchans, widths, factors)))
+  print(f"Spectral-line data, averaged for continuum imaging: {text}")
+  run_log.note('IMAGING', 'Line-mode data', f"channels averaged for continuum: {text}")
+  return factors if len(factors) > 1 else factors[0]
 
 def build_setjy(options):
   #setjy must write its model into the MS gaincal and fluxscale actually read -- the

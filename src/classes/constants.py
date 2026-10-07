@@ -156,6 +156,8 @@ OUTLIER_MAX_FWHMS = 1.0            #no outlier field further out: CASA's VLA bea
                                     #("No valid values to deconvolve"); such sources are warned of
 OUTLIER_FIELD_BEAMS = 40            #outlier field side, in synthesized beams (at least 64 pixels)
 MAX_OUTLIER_FIELDS = 20
+MAX_IMAGING_CHANNELS = 16           #spectral-line data is averaged to at most this many channels
+                                    #per spectral window before imaging (as continuum)
 OUTLIER_MASK_BEAMS = 5              #mask radius, in beams, for an outlier field with no mask of
                                     #its own in a clean on saved masks
 #--- residual sweep (Cleaner.residual_sweep) ---
