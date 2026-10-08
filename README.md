@@ -262,11 +262,14 @@ hvla_image update            # pull the latest version (also --update), then sto
 | `--noexport` | | Skip writing the `import.json` export. |
 | `--archive` | `-a` | Archive submission — lists the finished results folders in the [work directory](#where-a-run-writes) to pick from, or press enter to submit this run once it completes. Needs `Creds.json`. |
 | `--no-ms-tar` | | Skip the large calibrated-MS tarball; the products tarball is still written. |
+| `--cache-refresh` | | Clear every cached NED/SIMBAD answer (`~/.cache/hvla/catalog.sqlite`) before the run, so each lookup is fetched again. |
+| `--cache-refresh-not-found` | | Clear only the cached "not found" / "no data" NED/SIMBAD answers before the run; resolved objects stay cached. |
 | `--workdir DIR` | | Run in `DIR` and write everything there, instead of the current directory. Created if missing; also settable as `HVLA_WORK_DIR`. See [Where a run writes](#where-a-run-writes). |
 | `--debug` | | Also write `export_for_testing.json`, a full dump of the options object. |
 
 > **Note:** argument abbreviation is enabled, so `--no` is ambiguous between
-> `--noexport` and `--no-ms-tar`. Type enough of the flag to be unique.
+> `--noexport` and `--no-ms-tar`, and `--cache` between the two cache flags. Type enough of
+> the flag to be unique.
 
 It lists the `*_results` folders in the [work directory](#where-a-run-writes), most
 recent first, and you pick one by number — or type a path to a folder anywhere else.
