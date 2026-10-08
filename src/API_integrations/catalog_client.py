@@ -176,6 +176,13 @@ def _cache_put(key, value, ttl):
     db.execute('INSERT OR REPLACE INTO entries VALUES (?, ?, ?, ?)',
                (key, json.dumps(value), now, now + ttl))
 
+def clear_cache(not_found_only=False):
+  '''Delete this user's cached answers, or only the empty "not found"/"no data" ones; returns how many.'''
+  with closing(_db()) as db, db:
+    if not_found_only:
+      return db.execute('DELETE FROM entries WHERE value IN (?, ?)', (json.dumps({}), json.dumps([]))).rowcount
+    return db.execute('DELETE FROM entries').rowcount
+
 
 #--- the one place that sends -------------------------------------------------
 

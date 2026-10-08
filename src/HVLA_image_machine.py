@@ -13,6 +13,7 @@ from data_calibration import hvla_data_cal
 from classes import call_recorder
 from classes import run_log
 from archive import form_submission, results_package
+from API_integrations import catalog_client
 #from archive_dowload import *
 import pprint
 import threading
@@ -31,6 +32,8 @@ def argumentManager():
   parser.add_argument('--cliCalib','-tc', action='store_true', help='run cli for calibration and imaging, allows user over-ride on calibrators')
   parser.add_argument('--archive','-a', action='store_true', help='run archiving routine')
   parser.add_argument('--no-ms-tar', action='store_true', help='skip taring the calibrated MS (the large bundle); the products tarball is still written')
+  parser.add_argument('--cache-refresh', action='store_true', help='clear every cached NED/SIMBAD answer before the run, so each lookup is fetched again')
+  parser.add_argument('--cache-refresh-not-found', action='store_true', help='clear only the cached "not found"/"no data" NED/SIMBAD answers before the run')
   #already applied at import time; declared so argparse accepts and documents it
   parser.add_argument('--workdir', metavar='DIR', help=f'directory to run in: everything the run writes goes here (default: the current directory, or ${work_dir.ENV_VAR})')
   arguments = parser.parse_args()
@@ -44,6 +47,9 @@ def main(): #argv
   source = Options()
   source.sysArgs = argumentManager()
   print(f"Work directory: {source.work_dir}")
+  if source.sysArgs.cache_refresh or source.sysArgs.cache_refresh_not_found:
+    n = catalog_client.clear_cache(not_found_only=not source.sysArgs.cache_refresh)
+    print(f"Cleared {n} cached {'' if source.sysArgs.cache_refresh else 'not-found '}NED/SIMBAD answers")
   #--archive: either archive a finished results folder and stop, or fall through
   #and archive this run once it has one.
   if source.sysArgs.archive:
