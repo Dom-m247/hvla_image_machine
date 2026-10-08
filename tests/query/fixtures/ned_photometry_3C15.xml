@@ -1,0 +1,4208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VOTABLE version="1.5" xmlns="http://www.ivoa.net/xml/VOTable/v1.3"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.ivoa.net/xml/VOTable/v1.3  https://www.ivoa.net/xml/VOTable/VOTable-1.5.xsd">
+<RESOURCE type="results">
+<LINK content-role="query" href="/NED::API/PhotometryOfObject?TARGET=3C 15"/>
+<TABLE ID="photometry" name="PhotometryOfObject" nrows="164">
+<GROUP  ID="QUERY" name="QUERY">
+<PARAM name="TARGET" datatype="char" arraysize="*" value="3C 15"/>
+</GROUP>
+<GROUP ID="RESPONSE"  name="RESPONSE">
+<PARAM name="QUERY_STATUS" datatype="char" arraysize="*" value="OK"/>
+<PARAM name="QUERY_TIME" datatype="char" arraysize="*" xtype="timestamp" value="20261006T151528Z"/>
+<PARAM name="RECORDS_AVAILABLE" datatype="int" value="164"/>
+<PARAM name="RECORDS_RETURNED" datatype="int" value="164"/>
+</GROUP>
+<GROUP ID="Curation" name="Curation">
+<PARAM ID="Publisher" datatype="char" name="Publisher" ucd="meta.curation" value="NASA/IPAC Extragalactic Database (NED)" arraysize="*">
+<DESCRIPTION>
+Copyright 2019-2026 Caltech, Support from NASA is acknowledged.
+This information is taken from a collection created and curated by
+the NASA/IPAC Extragalactic Database (NED), operated by the California Institute of Technology (Caltech).
+If your research benefits from the use of NED, the following acknowledgement in your paper would be appreciated:
+
+"This research has made use of the NASA/IPAC Extragalactic Database (NED), which is funded by the National Aeronautics and Space Administration and operated by the California Institute of Technology."
+
+See: https://ned.ipac.caltech.edu/Documents/Overview/Acknowledgments 
+</DESCRIPTION>
+</PARAM>
+<PARAM name="queryEngineInfo" datatype="char" arraysize="*" value="https://ned.ipac.caltech.edu/NED::API/PhotometryOfObject" />
+</GROUP>
+<FIELD ID="row" name="No." ucd="meta.number" datatype="int" >
+<DESCRIPTION>A row number applicable to this list only</DESCRIPTION>
+</FIELD>
+<FIELD ID="phot_in_bandpass" name="Bandpass" ucd="obs.param;instr.bandpass" datatype="char" arraysize="*" >
+<DESCRIPTION>Bandpass at which the data were measured</DESCRIPTION>
+</FIELD>
+<FIELD ID="phot_in_value" name="Measurement" ucd="phot" datatype="double" >
+<DESCRIPTION>Photometry value as published and interpreted by NED team</DESCRIPTION>
+</FIELD>
+<FIELD ID="phot_in_upper_unc" name="Unc High" ucd="stat.error;stat.max;phot" datatype="double" >
+<DESCRIPTION>Photometry upper uncertainty as published and interpreted by NED team</DESCRIPTION>
+</FIELD>
+<FIELD ID="phot_in_lower_unc" name="Unc Low" ucd="stat.error;stat.min;phot" datatype="double" >
+<DESCRIPTION>Photometry lower uncertainty as published and interpreted by NED team</DESCRIPTION>
+</FIELD>
+<FIELD ID="phot_in_unit" name="Unit" ucd="meta.unit;phot" datatype="char" arraysize="*" >
+<DESCRIPTION>Photometry unit as published and interpreted by NED team</DESCRIPTION>
+</FIELD>
+<FIELD ID="sv_freq" name="Frequency (Hz)" ucd="em.freq" datatype="double" unit="Hz" >
+<DESCRIPTION>Frequency value as standardized by NED</DESCRIPTION>
+</FIELD>
+<FIELD ID="sv_fluxd" name="Flux Density" ucd="phot.flux.density" datatype="double" unit="Jy" >
+<DESCRIPTION>Flux density value as standardized by NED</DESCRIPTION>
+</FIELD>
+<FIELD ID="sv_fluxd_pos_unc" name="FD Unc High" ucd="stat.error;stat.max;phot.flux.density" datatype="double" unit="Jy" >
+<DESCRIPTION>Upper uncertainty of flux density as standardized by NED</DESCRIPTION>
+</FIELD>
+<FIELD ID="sv_fluxd_neg_unc" name="FD Unc Low" ucd="stat.error;stat.min;phot.flux.density" datatype="double" unit="Jy" >
+<DESCRIPTION>Lower uncertainty of flux density as standardized by NED</DESCRIPTION>
+</FIELD>
+<FIELD ID="sv_fluxd_upper_limit" name="FD Upper Limit" ucd="phot.flux.density;stat.max" datatype="double" unit="Jy" >
+<DESCRIPTION>Upper limit of flux density as standardized by NED</DESCRIPTION>
+</FIELD>
+<FIELD ID="sv_fluxd_lower_limit" name="FD Lower Limit" ucd="phot.flux.density;stat.min" datatype="double" unit="Jy" >
+<DESCRIPTION>Lower limit of flux density as standardized by NED</DESCRIPTION>
+</FIELD>
+<FIELD ID="sv_flux" name="Flux" ucd="phot.flux" datatype="double" unit="Jy•Hz" >
+<DESCRIPTION>Flux value as standardized by NED</DESCRIPTION>
+</FIELD>
+<FIELD ID="sv_flux_pos_unc" name="F Unc High" ucd="stat.error;stat.max;phot.flux" datatype="double" unit="Jy•Hz" >
+<DESCRIPTION>Upper uncertainty of flux as standardized by NED</DESCRIPTION>
+</FIELD>
+<FIELD ID="sv_flux_neg_unc" name="F Unc Low" ucd="stat.error;stat.min;phot.flux" datatype="double" unit="Jy•Hz" >
+<DESCRIPTION>Lower uncertainty of flux as standardized by NED</DESCRIPTION>
+</FIELD>
+<FIELD ID="sv_flux_upper_limit" name="F Upper Limit" ucd="phot.flux;stat.max" datatype="double" unit="Jy•Hz" >
+<DESCRIPTION>Upper limit of flux as standardized by NED</DESCRIPTION>
+</FIELD>
+<FIELD ID="sv_flux_lower_limit" name="F Lower Limit" ucd="phot.flux;stat.min" datatype="double" unit="Jy•Hz" >
+<DESCRIPTION>Lower limit of flux as standardized by NED</DESCRIPTION>
+</FIELD>
+<FIELD ID="in_telescope" name="Telescope" ucd="instr.tel" datatype="char" arraysize="*" >
+<DESCRIPTION>Telescope as published and interpreted by NED team</DESCRIPTION>
+</FIELD>
+<FIELD ID="in_instrument" name="Instrument" ucd="instr" datatype="char" arraysize="*" >
+<DESCRIPTION>Instrument as published and interpreted by NED team</DESCRIPTION>
+</FIELD>
+<FIELD ID="in_freq" name="Frequency" ucd="em.freq" datatype="double" >
+<DESCRIPTION>Frequency value as published and interpreted by NED team</DESCRIPTION>
+</FIELD>
+<FIELD ID="in_freq_unit" name="Freq. Unit" ucd="meta.unit;em.freq" datatype="char" arraysize="*" >
+<DESCRIPTION>Frequency unit as published and interpreted by NED team</DESCRIPTION>
+</FIELD>
+<FIELD ID="in_aperture_type" name="Aperture Type" ucd="meta.code;phot" datatype="char" arraysize="*" >
+<DESCRIPTION>Aperture Type as published and interpreted by NED team (e.g. flux in fixed aperture, total flux)</DESCRIPTION>
+</FIELD>
+<FIELD ID="phot_refcode" name="Reference" ucd="meta.bib.bibcode" datatype="char" arraysize="*" >
+<DESCRIPTION>Bibliographic reference code</DESCRIPTION>
+<LINK content-role="query;encode:values" content-type="text/xml" href="/reflookup?refcode=" />
+</FIELD>
+<DATA>
+<TABLEDATA>
+<TR>
+<TD>1</TD>
+<TD>0.3-8 keV (Chandra)</TD>
+<TD>1.80E-13  </TD>
+<TD/>
+<TD/>
+<TD>erg/cm^2/s</TD>
+<TD>9.99999984306749e+17</TD>
+<TD>1.80000002824785e-08</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>18000000000</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>Chandra</TD>
+<TD>ACIS-I, ACIS-S</TD>
+<TD>      4.15</TD>
+<TD>keV</TD>
+<TD>flux integrated from map or image</TD>
+<TD>2016ApJS..224...40W</TD>
+</TR>
+<TR>
+<TD>2</TD>
+<TD>2-7 keV Chandra</TD>
+<TD>2.1472E-13</TD>
+<TD>1.5263E-14</TD>
+<TD>1.5263E-14</TD>
+<TD>erg/cm^2/s</TD>
+<TD>9.18835911992269e+17</TD>
+<TD>2.33684011757615e-08</TD>
+<TD>1.66110612664957e-09</TD>
+<TD>1.66110612664957e-09</TD>
+<TD/>
+<TD/>
+<TD>21471726206.132</TD>
+<TD>1526283962.796</TD>
+<TD>1526283962.796</TD>
+<TD/>
+<TD/>
+<TD>Chandra</TD>
+<TD>ACIS, HRC-I</TD>
+<TD>3.8</TD>
+<TD>keV</TD>
+<TD>from fitting to map</TD>
+<TD>2020CSC...C2..0000:</TD>
+</TR>
+<TR>
+<TD>3</TD>
+<TD>2-7 keV Chandra</TD>
+<TD>2.1204E-13</TD>
+<TD>1.4871E-14</TD>
+<TD>1.4871E-14</TD>
+<TD>erg/cm^2/s</TD>
+<TD>9.18835911992269e+17</TD>
+<TD>2.30774325336921e-08</TD>
+<TD>1.61851166198161e-09</TD>
+<TD>1.61851166198161e-09</TD>
+<TD/>
+<TD/>
+<TD>21204373768.535</TD>
+<TD>1487146639.007</TD>
+<TD>1487146639.007</TD>
+<TD/>
+<TD/>
+<TD>Chandra</TD>
+<TD>ACIS, HRC-I</TD>
+<TD>3.8</TD>
+<TD>keV</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2020CSC...C2..0000:</TD>
+</TR>
+<TR>
+<TD>4</TD>
+<TD>2-7 keV Chandra</TD>
+<TD>2.1472E-13</TD>
+<TD>1.5263E-14</TD>
+<TD>1.5263E-14</TD>
+<TD>erg/cm^2/s</TD>
+<TD>9.18835911992269e+17</TD>
+<TD>2.33684011757615e-08</TD>
+<TD>1.66110612664957e-09</TD>
+<TD>1.66110612664957e-09</TD>
+<TD/>
+<TD/>
+<TD>21471726206.132</TD>
+<TD>1526283962.796</TD>
+<TD>1526283962.796</TD>
+<TD/>
+<TD/>
+<TD>Chandra</TD>
+<TD>ACIS, HRC-I</TD>
+<TD>3.8</TD>
+<TD>keV</TD>
+<TD>from fitting to map</TD>
+<TD>2020CSC...C2..0000:</TD>
+</TR>
+<TR>
+<TD>5</TD>
+<TD>2-7 keV Chandra</TD>
+<TD>2.1204E-13</TD>
+<TD>1.4871E-14</TD>
+<TD>1.4871E-14</TD>
+<TD>erg/cm^2/s</TD>
+<TD>9.18835911992269e+17</TD>
+<TD>2.30774325336921e-08</TD>
+<TD>1.61851166198161e-09</TD>
+<TD>1.61851166198161e-09</TD>
+<TD/>
+<TD/>
+<TD>21204373768.535</TD>
+<TD>1487146639.007</TD>
+<TD>1487146639.007</TD>
+<TD/>
+<TD/>
+<TD>Chandra</TD>
+<TD>ACIS, HRC-I</TD>
+<TD>3.8</TD>
+<TD>keV</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2020CSC...C2..0000:</TD>
+</TR>
+<TR>
+<TD>6</TD>
+<TD>0.5-7 keV Chandra</TD>
+<TD>2.2756E-13</TD>
+<TD>1.2471E-14</TD>
+<TD>1.2471E-14</TD>
+<TD>erg/cm^2/s</TD>
+<TD>5.56137525679531e+17</TD>
+<TD>4.09176503575068e-08</TD>
+<TD>2.24243385735965e-09</TD>
+<TD>2.24243385735965e-09</TD>
+<TD/>
+<TD/>
+<TD>22755840826.444</TD>
+<TD>1247101616.932</TD>
+<TD>1247101616.932</TD>
+<TD/>
+<TD/>
+<TD>Chandra</TD>
+<TD>ACIS, HRC-I</TD>
+<TD>2.3</TD>
+<TD>keV</TD>
+<TD>from fitting to map</TD>
+<TD>2020CSC...C2..0000:</TD>
+</TR>
+<TR>
+<TD>7</TD>
+<TD>0.5-7 keV Chandra</TD>
+<TD>2.3613E-13</TD>
+<TD>1.2476E-14</TD>
+<TD>1.2476E-14</TD>
+<TD>erg/cm^2/s</TD>
+<TD>5.56137525679531e+17</TD>
+<TD>4.24593727861585e-08</TD>
+<TD>2.24341251664061e-09</TD>
+<TD>2.24341251664061e-09</TD>
+<TD/>
+<TD/>
+<TD>23613250523.199</TD>
+<TD>1247645886.083</TD>
+<TD>1247645886.083</TD>
+<TD/>
+<TD/>
+<TD>Chandra</TD>
+<TD>ACIS, HRC-I</TD>
+<TD>2.3</TD>
+<TD>keV</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2020CSC...C2..0000:</TD>
+</TR>
+<TR>
+<TD>8</TD>
+<TD>0.5-7 keV Chandra</TD>
+<TD>2.2756E-13</TD>
+<TD>1.2471E-14</TD>
+<TD>1.2471E-14</TD>
+<TD>erg/cm^2/s</TD>
+<TD>5.56137525679531e+17</TD>
+<TD>4.09176503575068e-08</TD>
+<TD>2.24243385735965e-09</TD>
+<TD>2.24243385735965e-09</TD>
+<TD/>
+<TD/>
+<TD>22755840826.444</TD>
+<TD>1247101616.932</TD>
+<TD>1247101616.932</TD>
+<TD/>
+<TD/>
+<TD>Chandra</TD>
+<TD>ACIS, HRC-I</TD>
+<TD>2.3</TD>
+<TD>keV</TD>
+<TD>from fitting to map</TD>
+<TD>2020CSC...C2..0000:</TD>
+</TR>
+<TR>
+<TD>9</TD>
+<TD>0.5-7 keV Chandra</TD>
+<TD>2.3613E-13</TD>
+<TD>1.2476E-14</TD>
+<TD>1.2476E-14</TD>
+<TD>erg/cm^2/s</TD>
+<TD>5.56137525679531e+17</TD>
+<TD>4.24593727861585e-08</TD>
+<TD>2.24341251664061e-09</TD>
+<TD>2.24341251664061e-09</TD>
+<TD/>
+<TD/>
+<TD>23613250523.199</TD>
+<TD>1247645886.083</TD>
+<TD>1247645886.083</TD>
+<TD/>
+<TD/>
+<TD>Chandra</TD>
+<TD>ACIS, HRC-I</TD>
+<TD>2.3</TD>
+<TD>keV</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2020CSC...C2..0000:</TD>
+</TR>
+<TR>
+<TD>10</TD>
+<TD>1.2-2 keV Chandra</TD>
+<TD>1.6194E-14</TD>
+<TD>1.8038E-15</TD>
+<TD>1.8038E-15</TD>
+<TD>erg/cm^2/s</TD>
+<TD>3.77206321765247e+17</TD>
+<TD>4.29311521860951e-09</TD>
+<TD>4.78210941353367e-10</TD>
+<TD>4.78210941353367e-10</TD>
+<TD/>
+<TD/>
+<TD>1619390200.5261</TD>
+<TD>180384190.2158</TD>
+<TD>180384190.2158</TD>
+<TD/>
+<TD/>
+<TD>Chandra</TD>
+<TD>ACIS, HRC-I</TD>
+<TD>1.56</TD>
+<TD>keV</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2020CSC...C2..0000:</TD>
+</TR>
+<TR>
+<TD>11</TD>
+<TD>1.2-2 keV Chandra</TD>
+<TD>1.6247E-14</TD>
+<TD>1.7884E-15</TD>
+<TD>1.7884E-15</TD>
+<TD>erg/cm^2/s</TD>
+<TD>3.77206321765247e+17</TD>
+<TD>4.30724679776109e-09</TD>
+<TD>4.74117320618503e-10</TD>
+<TD>4.74117320618503e-10</TD>
+<TD/>
+<TD/>
+<TD>1624720721.5186</TD>
+<TD>178840050.5957</TD>
+<TD>178840050.5957</TD>
+<TD/>
+<TD/>
+<TD>Chandra</TD>
+<TD>ACIS, HRC-I</TD>
+<TD>1.56</TD>
+<TD>keV</TD>
+<TD>from fitting to map</TD>
+<TD>2020CSC...C2..0000:</TD>
+</TR>
+<TR>
+<TD>12</TD>
+<TD>1.2-2 keV Chandra</TD>
+<TD>1.6247E-14</TD>
+<TD>1.7884E-15</TD>
+<TD>1.7884E-15</TD>
+<TD>erg/cm^2/s</TD>
+<TD>3.77206321765247e+17</TD>
+<TD>4.30724679776109e-09</TD>
+<TD>4.74117320618503e-10</TD>
+<TD>4.74117320618503e-10</TD>
+<TD/>
+<TD/>
+<TD>1624720721.5186</TD>
+<TD>178840050.5957</TD>
+<TD>178840050.5957</TD>
+<TD/>
+<TD/>
+<TD>Chandra</TD>
+<TD>ACIS, HRC-I</TD>
+<TD>1.56</TD>
+<TD>keV</TD>
+<TD>from fitting to map</TD>
+<TD>2020CSC...C2..0000:</TD>
+</TR>
+<TR>
+<TD>13</TD>
+<TD>1.2-2 keV Chandra</TD>
+<TD>1.6194E-14</TD>
+<TD>1.8038E-15</TD>
+<TD>1.8038E-15</TD>
+<TD>erg/cm^2/s</TD>
+<TD>3.77206321765247e+17</TD>
+<TD>4.29311521860951e-09</TD>
+<TD>4.78210941353367e-10</TD>
+<TD>4.78210941353367e-10</TD>
+<TD/>
+<TD/>
+<TD>1619390200.5261</TD>
+<TD>180384190.2158</TD>
+<TD>180384190.2158</TD>
+<TD/>
+<TD/>
+<TD>Chandra</TD>
+<TD>ACIS, HRC-I</TD>
+<TD>1.56</TD>
+<TD>keV</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2020CSC...C2..0000:</TD>
+</TR>
+<TR>
+<TD>14</TD>
+<TD>0.5-1.2 keV Chandra</TD>
+<TD>1.2349E-14</TD>
+<TD>1.3041E-15</TD>
+<TD>1.3041E-15</TD>
+<TD>erg/cm^2/s</TD>
+<TD>2.22455010271813e+17</TD>
+<TD>5.55118012349427e-09</TD>
+<TD>5.86216612466759e-10</TD>
+<TD>5.86216612466759e-10</TD>
+<TD/>
+<TD/>
+<TD>1234887831.3926</TD>
+<TD>130406822.5478</TD>
+<TD>130406822.5478</TD>
+<TD/>
+<TD/>
+<TD>Chandra</TD>
+<TD>ACIS, HRC-I</TD>
+<TD>0.92</TD>
+<TD>keV</TD>
+<TD>from fitting to map</TD>
+<TD>2020CSC...C2..0000:</TD>
+</TR>
+<TR>
+<TD>15</TD>
+<TD>0.5-1.2 keV Chandra</TD>
+<TD>1.2911E-14</TD>
+<TD>1.2998E-15</TD>
+<TD>1.2998E-15</TD>
+<TD>erg/cm^2/s</TD>
+<TD>2.22455010271813e+17</TD>
+<TD>5.80382156908244e-09</TD>
+<TD>5.84310353218285e-10</TD>
+<TD>5.84310353218285e-10</TD>
+<TD/>
+<TD/>
+<TD>1291089186.766</TD>
+<TD>129982765.6271</TD>
+<TD>129982765.6271</TD>
+<TD/>
+<TD/>
+<TD>Chandra</TD>
+<TD>ACIS, HRC-I</TD>
+<TD>0.92</TD>
+<TD>keV</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2020CSC...C2..0000:</TD>
+</TR>
+<TR>
+<TD>16</TD>
+<TD>0.5-1.2 keV Chandra</TD>
+<TD>1.2349E-14</TD>
+<TD>1.3041E-15</TD>
+<TD>1.3041E-15</TD>
+<TD>erg/cm^2/s</TD>
+<TD>2.22455010271813e+17</TD>
+<TD>5.55118012349427e-09</TD>
+<TD>5.86216612466759e-10</TD>
+<TD>5.86216612466759e-10</TD>
+<TD/>
+<TD/>
+<TD>1234887831.3926</TD>
+<TD>130406822.5478</TD>
+<TD>130406822.5478</TD>
+<TD/>
+<TD/>
+<TD>Chandra</TD>
+<TD>ACIS, HRC-I</TD>
+<TD>0.92</TD>
+<TD>keV</TD>
+<TD>from fitting to map</TD>
+<TD>2020CSC...C2..0000:</TD>
+</TR>
+<TR>
+<TD>17</TD>
+<TD>0.5-1.2 keV Chandra</TD>
+<TD>1.2911E-14</TD>
+<TD>1.2998E-15</TD>
+<TD>1.2998E-15</TD>
+<TD>erg/cm^2/s</TD>
+<TD>2.22455010271813e+17</TD>
+<TD>5.80382156908244e-09</TD>
+<TD>5.84310353218285e-10</TD>
+<TD>5.84310353218285e-10</TD>
+<TD/>
+<TD/>
+<TD>1291089186.766</TD>
+<TD>129982765.6271</TD>
+<TD>129982765.6271</TD>
+<TD/>
+<TD/>
+<TD>Chandra</TD>
+<TD>ACIS, HRC-I</TD>
+<TD>0.92</TD>
+<TD>keV</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2020CSC...C2..0000:</TD>
+</TR>
+<TR>
+<TD>18</TD>
+<TD>0.2-0.5 keV Chandra</TD>
+<TD>6.2785E-15</TD>
+<TD>1.2419E-15</TD>
+<TD>1.2419E-15</TD>
+<TD>erg/cm^2/s</TD>
+<TD>9.67195696833967e+16</TD>
+<TD>6.49141548873505e-09</TD>
+<TD>1.28401625051894e-09</TD>
+<TD>1.28401625051894e-09</TD>
+<TD/>
+<TD/>
+<TD>627846912.70659</TD>
+<TD>124189499.21668</TD>
+<TD>124189499.21668</TD>
+<TD/>
+<TD/>
+<TD>Chandra</TD>
+<TD>ACIS, HRC-I</TD>
+<TD>0.4</TD>
+<TD>keV</TD>
+<TD>from fitting to map</TD>
+<TD>2020CSC...C2..0000:</TD>
+</TR>
+<TR>
+<TD>19</TD>
+<TD>0.2-0.5 keV Chandra</TD>
+<TD>6.2785E-15</TD>
+<TD>1.2419E-15</TD>
+<TD>1.2419E-15</TD>
+<TD>erg/cm^2/s</TD>
+<TD>9.67195696833967e+16</TD>
+<TD>6.49141548873505e-09</TD>
+<TD>1.28401625051894e-09</TD>
+<TD>1.28401625051894e-09</TD>
+<TD/>
+<TD/>
+<TD>627846912.70659</TD>
+<TD>124189499.21668</TD>
+<TD>124189499.21668</TD>
+<TD/>
+<TD/>
+<TD>Chandra</TD>
+<TD>ACIS, HRC-I</TD>
+<TD>0.4</TD>
+<TD>keV</TD>
+<TD>from fitting to map</TD>
+<TD>2020CSC...C2..0000:</TD>
+</TR>
+<TR>
+<TD>20</TD>
+<TD>0.2-0.5 keV Chandra</TD>
+<TD>7.8629E-15</TD>
+<TD>1.4026E-15</TD>
+<TD>1.4026E-15</TD>
+<TD>erg/cm^2/s</TD>
+<TD>9.67195696833967e+16</TD>
+<TD>8.12963386139753e-09</TD>
+<TD>1.45018464265777e-09</TD>
+<TD>1.45018464265777e-09</TD>
+<TD/>
+<TD/>
+<TD>786294688.75794</TD>
+<TD>140261234.59933</TD>
+<TD>140261234.59933</TD>
+<TD/>
+<TD/>
+<TD>Chandra</TD>
+<TD>ACIS, HRC-I</TD>
+<TD>0.4</TD>
+<TD>keV</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2020CSC...C2..0000:</TD>
+</TR>
+<TR>
+<TD>21</TD>
+<TD>0.2-0.5 keV Chandra</TD>
+<TD>7.8629E-15</TD>
+<TD>1.4026E-15</TD>
+<TD>1.4026E-15</TD>
+<TD>erg/cm^2/s</TD>
+<TD>9.67195696833967e+16</TD>
+<TD>8.12963386139753e-09</TD>
+<TD>1.45018464265777e-09</TD>
+<TD>1.45018464265777e-09</TD>
+<TD/>
+<TD/>
+<TD>786294688.75794</TD>
+<TD>140261234.59933</TD>
+<TD>140261234.59933</TD>
+<TD/>
+<TD/>
+<TD>Chandra</TD>
+<TD>ACIS, HRC-I</TD>
+<TD>0.4</TD>
+<TD>keV</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2020CSC...C2..0000:</TD>
+</TR>
+<TR>
+<TD>22</TD>
+<TD>FUV (GALEX) AB</TD>
+<TD>21.4913   </TD>
+<TD>0.123998  </TD>
+<TD>0.123998  </TD>
+<TD>mag</TD>
+<TD>1.9485e+15</TD>
+<TD>9.1940370369029e-06</TD>
+<TD>1.04976261924667e-06</TD>
+<TD>1.04976261924667e-06</TD>
+<TD/>
+<TD/>
+<TD>17914581166.4053</TD>
+<TD>2045462463.60214</TD>
+<TD>2045462463.60214</TD>
+<TD/>
+<TD/>
+<TD>GALEX</TD>
+<TD>FUV detector</TD>
+<TD>1538.6</TD>
+<TD>A</TD>
+<TD>flux integrated from map or image</TD>
+<TD>2012GMSC..C...0000S</TD>
+</TR>
+<TR>
+<TD>23</TD>
+<TD>FUV (GALEX) AB</TD>
+<TD>22.2677   </TD>
+<TD>0.123769  </TD>
+<TD>0.123769  </TD>
+<TD>mag</TD>
+<TD>1.9485e+15</TD>
+<TD>4.4972419068126e-06</TD>
+<TD>5.1254063864115e-07</TD>
+<TD>5.1254063864115e-07</TD>
+<TD/>
+<TD/>
+<TD>8762875855.42436</TD>
+<TD>998685434.392281</TD>
+<TD>998685434.392281</TD>
+<TD/>
+<TD/>
+<TD>GALEX</TD>
+<TD>FUV detector</TD>
+<TD>1538.6</TD>
+<TD>A</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2012GMSC..C...0000S</TD>
+</TR>
+<TR>
+<TD>24</TD>
+<TD>FUV (GALEX) AB</TD>
+<TD>22.3350   </TD>
+<TD>0.278950  </TD>
+<TD>0.278950  </TD>
+<TD>mag</TD>
+<TD>1.9485e+15</TD>
+<TD>4.22694161278952e-06</TD>
+<TD>1.08573237834957e-06</TD>
+<TD>1.08573237834957e-06</TD>
+<TD/>
+<TD/>
+<TD>8236195732.52038</TD>
+<TD>2115549539.21414</TD>
+<TD>2115549539.21414</TD>
+<TD/>
+<TD/>
+<TD>GALEX</TD>
+<TD>FUV detector</TD>
+<TD>1538.6</TD>
+<TD>A</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2012GASC..C...0000S</TD>
+</TR>
+<TR>
+<TD>25</TD>
+<TD>FUV (GALEX) AB</TD>
+<TD>21.8690   </TD>
+<TD>0.311355  </TD>
+<TD>0.311355  </TD>
+<TD>mag</TD>
+<TD>1.9485e+15</TD>
+<TD>6.4927136414942e-06</TD>
+<TD>1.86145382674717e-06</TD>
+<TD>1.86145382674717e-06</TD>
+<TD/>
+<TD/>
+<TD>12651052530.4515</TD>
+<TD>3627042781.41686</TD>
+<TD>3627042781.41686</TD>
+<TD/>
+<TD/>
+<TD>GALEX</TD>
+<TD>FUV detector</TD>
+<TD>1538.6</TD>
+<TD>A</TD>
+<TD>flux integrated from map or image</TD>
+<TD>2012GASC..C...0000S</TD>
+</TR>
+<TR>
+<TD>26</TD>
+<TD>NUV (GALEX) AB</TD>
+<TD>21.7352   </TD>
+<TD>0.135300  </TD>
+<TD>0.135300  </TD>
+<TD>mag</TD>
+<TD>1.2946e+15</TD>
+<TD>7.34422965607237e-06</TD>
+<TD>9.14985517925038e-07</TD>
+<TD>9.14985517925038e-07</TD>
+<TD/>
+<TD/>
+<TD>9507839712.75129</TD>
+<TD>1184540251.50575</TD>
+<TD>1184540251.50575</TD>
+<TD/>
+<TD/>
+<TD>GALEX</TD>
+<TD>NUV detector</TD>
+<TD>2315.7</TD>
+<TD>A</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2012GASC..C...0000S</TD>
+</TR>
+<TR>
+<TD>27</TD>
+<TD>NUV (GALEX) AB</TD>
+<TD>20.4525   </TD>
+<TD>0.114663  </TD>
+<TD>0.114663  </TD>
+<TD>mag</TD>
+<TD>1.2946e+15</TD>
+<TD>2.39346041363214e-05</TD>
+<TD>2.52708426711144e-06</TD>
+<TD>2.52708426711144e-06</TD>
+<TD/>
+<TD/>
+<TD>30985738514.8817</TD>
+<TD>3271563292.20247</TD>
+<TD>3271563292.20247</TD>
+<TD/>
+<TD/>
+<TD>GALEX</TD>
+<TD>NUV detector</TD>
+<TD>2315.7</TD>
+<TD>A</TD>
+<TD>flux integrated from map or image</TD>
+<TD>2012GASC..C...0000S</TD>
+</TR>
+<TR>
+<TD>28</TD>
+<TD>NUV (GALEX) AB</TD>
+<TD>21.7997   </TD>
+<TD>0.0625702 </TD>
+<TD>0.0625702 </TD>
+<TD>mag</TD>
+<TD>1.2946e+15</TD>
+<TD>6.9206398462199e-06</TD>
+<TD>3.98734640244888e-07</TD>
+<TD>3.98734640244888e-07</TD>
+<TD/>
+<TD/>
+<TD>8959460344.91628</TD>
+<TD>516201865.261032</TD>
+<TD>516201865.261032</TD>
+<TD/>
+<TD/>
+<TD>GALEX</TD>
+<TD>NUV detector</TD>
+<TD>2315.7</TD>
+<TD>A</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2012GMSC..C...0000S</TD>
+</TR>
+<TR>
+<TD>29</TD>
+<TD>NUV (GALEX) AB</TD>
+<TD>20.3618   </TD>
+<TD>0.0545286 </TD>
+<TD>0.0545286 </TD>
+<TD>mag</TD>
+<TD>1.2946e+15</TD>
+<TD>2.60199374918072e-05</TD>
+<TD>1.30647399955411e-06</TD>
+<TD>1.30647399955411e-06</TD>
+<TD/>
+<TD/>
+<TD>33685411076.8937</TD>
+<TD>1691361239.82275</TD>
+<TD>1691361239.82275</TD>
+<TD/>
+<TD/>
+<TD>GALEX</TD>
+<TD>NUV detector</TD>
+<TD>2315.7</TD>
+<TD>A</TD>
+<TD>flux integrated from map or image</TD>
+<TD>2012GMSC..C...0000S</TD>
+</TR>
+<TR>
+<TD>30</TD>
+<TD>u (SDSS Model) AB</TD>
+<TD>    17.860</TD>
+<TD>     0.027</TD>
+<TD>     0.027</TD>
+<TD>asinh mag</TD>
+<TD>836000016000000</TD>
+<TD>0.0002703921</TD>
+<TD>6.72414e-06</TD>
+<TD>6.72414e-06</TD>
+<TD/>
+<TD/>
+<TD>226047799926.274</TD>
+<TD>5621381147.58624</TD>
+<TD>5621381147.58624</TD>
+<TD/>
+<TD/>
+<TD>2.5m</TD>
+<TD>Imaging camera</TD>
+<TD>3585</TD>
+<TD>A</TD>
+<TD>modelled datum</TD>
+<TD>2007SDSS6.C...0000:</TD>
+</TR>
+<TR>
+<TD>31</TD>
+<TD>u (SDSS PSF) AB</TD>
+<TD>    19.711</TD>
+<TD>     0.040</TD>
+<TD>     0.040</TD>
+<TD>asinh mag</TD>
+<TD>836000016000000</TD>
+<TD>4.91525e-05</TD>
+<TD>1.811262e-06</TD>
+<TD>1.811262e-06</TD>
+<TD/>
+<TD/>
+<TD>41091490786.44</TD>
+<TD>1514215060.98019</TD>
+<TD>1514215060.98019</TD>
+<TD/>
+<TD/>
+<TD>2.5m</TD>
+<TD>Imaging camera</TD>
+<TD>3585</TD>
+<TD>A</TD>
+<TD>modelled datum</TD>
+<TD>2007SDSS6.C...0000:</TD>
+</TR>
+<TR>
+<TD>32</TD>
+<TD>u (SDSS CModel) AB</TD>
+<TD>    17.813</TD>
+<TD/>
+<TD/>
+<TD>asinh mag</TD>
+<TD>836000016000000</TD>
+<TD>0.0002823541</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>236048032117.666</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>2.5m</TD>
+<TD>Imaging camera</TD>
+<TD>3585</TD>
+<TD>A</TD>
+<TD>modelled datum</TD>
+<TD>2007SDSS6.C...0000:</TD>
+</TR>
+<TR>
+<TD>33</TD>
+<TD>b_J</TD>
+<TD>16.69     </TD>
+<TD> 0.12     </TD>
+<TD> 0.12     </TD>
+<TD>mag</TD>
+<TD>640999978000000</TD>
+<TD>0.00083291</TD>
+<TD>9.7337e-05</TD>
+<TD>9.7337e-05</TD>
+<TD/>
+<TD/>
+<TD>533895291675.98</TD>
+<TD>62393014858.586</TD>
+<TD>62393014858.586</TD>
+<TD/>
+<TD/>
+<TD>UKSTU</TD>
+<TD>Photographic plates</TD>
+<TD> 4680</TD>
+<TD>A</TD>
+<TD>flux integrated from map or image</TD>
+<TD>1990MNRAS.243..692M</TD>
+</TR>
+<TR>
+<TD>34</TD>
+<TD>g (SDSS Model) AB</TD>
+<TD>    15.976</TD>
+<TD>     0.004</TD>
+<TD>     0.004</TD>
+<TD>asinh mag</TD>
+<TD>616999969000000</TD>
+<TD>0.001477836</TD>
+<TD>5.44455e-06</TD>
+<TD>5.44455e-06</TD>
+<TD/>
+<TD/>
+<TD>911824766187.084</TD>
+<TD>3359287181.21895</TD>
+<TD>3359287181.21895</TD>
+<TD/>
+<TD/>
+<TD>2.5m</TD>
+<TD>Imaging camera</TD>
+<TD>4858</TD>
+<TD>A</TD>
+<TD>modelled datum</TD>
+<TD>2007SDSS6.C...0000:</TD>
+</TR>
+<TR>
+<TD>35</TD>
+<TD>g (SDSS CModel) AB</TD>
+<TD>    15.967</TD>
+<TD/>
+<TD/>
+<TD>asinh mag</TD>
+<TD>616999969000000</TD>
+<TD>0.001490137</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>919414482805.753</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>2.5m</TD>
+<TD>Imaging camera</TD>
+<TD>4858</TD>
+<TD>A</TD>
+<TD>modelled datum</TD>
+<TD>2007SDSS6.C...0000:</TD>
+</TR>
+<TR>
+<TD>36</TD>
+<TD>g (SDSS PSF) AB</TD>
+<TD>    17.933</TD>
+<TD>     0.019</TD>
+<TD>     0.019</TD>
+<TD>asinh mag</TD>
+<TD>616999969000000</TD>
+<TD>0.0002436831</TD>
+<TD>4.264383e-06</TD>
+<TD>4.264383e-06</TD>
+<TD/>
+<TD/>
+<TD>150352465145.824</TD>
+<TD>2631124178.80413</TD>
+<TD>2631124178.80413</TD>
+<TD/>
+<TD/>
+<TD>2.5m</TD>
+<TD>Imaging camera</TD>
+<TD>4858</TD>
+<TD>A</TD>
+<TD>modelled datum</TD>
+<TD>2007SDSS6.C...0000:</TD>
+</TR>
+<TR>
+<TD>37</TD>
+<TD>V (Johnson)</TD>
+<TD>      15.8</TD>
+<TD/>
+<TD/>
+<TD>mag</TD>
+<TD>542120000000000</TD>
+<TD>0.001742</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>944373040000</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>100in, 200in</TD>
+<TD>Photomultiplier</TD>
+<TD>      5530</TD>
+<TD>A</TD>
+<TD>flux in fixed aperture</TD>
+<TD>1973ApJ...183..711S</TD>
+</TR>
+<TR>
+<TD>38</TD>
+<TD>V (Johnson)</TD>
+<TD>     15.53</TD>
+<TD/>
+<TD/>
+<TD>mag</TD>
+<TD>542120000000000</TD>
+<TD>0.002234</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>1211096080000</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>100in, 200in</TD>
+<TD>Photomultiplier</TD>
+<TD>      5530</TD>
+<TD>A</TD>
+<TD>flux in fixed aperture</TD>
+<TD>1973ApJ...183..711S</TD>
+</TR>
+<TR>
+<TD>39</TD>
+<TD>V (Johnson)</TD>
+<TD>     15.88</TD>
+<TD/>
+<TD/>
+<TD>mag</TD>
+<TD>542120000000000</TD>
+<TD>0.001618</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>877150160000</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>100in, 200in</TD>
+<TD>Photomultiplier</TD>
+<TD>      5530</TD>
+<TD>A</TD>
+<TD>flux in fixed aperture</TD>
+<TD>1973ApJ...183..711S</TD>
+</TR>
+<TR>
+<TD>40</TD>
+<TD>V (Johnson)</TD>
+<TD>     16.04</TD>
+<TD/>
+<TD/>
+<TD>mag</TD>
+<TD>542120000000000</TD>
+<TD>0.001397</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>757341640000</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>100in, 200in</TD>
+<TD>Photomultiplier</TD>
+<TD>      5530</TD>
+<TD>A</TD>
+<TD>flux in fixed aperture</TD>
+<TD>1973ApJ...183..711S</TD>
+</TR>
+<TR>
+<TD>41</TD>
+<TD>r (SDSS Model) AB</TD>
+<TD>    15.043</TD>
+<TD>     0.003</TD>
+<TD>     0.003</TD>
+<TD>asinh mag</TD>
+<TD>477000007000000</TD>
+<TD>0.003490007</TD>
+<TD>9.643246e-06</TD>
+<TD>9.643246e-06</TD>
+<TD/>
+<TD/>
+<TD>1664733363430.05</TD>
+<TD>4599828409.50272</TD>
+<TD>4599828409.50272</TD>
+<TD/>
+<TD/>
+<TD>2.5m</TD>
+<TD>Imaging camera</TD>
+<TD>6290</TD>
+<TD>A</TD>
+<TD>modelled datum</TD>
+<TD>2007SDSS6.C...0000:</TD>
+</TR>
+<TR>
+<TD>42</TD>
+<TD>r (SDSS CModel) AB</TD>
+<TD>    15.043</TD>
+<TD/>
+<TD/>
+<TD>asinh mag</TD>
+<TD>477000007000000</TD>
+<TD>0.003490007</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>1664733363430.05</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>2.5m</TD>
+<TD>Imaging camera</TD>
+<TD>6290</TD>
+<TD>A</TD>
+<TD>modelled datum</TD>
+<TD>2007SDSS6.C...0000:</TD>
+</TR>
+<TR>
+<TD>43</TD>
+<TD>r (SDSS PSF) AB</TD>
+<TD>    17.033</TD>
+<TD>     0.023</TD>
+<TD>     0.023</TD>
+<TD>asinh mag</TD>
+<TD>477000007000000</TD>
+<TD>0.0005582465</TD>
+<TD>1.182579e-05</TD>
+<TD>1.182579e-05</TD>
+<TD/>
+<TD/>
+<TD>266283584407.725</TD>
+<TD>5640901912.78053</TD>
+<TD>5640901912.78053</TD>
+<TD/>
+<TD/>
+<TD>2.5m</TD>
+<TD>Imaging camera</TD>
+<TD>6290</TD>
+<TD>A</TD>
+<TD>modelled datum</TD>
+<TD>2007SDSS6.C...0000:</TD>
+</TR>
+<TR>
+<TD>44</TD>
+<TD>r' (GMOS-S) AB</TD>
+<TD>15.23     </TD>
+<TD/>
+<TD/>
+<TD>mag</TD>
+<TD>475999984680960</TD>
+<TD>0.002938</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>1398487954992.66</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>Gemini South</TD>
+<TD>GMOS-S</TD>
+<TD>       630</TD>
+<TD>nm</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2011MNRAS.410.1550R</TD>
+</TR>
+<TR>
+<TD>45</TD>
+<TD>R (Johnson)</TD>
+<TD>     14.66</TD>
+<TD/>
+<TD/>
+<TD>mag</TD>
+<TD>428275013000000</TD>
+<TD>0.003802</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>1628301599426</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>100in, 200in</TD>
+<TD>Photomultiplier</TD>
+<TD>      7000</TD>
+<TD>A</TD>
+<TD>flux in fixed aperture</TD>
+<TD>1973ApJ...183..711S</TD>
+</TR>
+<TR>
+<TD>46</TD>
+<TD>R (Johnson)</TD>
+<TD>     14.97</TD>
+<TD/>
+<TD/>
+<TD>mag</TD>
+<TD>428275013000000</TD>
+<TD>0.002858</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>1224009987154</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>100in, 200in</TD>
+<TD>Photomultiplier</TD>
+<TD>      7000</TD>
+<TD>A</TD>
+<TD>flux in fixed aperture</TD>
+<TD>1973ApJ...183..711S</TD>
+</TR>
+<TR>
+<TD>47</TD>
+<TD>R (Johnson)</TD>
+<TD>     15.15</TD>
+<TD/>
+<TD/>
+<TD>mag</TD>
+<TD>428275013000000</TD>
+<TD>0.002421</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>1036853806473</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>100in, 200in</TD>
+<TD>Photomultiplier</TD>
+<TD>      7000</TD>
+<TD>A</TD>
+<TD>flux in fixed aperture</TD>
+<TD>1973ApJ...183..711S</TD>
+</TR>
+<TR>
+<TD>48</TD>
+<TD>R (Johnson)</TD>
+<TD>     14.91</TD>
+<TD/>
+<TD/>
+<TD>mag</TD>
+<TD>428275013000000</TD>
+<TD>0.00302</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>1293390539260</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>100in, 200in</TD>
+<TD>Photomultiplier</TD>
+<TD>      7000</TD>
+<TD>A</TD>
+<TD>flux in fixed aperture</TD>
+<TD>1973ApJ...183..711S</TD>
+</TR>
+<TR>
+<TD>49</TD>
+<TD>i (SDSS CModel) AB</TD>
+<TD>    14.661</TD>
+<TD/>
+<TD/>
+<TD>asinh mag</TD>
+<TD>388999986000000</TD>
+<TD>0.004961651</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>1930082169536.89</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>2.5m</TD>
+<TD>Imaging camera</TD>
+<TD>7706</TD>
+<TD>A</TD>
+<TD>modelled datum</TD>
+<TD>2007SDSS6.C...0000:</TD>
+</TR>
+<TR>
+<TD>50</TD>
+<TD>i (SDSS PSF) AB</TD>
+<TD>    16.672</TD>
+<TD>     0.018</TD>
+<TD>     0.018</TD>
+<TD>asinh mag</TD>
+<TD>388999986000000</TD>
+<TD>0.0007784414</TD>
+<TD>1.29055e-05</TD>
+<TD>1.29055e-05</TD>
+<TD/>
+<TD/>
+<TD>302813693701.82</TD>
+<TD>5020239319.323</TD>
+<TD>5020239319.323</TD>
+<TD/>
+<TD/>
+<TD>2.5m</TD>
+<TD>Imaging camera</TD>
+<TD>7706</TD>
+<TD>A</TD>
+<TD>modelled datum</TD>
+<TD>2007SDSS6.C...0000:</TD>
+</TR>
+<TR>
+<TD>51</TD>
+<TD>i (SDSS Model) AB</TD>
+<TD>    14.631</TD>
+<TD>     0.003</TD>
+<TD>     0.003</TD>
+<TD>asinh mag</TD>
+<TD>388999986000000</TD>
+<TD>0.005100658</TD>
+<TD>1.409364e-05</TD>
+<TD>1.409364e-05</TD>
+<TD/>
+<TD/>
+<TD>1984155890590.79</TD>
+<TD>5482425762.68904</TD>
+<TD>5482425762.68904</TD>
+<TD/>
+<TD/>
+<TD>2.5m</TD>
+<TD>Imaging camera</TD>
+<TD>7706</TD>
+<TD>A</TD>
+<TD>modelled datum</TD>
+<TD>2007SDSS6.C...0000:</TD>
+</TR>
+<TR>
+<TD>52</TD>
+<TD>z (SDSS PSF) AB</TD>
+<TD>    16.247</TD>
+<TD>     0.013</TD>
+<TD>     0.013</TD>
+<TD>asinh mag</TD>
+<TD>325000008000000</TD>
+<TD>0.001130465</TD>
+<TD>1.353571e-05</TD>
+<TD>1.353571e-05</TD>
+<TD/>
+<TD/>
+<TD>367401134043.72</TD>
+<TD>4399105858.28568</TD>
+<TD>4399105858.28568</TD>
+<TD/>
+<TD/>
+<TD>2.5m</TD>
+<TD>Imaging camera</TD>
+<TD>9222</TD>
+<TD>A</TD>
+<TD>modelled datum</TD>
+<TD>2007SDSS6.C...0000:</TD>
+</TR>
+<TR>
+<TD>53</TD>
+<TD>z (SDSS CModel) AB</TD>
+<TD>    14.399</TD>
+<TD/>
+<TD/>
+<TD>asinh mag</TD>
+<TD>325000008000000</TD>
+<TD>0.006200968</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>2015314649607.74</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>2.5m</TD>
+<TD>Imaging camera</TD>
+<TD>9222</TD>
+<TD>A</TD>
+<TD>modelled datum</TD>
+<TD>2007SDSS6.C...0000:</TD>
+</TR>
+<TR>
+<TD>54</TD>
+<TD>z (SDSS Model) AB</TD>
+<TD>    14.324</TD>
+<TD>     0.005</TD>
+<TD>     0.005</TD>
+<TD>asinh mag</TD>
+<TD>325000008000000</TD>
+<TD>0.006644457</TD>
+<TD>3.059886e-05</TD>
+<TD>3.059886e-05</TD>
+<TD/>
+<TD/>
+<TD>2159448578155.66</TD>
+<TD>9944629744.79088</TD>
+<TD>9944629744.79088</TD>
+<TD/>
+<TD/>
+<TD>2.5m</TD>
+<TD>Imaging camera</TD>
+<TD>9222</TD>
+<TD>A</TD>
+<TD>modelled datum</TD>
+<TD>2007SDSS6.C...0000:</TD>
+</TR>
+<TR>
+<TD>55</TD>
+<TD>J (2MASS/CTIO)</TD>
+<TD>14.398    </TD>
+<TD>0.081     </TD>
+<TD>0.081     </TD>
+<TD>mag</TD>
+<TD>242746929554656</TD>
+<TD>0.00277516185260606</TD>
+<TD>0.000207037500523589</TD>
+<TD>0.000207037500523589</TD>
+<TD/>
+<TD/>
+<TD>673662018737.332</TD>
+<TD>50257717554.7717</TD>
+<TD>50257717554.7717</TD>
+<TD/>
+<TD/>
+<TD>1.3m</TD>
+<TD>256x256 NICMOS3</TD>
+<TD>1.235</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2006AJ....131.1163S</TD>
+</TR>
+<TR>
+<TD>56</TD>
+<TD>J (2MASS/CTIO)</TD>
+<TD>13.797    </TD>
+<TD>0.015     </TD>
+<TD>0.015     </TD>
+<TD>mag</TD>
+<TD>242746929554656</TD>
+<TD>0.00482712246465965</TD>
+<TD>6.66891613750919e-05</TD>
+<TD>6.66891613750919e-05</TD>
+<TD/>
+<TD/>
+<TD>1171769156880.43</TD>
+<TD>16188589158.3785</TD>
+<TD>16188589158.3785</TD>
+<TD/>
+<TD/>
+<TD>1.3m</TD>
+<TD>256x256 NICMOS3</TD>
+<TD>1.235</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2006AJ....131.1163S</TD>
+</TR>
+<TR>
+<TD>57</TD>
+<TD>J</TD>
+<TD>13.312    </TD>
+<TD> 0.038    </TD>
+<TD> 0.038    </TD>
+<TD>mag</TD>
+<TD>240000004000000</TD>
+<TD>0.007536</TD>
+<TD>0.00026843</TD>
+<TD>0.00026843</TD>
+<TD/>
+<TD/>
+<TD>1808640030144</TD>
+<TD>64423201073.72</TD>
+<TD>64423201073.72</TD>
+<TD/>
+<TD/>
+<TD>1.3m</TD>
+<TD>256x256 NICMOS3</TD>
+<TD> 1.25</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>20032MASX.C.......:</TD>
+</TR>
+<TR>
+<TD>58</TD>
+<TD>J_14arcsec (2MASS)</TD>
+<TD>13.467    </TD>
+<TD> 0.023    </TD>
+<TD> 0.023    </TD>
+<TD>mag</TD>
+<TD>240000004000000</TD>
+<TD>0.0065335</TD>
+<TD>0.00013987</TD>
+<TD>0.00013987</TD>
+<TD/>
+<TD/>
+<TD>1568040026134</TD>
+<TD>33568800559.48</TD>
+<TD>33568800559.48</TD>
+<TD/>
+<TD/>
+<TD>1.3m</TD>
+<TD>256x256 NICMOS3</TD>
+<TD> 1.25</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>20032MASX.C.......:</TD>
+</TR>
+<TR>
+<TD>59</TD>
+<TD>J</TD>
+<TD>13.053    </TD>
+<TD> 0.049    </TD>
+<TD> 0.049    </TD>
+<TD>mag</TD>
+<TD>240000004000000</TD>
+<TD>0.0095663</TD>
+<TD>0.00044162</TD>
+<TD>0.00044162</TD>
+<TD/>
+<TD/>
+<TD>2295912038265.2</TD>
+<TD>105988801766.48</TD>
+<TD>105988801766.48</TD>
+<TD/>
+<TD/>
+<TD>1.3m</TD>
+<TD>256x256 NICMOS3</TD>
+<TD> 1.25</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>20032MASX.C.......:</TD>
+</TR>
+<TR>
+<TD>60</TD>
+<TD>F160W (HST)</TD>
+<TD>-27.42    </TD>
+<TD/>
+<TD/>
+<TD>log(erg/cm^2/s/Hz)</TD>
+<TD>187000007163900</TD>
+<TD>3.802e-05</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>7109740272.37148</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>HST</TD>
+<TD>NICMOS2</TD>
+<TD>      1.60</TD>
+<TD>microns</TD>
+<TD>from fitting to map</TD>
+<TD>2010ApJ...725.2426B</TD>
+</TR>
+<TR>
+<TD>61</TD>
+<TD>H</TD>
+<TD>12.284    </TD>
+<TD> 0.058    </TD>
+<TD> 0.058    </TD>
+<TD>mag</TD>
+<TD>181999994000000</TD>
+<TD>0.012494</TD>
+<TD>0.00068556</TD>
+<TD>0.00068556</TD>
+<TD/>
+<TD/>
+<TD>2273907925036</TD>
+<TD>124771915886.64</TD>
+<TD>124771915886.64</TD>
+<TD/>
+<TD/>
+<TD>1.3m</TD>
+<TD>256x256 NICMOS3</TD>
+<TD> 1.65</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>20032MASX.C.......:</TD>
+</TR>
+<TR>
+<TD>62</TD>
+<TD>H_14arcsec (2MASS)</TD>
+<TD>12.730    </TD>
+<TD> 0.028    </TD>
+<TD> 0.028    </TD>
+<TD>mag</TD>
+<TD>181999994000000</TD>
+<TD>0.0082851</TD>
+<TD>0.00021644</TD>
+<TD>0.00021644</TD>
+<TD/>
+<TD/>
+<TD>1507888150289.4</TD>
+<TD>39392078701.36</TD>
+<TD>39392078701.36</TD>
+<TD/>
+<TD/>
+<TD>1.3m</TD>
+<TD>256x256 NICMOS3</TD>
+<TD> 1.65</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>20032MASX.C.......:</TD>
+</TR>
+<TR>
+<TD>63</TD>
+<TD>H</TD>
+<TD>12.573    </TD>
+<TD> 0.048    </TD>
+<TD> 0.048    </TD>
+<TD>mag</TD>
+<TD>181999994000000</TD>
+<TD>0.0095741</TD>
+<TD>0.00043277</TD>
+<TD>0.00043277</TD>
+<TD/>
+<TD/>
+<TD>1742486142555.4</TD>
+<TD>78764137403.38</TD>
+<TD>78764137403.38</TD>
+<TD/>
+<TD/>
+<TD>1.3m</TD>
+<TD>256x256 NICMOS3</TD>
+<TD> 1.65</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>20032MASX.C.......:</TD>
+</TR>
+<TR>
+<TD>64</TD>
+<TD>H (2MASS/CTIO)</TD>
+<TD>13.79     </TD>
+<TD>0.105     </TD>
+<TD>0.105     </TD>
+<TD>mag</TD>
+<TD>180380540312876</TD>
+<TD>0.00312104446937905</TD>
+<TD>0.000301831759730076</TD>
+<TD>0.000301831759730076</TD>
+<TD/>
+<TD/>
+<TD>562975687727.107</TD>
+<TD>54444575903.6973</TD>
+<TD>54444575903.6973</TD>
+<TD/>
+<TD/>
+<TD>1.3m</TD>
+<TD>256x256 NICMOS3</TD>
+<TD>1.662</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2006AJ....131.1163S</TD>
+</TR>
+<TR>
+<TD>65</TD>
+<TD>H (2MASS/CTIO)</TD>
+<TD>13.082    </TD>
+<TD>0.014     </TD>
+<TD>0.014     </TD>
+<TD>mag</TD>
+<TD>180380540312876</TD>
+<TD>0.00599100878796805</TD>
+<TD>7.72509221521607e-05</TD>
+<TD>7.72509221521607e-05</TD>
+<TD/>
+<TD/>
+<TD>1080661402192.87</TD>
+<TD>13934563077.4747</TD>
+<TD>13934563077.4747</TD>
+<TD/>
+<TD/>
+<TD>1.3m</TD>
+<TD>256x256 NICMOS3</TD>
+<TD>1.662</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2006AJ....131.1163S</TD>
+</TR>
+<TR>
+<TD>66</TD>
+<TD>K_s (NTT)</TD>
+<TD>13.571    </TD>
+<TD>0.036     </TD>
+<TD>0.036     </TD>
+<TD>mag</TD>
+<TD>138999997923330</TD>
+<TD>0.00248</TD>
+<TD>8.222e-05</TD>
+<TD>8.222e-05</TD>
+<TD/>
+<TD/>
+<TD>344719994849.858</TD>
+<TD>11428579829.2562</TD>
+<TD>11428579829.2562</TD>
+<TD/>
+<TD/>
+<TD>NTT</TD>
+<TD>SofI</TD>
+<TD>      2.16</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2010MNRAS.407.1739I</TD>
+</TR>
+<TR>
+<TD>67</TD>
+<TD>K_s (NTT)</TD>
+<TD>13.403    </TD>
+<TD>0.035     </TD>
+<TD>0.035     </TD>
+<TD>mag</TD>
+<TD>138999997923330</TD>
+<TD>0.002895</TD>
+<TD>9.332e-05</TD>
+<TD>9.332e-05</TD>
+<TD/>
+<TD/>
+<TD>402404993988.04</TD>
+<TD>12971479806.2052</TD>
+<TD>12971479806.2052</TD>
+<TD/>
+<TD/>
+<TD>NTT</TD>
+<TD>SofI</TD>
+<TD>      2.16</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2010MNRAS.407.1739I</TD>
+</TR>
+<TR>
+<TD>68</TD>
+<TD>K_s (NTT)</TD>
+<TD>13.050    </TD>
+<TD>0.034     </TD>
+<TD>0.034     </TD>
+<TD>mag</TD>
+<TD>138999997923330</TD>
+<TD>0.004007</TD>
+<TD>0.0001255</TD>
+<TD>0.0001255</TD>
+<TD/>
+<TD/>
+<TD>556972991678.783</TD>
+<TD>17444499739.3779</TD>
+<TD>17444499739.3779</TD>
+<TD/>
+<TD/>
+<TD>NTT</TD>
+<TD>SofI</TD>
+<TD>      2.16</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2010MNRAS.407.1739I</TD>
+</TR>
+<TR>
+<TD>69</TD>
+<TD>K_s (2MASS/CTIO)</TD>
+<TD>13.177    </TD>
+<TD>0.069     </TD>
+<TD>0.069     </TD>
+<TD>mag</TD>
+<TD>138857090319592</TD>
+<TD>0.00357433777671804</TD>
+<TD>0.000227153985943102</TD>
+<TD>0.000227153985943102</TD>
+<TD/>
+<TD/>
+<TD>496322143494.468</TD>
+<TD>31541941542.5567</TD>
+<TD>31541941542.5567</TD>
+<TD/>
+<TD/>
+<TD>1.3m</TD>
+<TD>256x256 NICMOS3</TD>
+<TD>2.159</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2006AJ....131.1163S</TD>
+</TR>
+<TR>
+<TD>70</TD>
+<TD>K_s (2MASS/CTIO)</TD>
+<TD>12.706    </TD>
+<TD>0.031     </TD>
+<TD>0.031     </TD>
+<TD>mag</TD>
+<TD>138857090319592</TD>
+<TD>0.00551563591903005</TD>
+<TD>0.00015748274096471</TD>
+<TD>0.00015748274096471</TD>
+<TD/>
+<TD/>
+<TD>765885154978.744</TD>
+<TD>21867595185.9137</TD>
+<TD>21867595185.9137</TD>
+<TD/>
+<TD/>
+<TD>1.3m</TD>
+<TD>256x256 NICMOS3</TD>
+<TD>2.159</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2006AJ....131.1163S</TD>
+</TR>
+<TR>
+<TD>71</TD>
+<TD>K_s_14arcsec (2MASS)</TD>
+<TD>12.337    </TD>
+<TD> 0.039    </TD>
+<TD> 0.039    </TD>
+<TD>mag</TD>
+<TD>138000000000000</TD>
+<TD>0.0077481</TD>
+<TD>0.00028338</TD>
+<TD>0.00028338</TD>
+<TD/>
+<TD/>
+<TD>1069237800000</TD>
+<TD>39106440000</TD>
+<TD>39106440000</TD>
+<TD/>
+<TD/>
+<TD>1.3m</TD>
+<TD>256x256 NICMOS3</TD>
+<TD> 2.17</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>20032MASX.C.......:</TD>
+</TR>
+<TR>
+<TD>72</TD>
+<TD>K_s</TD>
+<TD>12.167    </TD>
+<TD> 0.072    </TD>
+<TD> 0.072    </TD>
+<TD>mag</TD>
+<TD>138000000000000</TD>
+<TD>0.0090614</TD>
+<TD>0.00062126</TD>
+<TD>0.00062126</TD>
+<TD/>
+<TD/>
+<TD>1250473200000</TD>
+<TD>85733880000</TD>
+<TD>85733880000</TD>
+<TD/>
+<TD/>
+<TD>1.3m</TD>
+<TD>256x256 NICMOS3</TD>
+<TD> 2.17</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>20032MASX.C.......:</TD>
+</TR>
+<TR>
+<TD>73</TD>
+<TD>K_s</TD>
+<TD>11.915    </TD>
+<TD> 0.082    </TD>
+<TD> 0.082    </TD>
+<TD>mag</TD>
+<TD>138000000000000</TD>
+<TD>0.011429</TD>
+<TD>0.00089657</TD>
+<TD>0.00089657</TD>
+<TD/>
+<TD/>
+<TD>1577202000000</TD>
+<TD>123726660000</TD>
+<TD>123726660000</TD>
+<TD/>
+<TD/>
+<TD>1.3m</TD>
+<TD>256x256 NICMOS3</TD>
+<TD> 2.17</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>20032MASX.C.......:</TD>
+</TR>
+<TR>
+<TD>74</TD>
+<TD>W1 (WISE)</TD>
+<TD>12.013    </TD>
+<TD>0.008     </TD>
+<TD>0.008     </TD>
+<TD>mag</TD>
+<TD>89420884686512</TD>
+<TD>0.00484748839741159</TD>
+<TD>3.57176144714929e-05</TD>
+<TD>3.57176144714929e-05</TD>
+<TD/>
+<TD/>
+<TD>433466701004.146</TD>
+<TD>3193900684.93266</TD>
+<TD>3193900684.93266</TD>
+<TD/>
+<TD/>
+<TD>WISE</TD>
+<TD>1024x1024 pixel detector array</TD>
+<TD>3.3526</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2013wise.rept....1C</TD>
+</TR>
+<TR>
+<TD>75</TD>
+<TD>W1 (WISE)</TD>
+<TD>12.103    </TD>
+<TD>0.024     </TD>
+<TD>0.024     </TD>
+<TD>mag</TD>
+<TD>89420884686512</TD>
+<TD>0.00446186861947596</TD>
+<TD>9.86287888329914e-05</TD>
+<TD>9.86287888329914e-05</TD>
+<TD/>
+<TD/>
+<TD>398984239308.526</TD>
+<TD>8819473553.00526</TD>
+<TD>8819473553.00526</TD>
+<TD/>
+<TD/>
+<TD>WISE</TD>
+<TD>1024x1024 pixel detector array</TD>
+<TD>3.3526</TD>
+<TD>microns</TD>
+<TD>from fitting to map</TD>
+<TD>2013wise.rept....1C</TD>
+</TR>
+<TR>
+<TD>76</TD>
+<TD>W1 (WISE)</TD>
+<TD>11.764    </TD>
+<TD>0.01      </TD>
+<TD>0.01      </TD>
+<TD>mag</TD>
+<TD>89420884686512</TD>
+<TD>0.00609700818796123</TD>
+<TD>5.61555206618487e-05</TD>
+<TD>5.61555206618487e-05</TD>
+<TD/>
+<TD/>
+<TD>545199866108.4</TD>
+<TD>5021476337.61421</TD>
+<TD>5021476337.61421</TD>
+<TD/>
+<TD/>
+<TD>WISE</TD>
+<TD>1024x1024 pixel detector array</TD>
+<TD>3.3526</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2013wise.rept....1C</TD>
+</TR>
+<TR>
+<TD>77</TD>
+<TD>W1 (WISE)</TD>
+<TD>12.087    </TD>
+<TD>0.024     </TD>
+<TD>0.024     </TD>
+<TD>mag</TD>
+<TD>88199997161472</TD>
+<TD>0.004528</TD>
+<TD>0.0001001</TD>
+<TD>0.0001001</TD>
+<TD/>
+<TD/>
+<TD>399369587147.145</TD>
+<TD>8828819715.86335</TD>
+<TD>8828819715.86335</TD>
+<TD/>
+<TD/>
+<TD>WISE</TD>
+<TD>1024x1024 pixel detector array</TD>
+<TD>       3.4</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2014MNRAS.438.1149G</TD>
+</TR>
+<TR>
+<TD>78</TD>
+<TD>3.6 microns (IRAC)</TD>
+<TD>3.9851E+03</TD>
+<TD>3.5930E+01</TD>
+<TD>3.5930E+01</TD>
+<TD>uJy</TD>
+<TD>84448579718309.9</TD>
+<TD>0.00398510793478</TD>
+<TD>3.59300152174e-05</TD>
+<TD>3.59300152174e-05</TD>
+<TD/>
+<TD/>
+<TD>336536705116.338</TD>
+<TD>3034238754.36669</TD>
+<TD>3034238754.36669</TD>
+<TD/>
+<TD/>
+<TD>Spitzer</TD>
+<TD>IRAC</TD>
+<TD>3.55</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2013SSTSLC4.2....0C</TD>
+</TR>
+<TR>
+<TD>79</TD>
+<TD>3.6 microns (IRAC)</TD>
+<TD>2.7386E+03</TD>
+<TD>2.0622E+01</TD>
+<TD>2.0622E+01</TD>
+<TD>uJy</TD>
+<TD>84448579718309.9</TD>
+<TD>0.00273864891304</TD>
+<TD>2.06221141304e-05</TD>
+<TD>2.06221141304e-05</TD>
+<TD/>
+<TD/>
+<TD>231275011053.321</TD>
+<TD>1741508249.10117</TD>
+<TD>1741508249.10117</TD>
+<TD/>
+<TD/>
+<TD>Spitzer</TD>
+<TD>IRAC</TD>
+<TD>3.55</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2013SSTSLC4.2....0C</TD>
+</TR>
+<TR>
+<TD>80</TD>
+<TD>W2 (WISE)</TD>
+<TD>11.669    </TD>
+<TD>0.023     </TD>
+<TD>0.023     </TD>
+<TD>mag</TD>
+<TD>65199998500864</TD>
+<TD>0.003693</TD>
+<TD>7.823e-05</TD>
+<TD>7.823e-05</TD>
+<TD/>
+<TD/>
+<TD>240783594463.691</TD>
+<TD>5100595882.72259</TD>
+<TD>5100595882.72259</TD>
+<TD/>
+<TD/>
+<TD>WISE</TD>
+<TD>1024x1024 pixel detector array</TD>
+<TD>       4.6</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2014MNRAS.438.1149G</TD>
+</TR>
+<TR>
+<TD>81</TD>
+<TD>W2 (WISE)</TD>
+<TD>11.67     </TD>
+<TD>0.022     </TD>
+<TD>0.022     </TD>
+<TD>mag</TD>
+<TD>65132627531068</TD>
+<TD>0.00368969353659462</TD>
+<TD>7.47633333486974e-05</TD>
+<TD>7.47633333486974e-05</TD>
+<TD/>
+<TD/>
+<TD>240319434822.807</TD>
+<TD>4869532343.98179</TD>
+<TD>4869532343.98179</TD>
+<TD/>
+<TD/>
+<TD>WISE</TD>
+<TD>1024x1024 pixel detector array</TD>
+<TD>4.6028</TD>
+<TD>microns</TD>
+<TD>from fitting to map</TD>
+<TD>2013wise.rept....1C</TD>
+</TR>
+<TR>
+<TD>82</TD>
+<TD>W2 (WISE)</TD>
+<TD>11.603    </TD>
+<TD>0.008     </TD>
+<TD>0.008     </TD>
+<TD>mag</TD>
+<TD>65132627531068</TD>
+<TD>0.00392455387628852</TD>
+<TD>2.89171816070206e-05</TD>
+<TD>2.89171816070206e-05</TD>
+<TD/>
+<TD/>
+<TD>255616505849.91</TD>
+<TD>1883452018.85832</TD>
+<TD>1883452018.85832</TD>
+<TD/>
+<TD/>
+<TD>WISE</TD>
+<TD>1024x1024 pixel detector array</TD>
+<TD>4.6028</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2013wise.rept....1C</TD>
+</TR>
+<TR>
+<TD>83</TD>
+<TD>W2 (WISE)</TD>
+<TD>11.399    </TD>
+<TD>0.011     </TD>
+<TD>0.011     </TD>
+<TD>mag</TD>
+<TD>65132627531068</TD>
+<TD>0.00473576665681906</TD>
+<TD>4.79798251147152e-05</TD>
+<TD>4.79798251147152e-05</TD>
+<TD/>
+<TD/>
+<TD>308452925732.647</TD>
+<TD>3125052078.20253</TD>
+<TD>3125052078.20253</TD>
+<TD/>
+<TD/>
+<TD>WISE</TD>
+<TD>1024x1024 pixel detector array</TD>
+<TD>4.6028</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2013wise.rept....1C</TD>
+</TR>
+<TR>
+<TD>84</TD>
+<TD>5.8 microns (IRAC)</TD>
+<TD>3.4211E+03</TD>
+<TD>1.5930E+02</TD>
+<TD>1.5930E+02</TD>
+<TD>uJy</TD>
+<TD>52310671436049.6</TD>
+<TD>0.00342110977778</TD>
+<TD>0.000159300011111</TD>
+<TD>0.000159300011111</TD>
+<TD/>
+<TD/>
+<TD>178960549532.106</TD>
+<TD>8333090540.98657</TD>
+<TD>8333090540.98657</TD>
+<TD/>
+<TD/>
+<TD>Spitzer</TD>
+<TD>IRAC</TD>
+<TD>5.731</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2013SSTSLC4.2....0C</TD>
+</TR>
+<TR>
+<TD>85</TD>
+<TD>5.8 microns (IRAC)</TD>
+<TD>2.4419E+03</TD>
+<TD>1.0958E+02</TD>
+<TD>1.0958E+02</TD>
+<TD>uJy</TD>
+<TD>52310671436049.6</TD>
+<TD>0.00244191171617</TD>
+<TD>0.000109584480198</TD>
+<TD>0.000109584480198</TD>
+<TD/>
+<TD/>
+<TD>127738041460.409</TD>
+<TD>5732437738.12786</TD>
+<TD>5732437738.12786</TD>
+<TD/>
+<TD/>
+<TD>Spitzer</TD>
+<TD>IRAC</TD>
+<TD>5.731</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2013SSTSLC4.2....0C</TD>
+</TR>
+<TR>
+<TD>86</TD>
+<TD>W3 (WISE)</TD>
+<TD>9.425     </TD>
+<TD>0.042     </TD>
+<TD>0.042     </TD>
+<TD>mag</TD>
+<TD>25931809044356.8</TD>
+<TD>0.0053789999623708</TD>
+<TD>0.000208078166159985</TD>
+<TD>0.000208078166159985</TD>
+<TD/>
+<TD/>
+<TD>139487199873.802</TD>
+<TD>5395843271.16067</TD>
+<TD>5395843271.16067</TD>
+<TD/>
+<TD/>
+<TD>WISE</TD>
+<TD>1024x1024 pixel detector array</TD>
+<TD>11.5608</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2013wise.rept....1C</TD>
+</TR>
+<TR>
+<TD>87</TD>
+<TD>W3 (WISE)</TD>
+<TD>9.482     </TD>
+<TD>0.042     </TD>
+<TD>0.042     </TD>
+<TD>mag</TD>
+<TD>25931809044356.8</TD>
+<TD>0.00510389276676418</TD>
+<TD>0.000197436076336655</TD>
+<TD>0.000197436076336655</TD>
+<TD/>
+<TD/>
+<TD>132353172610.603</TD>
+<TD>5119874630.02919</TD>
+<TD>5119874630.02919</TD>
+<TD/>
+<TD/>
+<TD>WISE</TD>
+<TD>1024x1024 pixel detector array</TD>
+<TD>11.5608</TD>
+<TD>microns</TD>
+<TD>from fitting to map</TD>
+<TD>2013wise.rept....1C</TD>
+</TR>
+<TR>
+<TD>88</TD>
+<TD>W3 (WISE)</TD>
+<TD>9.457     </TD>
+<TD>0.054     </TD>
+<TD>0.054     </TD>
+<TD>mag</TD>
+<TD>25931809044356.8</TD>
+<TD>0.00522277770158221</TD>
+<TD>0.000259759225721194</TD>
+<TD>0.000259759225721194</TD>
+<TD/>
+<TD/>
+<TD>135436074038.555</TD>
+<TD>6736026638.91197</TD>
+<TD>6736026638.91197</TD>
+<TD/>
+<TD/>
+<TD>WISE</TD>
+<TD>1024x1024 pixel detector array</TD>
+<TD>11.5608</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2013wise.rept....1C</TD>
+</TR>
+<TR>
+<TD>89</TD>
+<TD>11.85 microns (VLT)</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD>mJy</TD>
+<TD>25299999784960</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD>0.003</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>75899999354.88</TD>
+<TD/>
+<TD>VLT</TD>
+<TD>VISIR</TD>
+<TD>     11.85</TD>
+<TD>microns</TD>
+<TD>flux integrated from map or image</TD>
+<TD>2010A&amp;A...511A..64V</TD>
+</TR>
+<TR>
+<TD>90</TD>
+<TD>W3 (WISE)</TD>
+<TD>9.560     </TD>
+<TD>0.048     </TD>
+<TD>0.048     </TD>
+<TD>mag</TD>
+<TD>25000000094208</TD>
+<TD>0.00475</TD>
+<TD>0.00021</TD>
+<TD>0.00021</TD>
+<TD/>
+<TD/>
+<TD>118750000447.488</TD>
+<TD>5250000019.78368</TD>
+<TD>5250000019.78368</TD>
+<TD/>
+<TD/>
+<TD>WISE</TD>
+<TD>1024x1024 pixel detector array</TD>
+<TD>        12</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2014MNRAS.438.1149G</TD>
+</TR>
+<TR>
+<TD>91</TD>
+<TD>W4 (WISE)</TD>
+<TD>7.280     </TD>
+<TD>0.131     </TD>
+<TD>0.131     </TD>
+<TD>mag</TD>
+<TD>13600000311296</TD>
+<TD>0.01024</TD>
+<TD>0.001236</TD>
+<TD>0.001236</TD>
+<TD/>
+<TD/>
+<TD>139264003187.671</TD>
+<TD>16809600384.7619</TD>
+<TD>16809600384.7619</TD>
+<TD/>
+<TD/>
+<TD>WISE</TD>
+<TD>1024x1024 pixel detector array</TD>
+<TD>        22</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2014MNRAS.438.1149G</TD>
+</TR>
+<TR>
+<TD>92</TD>
+<TD>W4 (WISE)</TD>
+<TD>7.322     </TD>
+<TD>0.156     </TD>
+<TD>0.156     </TD>
+<TD>mag</TD>
+<TD>13572455010118.5</TD>
+<TD>0.00985273730456186</TD>
+<TD>0.00141565420106264</TD>
+<TD>0.00141565420106264</TD>
+<TD/>
+<TD/>
+<TD>133725833792.682</TD>
+<TD>19213902953.8079</TD>
+<TD>19213902953.8079</TD>
+<TD/>
+<TD/>
+<TD>WISE</TD>
+<TD>1024x1024 pixel detector array</TD>
+<TD>22.0883</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2013wise.rept....1C</TD>
+</TR>
+<TR>
+<TD>93</TD>
+<TD>W4 (WISE)</TD>
+<TD>7.086     </TD>
+<TD>0.155     </TD>
+<TD>0.155     </TD>
+<TD>mag</TD>
+<TD>13572455010118.5</TD>
+<TD>0.0122449468310034</TD>
+<TD>0.00174809198632954</TD>
+<TD>0.00174809198632954</TD>
+<TD/>
+<TD/>
+<TD>166193989965.087</TD>
+<TD>23725899838.0063</TD>
+<TD>23725899838.0063</TD>
+<TD/>
+<TD/>
+<TD>WISE</TD>
+<TD>1024x1024 pixel detector array</TD>
+<TD>22.0883</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2013wise.rept....1C</TD>
+</TR>
+<TR>
+<TD>94</TD>
+<TD>W4 (WISE)</TD>
+<TD>7.159     </TD>
+<TD>0.123     </TD>
+<TD>0.123     </TD>
+<TD>mag</TD>
+<TD>13572455010118.5</TD>
+<TD>0.0114487192011372</TD>
+<TD>0.00129699318818753</TD>
+<TD>0.00129699318818753</TD>
+<TD/>
+<TD/>
+<TD>155387226280.914</TD>
+<TD>17603381695.1054</TD>
+<TD>17603381695.1054</TD>
+<TD/>
+<TD/>
+<TD>WISE</TD>
+<TD>1024x1024 pixel detector array</TD>
+<TD>22.0883</TD>
+<TD>microns</TD>
+<TD>from fitting to map</TD>
+<TD>2013wise.rept....1C</TD>
+</TR>
+<TR>
+<TD>95</TD>
+<TD>24 microns (MIPS)</TD>
+<TD>7.5       </TD>
+<TD>0.2       </TD>
+<TD>0.2       </TD>
+<TD>mJy</TD>
+<TD>12700000200000</TD>
+<TD>0.0075</TD>
+<TD>0.0002</TD>
+<TD>0.0002</TD>
+<TD/>
+<TD/>
+<TD>95250001500</TD>
+<TD>2540000040</TD>
+<TD>2540000040</TD>
+<TD/>
+<TD/>
+<TD>Spitzer</TD>
+<TD>MIPS</TD>
+<TD>     23.68</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2008ApJ...678..712D</TD>
+</TR>
+<TR>
+<TD>96</TD>
+<TD>24 microns (MIPS)</TD>
+<TD>7.6491E+03</TD>
+<TD>5.2070E+01</TD>
+<TD>5.2070E+01</TD>
+<TD>uJy</TD>
+<TD>12660154476351.4</TD>
+<TD>0.007649096</TD>
+<TD>5.20700884956e-05</TD>
+<TD>5.20700884956e-05</TD>
+<TD/>
+<TD/>
+<TD>96838736964.4416</TD>
+<TD>659215363.951584</TD>
+<TD>659215363.951584</TD>
+<TD/>
+<TD/>
+<TD>Spitzer</TD>
+<TD>MIPS</TD>
+<TD>23.68</TD>
+<TD>microns</TD>
+<TD>modelled datum</TD>
+<TD>2013SSTSLC4.2....0C</TD>
+</TR>
+<TR>
+<TD>97</TD>
+<TD>24 microns (MIPS)</TD>
+<TD>7.5342E+03</TD>
+<TD>4.7271E+01</TD>
+<TD>4.7271E+01</TD>
+<TD>uJy</TD>
+<TD>12660154476351.4</TD>
+<TD>0.00753424</TD>
+<TD>4.727128e-05</TD>
+<TD>4.727128e-05</TD>
+<TD/>
+<TD/>
+<TD>95384642261.9058</TD>
+<TD>598461707.09486</TD>
+<TD>598461707.09486</TD>
+<TD/>
+<TD/>
+<TD>Spitzer</TD>
+<TD>MIPS</TD>
+<TD>23.68</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2013SSTSLC4.2....0C</TD>
+</TR>
+<TR>
+<TD>98</TD>
+<TD>70 microns (MIPS)</TD>
+<TD>17.9      </TD>
+<TD>2.1       </TD>
+<TD>2.1       </TD>
+<TD>mJy</TD>
+<TD>4200000130000</TD>
+<TD>0.0179</TD>
+<TD>0.0021</TD>
+<TD>0.0021</TD>
+<TD/>
+<TD/>
+<TD>75180002327</TD>
+<TD>8820000273</TD>
+<TD>8820000273</TD>
+<TD/>
+<TD/>
+<TD>Spitzer</TD>
+<TD>MIPS</TD>
+<TD>     71.42</TD>
+<TD>microns</TD>
+<TD>flux in fixed aperture</TD>
+<TD>2008ApJ...678..712D</TD>
+</TR>
+<TR>
+<TD>99</TD>
+<TD>160 microns (MIPS)</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD>mJy</TD>
+<TD>1920000070000</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD>0.0431</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>82752003017</TD>
+<TD/>
+<TD>Spitzer</TD>
+<TD>MIPS</TD>
+<TD>     155.9</TD>
+<TD>microns</TD>
+<TD>from fitting to map</TD>
+<TD>2008ApJ...678..712D</TD>
+</TR>
+<TR>
+<TD>100</TD>
+<TD>22 GHz (VLA)</TD>
+<TD>36.9      </TD>
+<TD>0.9       </TD>
+<TD>0.9       </TD>
+<TD>mJy</TD>
+<TD>22400000000</TD>
+<TD>0.0369</TD>
+<TD>0.0009</TD>
+<TD>0.0009</TD>
+<TD/>
+<TD/>
+<TD>826560000</TD>
+<TD>20160000</TD>
+<TD>20160000</TD>
+<TD/>
+<TD/>
+<TD>VLA</TD>
+<TD>B configuration</TD>
+<TD>      22.4</TD>
+<TD>GHz</TD>
+<TD>flux integrated from map or image</TD>
+<TD>2008ApJ...678..712D</TD>
+</TR>
+<TR>
+<TD>101</TD>
+<TD>22 GHz (ATCA)</TD>
+<TD>0.176     </TD>
+<TD>0.018     </TD>
+<TD>0.018     </TD>
+<TD>Jy</TD>
+<TD>22000001000</TD>
+<TD>0.176</TD>
+<TD>0.018</TD>
+<TD>0.018</TD>
+<TD/>
+<TD/>
+<TD>3872000176</TD>
+<TD>396000018</TD>
+<TD>396000018</TD>
+<TD/>
+<TD/>
+<TD>ATCA</TD>
+<TD>EW367 configuration</TD>
+<TD>      22</TD>
+<TD>GHz</TD>
+<TD>modelled datum</TD>
+<TD>2006A&amp;A...445..465R</TD>
+</TR>
+<TR>
+<TD>102</TD>
+<TD>20 GHz (ATCA)</TD>
+<TD>404       </TD>
+<TD>17        </TD>
+<TD>17        </TD>
+<TD>mJy</TD>
+<TD>19900000256</TD>
+<TD>0.404</TD>
+<TD>0.017</TD>
+<TD>0.017</TD>
+<TD/>
+<TD/>
+<TD>8039600103.424</TD>
+<TD>338300004.352</TD>
+<TD>338300004.352</TD>
+<TD/>
+<TD/>
+<TD>ATCA</TD>
+<TD>Hybrid array configuration</TD>
+<TD>    19.904</TD>
+<TD>GHz</TD>
+<TD>flux integrated from map or image</TD>
+<TD>2010MNRAS.402.2403M</TD>
+</TR>
+<TR>
+<TD>103</TD>
+<TD>18.5 GHz (ATCA)</TD>
+<TD>0.211     </TD>
+<TD>0.011     </TD>
+<TD>0.011     </TD>
+<TD>Jy</TD>
+<TD>18499999700</TD>
+<TD>0.211</TD>
+<TD>0.011</TD>
+<TD>0.011</TD>
+<TD/>
+<TD/>
+<TD>3903499936.7</TD>
+<TD>203499996.7</TD>
+<TD>203499996.7</TD>
+<TD/>
+<TD/>
+<TD>ATCA</TD>
+<TD>EW367 configuration</TD>
+<TD>    18.5</TD>
+<TD>GHz</TD>
+<TD>modelled datum</TD>
+<TD>2006A&amp;A...445..465R</TD>
+</TR>
+<TR>
+<TD>104</TD>
+<TD>14.9 GHz (VLA)</TD>
+<TD>31.5      </TD>
+<TD>0.5       </TD>
+<TD>0.5       </TD>
+<TD>mJy</TD>
+<TD>14899999700</TD>
+<TD>0.0315</TD>
+<TD>0.0005</TD>
+<TD>0.0005</TD>
+<TD/>
+<TD/>
+<TD>469349990.55</TD>
+<TD>7449999.85</TD>
+<TD>7449999.85</TD>
+<TD/>
+<TD/>
+<TD>VLA</TD>
+<TD>B configuration</TD>
+<TD>      14.9</TD>
+<TD>GHz</TD>
+<TD>flux integrated from map or image</TD>
+<TD>2008ApJ...678..712D</TD>
+</TR>
+<TR>
+<TD>105</TD>
+<TD>14900 MHz</TD>
+<TD>      0.57</TD>
+<TD>.01       </TD>
+<TD>.01       </TD>
+<TD>Jy</TD>
+<TD>14899999700</TD>
+<TD>0.57</TD>
+<TD>0.01</TD>
+<TD>0.01</TD>
+<TD/>
+<TD/>
+<TD>8492999829</TD>
+<TD>148999997</TD>
+<TD>148999997</TD>
+<TD/>
+<TD/>
+<TD>Effelsberg</TD>
+<TD>Receiver</TD>
+<TD>   14900</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1976AJ.....81.1084G</TD>
+</TR>
+<TR>
+<TD>106</TD>
+<TD>10.7 GHz (NRAO)</TD>
+<TD>0.92      </TD>
+<TD>0.04      </TD>
+<TD>0.04      </TD>
+<TD>Jy</TD>
+<TD>10700000300</TD>
+<TD>0.92</TD>
+<TD>0.04</TD>
+<TD>0.04</TD>
+<TD/>
+<TD/>
+<TD>9844000276</TD>
+<TD>428000012</TD>
+<TD>428000012</TD>
+<TD/>
+<TD/>
+<TD>140ft</TD>
+<TD>?</TD>
+<TD>    10.7</TD>
+<TD>GHz</TD>
+<TD>total flux; beam filling or dilution corrected</TD>
+<TD>1973AJ.....78..828K</TD>
+</TR>
+<TR>
+<TD>107</TD>
+<TD>10695 MHz</TD>
+<TD>      0.94</TD>
+<TD>.04       </TD>
+<TD>.04       </TD>
+<TD>Jy</TD>
+<TD>10695000100</TD>
+<TD>0.94</TD>
+<TD>0.04</TD>
+<TD>0.04</TD>
+<TD/>
+<TD/>
+<TD>10053300094</TD>
+<TD>427800004</TD>
+<TD>427800004</TD>
+<TD/>
+<TD/>
+<TD>92m</TD>
+<TD>?</TD>
+<TD>   10695</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1978AJ.....83..451P</TD>
+</TR>
+<TR>
+<TD>108</TD>
+<TD>8870 MHz</TD>
+<TD>         1</TD>
+<TD>.04       </TD>
+<TD>.04       </TD>
+<TD>Jy</TD>
+<TD>8869999620</TD>
+<TD>1</TD>
+<TD>0.04</TD>
+<TD>0.04</TD>
+<TD/>
+<TD/>
+<TD>8869999620</TD>
+<TD>354799984.8</TD>
+<TD>354799984.8</TD>
+<TD/>
+<TD/>
+<TD>Parkes</TD>
+<TD>Receiver</TD>
+<TD>    8870</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1973AuJPh..26...93S</TD>
+</TR>
+<TR>
+<TD>109</TD>
+<TD>8400 MHz</TD>
+<TD>0.82      </TD>
+<TD/>
+<TD/>
+<TD>Jy</TD>
+<TD>8400000000</TD>
+<TD>0.82</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>6888000000</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>Parkes</TD>
+<TD>?</TD>
+<TD>    8400</TD>
+<TD>MHz</TD>
+<TD>integrated from scans</TD>
+<TD>1990PKS...C......0W</TD>
+</TR>
+<TR>
+<TD>110</TD>
+<TD>5009 MHz</TD>
+<TD>      1.61</TD>
+<TD>.08       </TD>
+<TD>.08       </TD>
+<TD>Jy</TD>
+<TD>5008999940</TD>
+<TD>1.61</TD>
+<TD>0.08</TD>
+<TD>0.08</TD>
+<TD/>
+<TD/>
+<TD>8064489903.4</TD>
+<TD>400719995.2</TD>
+<TD>400719995.2</TD>
+<TD/>
+<TD/>
+<TD>Parkes</TD>
+<TD>?</TD>
+<TD>    5009</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1981A&amp;AS...45..367K</TD>
+</TR>
+<TR>
+<TD>111</TD>
+<TD>5000 MHz</TD>
+<TD>1.560     </TD>
+<TD/>
+<TD/>
+<TD>Jy</TD>
+<TD>5000000000</TD>
+<TD>1.56</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>7800000000</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>Parkes</TD>
+<TD>?</TD>
+<TD>    5000</TD>
+<TD>MHz</TD>
+<TD>integrated from scans</TD>
+<TD>1990PKS...C......0W</TD>
+</TR>
+<TR>
+<TD>112</TD>
+<TD>5000 MHz</TD>
+<TD>      1.61</TD>
+<TD>.05       </TD>
+<TD>.05       </TD>
+<TD>Jy</TD>
+<TD>5000000000</TD>
+<TD>1.61</TD>
+<TD>0.05</TD>
+<TD>0.05</TD>
+<TD/>
+<TD/>
+<TD>8050000000</TD>
+<TD>250000000</TD>
+<TD>250000000</TD>
+<TD/>
+<TD/>
+<TD>140ft</TD>
+<TD>Receiver</TD>
+<TD>    5000</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1972AJ.....77..797P</TD>
+</TR>
+<TR>
+<TD>113</TD>
+<TD>5000 MHz</TD>
+<TD>1.61      </TD>
+<TD>5         </TD>
+<TD>5         </TD>
+<TD>Jy</TD>
+<TD>5000000000</TD>
+<TD>1.61</TD>
+<TD>0.08</TD>
+<TD>0.08</TD>
+<TD/>
+<TD/>
+<TD>8050000000</TD>
+<TD>400000000</TD>
+<TD>400000000</TD>
+<TD/>
+<TD/>
+<TD>140ft</TD>
+<TD>140ft</TD>
+<TD>5000</TD>
+<TD>MHz</TD>
+<TD>flux integrated from map or image</TD>
+<TD>1969ApJ...157....1K</TD>
+</TR>
+<TR>
+<TD>114</TD>
+<TD>5000 MHz</TD>
+<TD>      1.47</TD>
+<TD>.18       </TD>
+<TD>.18       </TD>
+<TD>Jy</TD>
+<TD>5000000000</TD>
+<TD>1.47</TD>
+<TD>0.18</TD>
+<TD>0.18</TD>
+<TD/>
+<TD/>
+<TD>7350000000</TD>
+<TD>900000000</TD>
+<TD>900000000</TD>
+<TD/>
+<TD/>
+<TD>Parkes</TD>
+<TD>?</TD>
+<TD>    5000</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1981A&amp;AS...45..367K</TD>
+</TR>
+<TR>
+<TD>115</TD>
+<TD>5000 MHz</TD>
+<TD>       1.6</TD>
+<TD>.08       </TD>
+<TD>.08       </TD>
+<TD>Jy</TD>
+<TD>5000000000</TD>
+<TD>1.6</TD>
+<TD>0.08</TD>
+<TD>0.08</TD>
+<TD/>
+<TD/>
+<TD>8000000000</TD>
+<TD>400000000</TD>
+<TD>400000000</TD>
+<TD/>
+<TD/>
+<TD>Parkes</TD>
+<TD>?</TD>
+<TD>    5000</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1981A&amp;AS...45..367K</TD>
+</TR>
+<TR>
+<TD>116</TD>
+<TD>4.85 GHz</TD>
+<TD>      1709</TD>
+<TD>        89</TD>
+<TD>        89</TD>
+<TD>mJy</TD>
+<TD>4849999870</TD>
+<TD>1.709</TD>
+<TD>0.089</TD>
+<TD>0.089</TD>
+<TD/>
+<TD/>
+<TD>8288649777.83</TD>
+<TD>431649988.43</TD>
+<TD>431649988.43</TD>
+<TD/>
+<TD/>
+<TD>Parkes</TD>
+<TD>NRAO multibeam receiver</TD>
+<TD>4.85</TD>
+<TD>GHz</TD>
+<TD>modelled datum</TD>
+<TD>1995ApJS...97..347G</TD>
+</TR>
+<TR>
+<TD>117</TD>
+<TD>4.85 GHz</TD>
+<TD>      1679</TD>
+<TD>        15</TD>
+<TD>        15</TD>
+<TD>mJy</TD>
+<TD>4849999870</TD>
+<TD>1.679</TD>
+<TD>0.25185</TD>
+<TD>0.25185</TD>
+<TD/>
+<TD/>
+<TD>8143149781.73</TD>
+<TD>1221472467.2595</TD>
+<TD>1221472467.2595</TD>
+<TD/>
+<TD/>
+<TD>Green Bank 91m</TD>
+<TD>?</TD>
+<TD>4.85</TD>
+<TD>GHz</TD>
+<TD>peak flux</TD>
+<TD>1991ApJS...75....1B</TD>
+</TR>
+<TR>
+<TD>118</TD>
+<TD>2700 MHz</TD>
+<TD>      2.56</TD>
+<TD>.10       </TD>
+<TD>.10       </TD>
+<TD>Jy</TD>
+<TD>2700000000</TD>
+<TD>2.56</TD>
+<TD>0.1</TD>
+<TD>0.1</TD>
+<TD/>
+<TD/>
+<TD>6912000000</TD>
+<TD>270000000</TD>
+<TD>270000000</TD>
+<TD/>
+<TD/>
+<TD>Parkes</TD>
+<TD>Receiver</TD>
+<TD>    2700</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1971AuJPA..19....1W</TD>
+</TR>
+<TR>
+<TD>119</TD>
+<TD>2700 MHz</TD>
+<TD>      2.61</TD>
+<TD>.05       </TD>
+<TD>.05       </TD>
+<TD>Jy</TD>
+<TD>2700000000</TD>
+<TD>2.61</TD>
+<TD>0.05</TD>
+<TD>0.05</TD>
+<TD/>
+<TD/>
+<TD>7047000000</TD>
+<TD>135000000</TD>
+<TD>135000000</TD>
+<TD/>
+<TD/>
+<TD>Parkes</TD>
+<TD>?</TD>
+<TD>    2700</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1975AuJPA..38....1W</TD>
+</TR>
+<TR>
+<TD>120</TD>
+<TD>2700 MHz</TD>
+<TD>2.600     </TD>
+<TD/>
+<TD/>
+<TD>Jy</TD>
+<TD>2700000000</TD>
+<TD>2.6</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>7020000000</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>Parkes</TD>
+<TD>?</TD>
+<TD>    2700</TD>
+<TD>MHz</TD>
+<TD>integrated from scans</TD>
+<TD>1990PKS...C......0W</TD>
+</TR>
+<TR>
+<TD>121</TD>
+<TD>2700 MHz</TD>
+<TD>      2.46</TD>
+<TD>.12       </TD>
+<TD>.12       </TD>
+<TD>Jy</TD>
+<TD>2700000000</TD>
+<TD>2.46</TD>
+<TD>0.12</TD>
+<TD>0.12</TD>
+<TD/>
+<TD/>
+<TD>6642000000</TD>
+<TD>324000000</TD>
+<TD>324000000</TD>
+<TD/>
+<TD/>
+<TD>Parkes</TD>
+<TD>?</TD>
+<TD>    2700</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1981A&amp;AS...45..367K</TD>
+</TR>
+<TR>
+<TD>122</TD>
+<TD>2695 MHz</TD>
+<TD>      2.43</TD>
+<TD>.05       </TD>
+<TD>.05       </TD>
+<TD>Jy</TD>
+<TD>2695000060</TD>
+<TD>2.43</TD>
+<TD>0.05</TD>
+<TD>0.05</TD>
+<TD/>
+<TD/>
+<TD>6548850145.8</TD>
+<TD>134750003</TD>
+<TD>134750003</TD>
+<TD/>
+<TD/>
+<TD>100m</TD>
+<TD>?</TD>
+<TD>    2695</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1981A&amp;AS...45..367K</TD>
+</TR>
+<TR>
+<TD>123</TD>
+<TD>2695 MHz</TD>
+<TD>2.40      </TD>
+<TD>5         </TD>
+<TD>5         </TD>
+<TD>Jy</TD>
+<TD>2695000060</TD>
+<TD>2.4</TD>
+<TD>0.12</TD>
+<TD>0.12</TD>
+<TD/>
+<TD/>
+<TD>6468000144</TD>
+<TD>323400007.2</TD>
+<TD>323400007.2</TD>
+<TD/>
+<TD/>
+<TD>140ft</TD>
+<TD>140ft</TD>
+<TD>2695</TD>
+<TD>MHz</TD>
+<TD>flux integrated from map or image</TD>
+<TD>1969ApJ...157....1K</TD>
+</TR>
+<TR>
+<TD>124</TD>
+<TD>2650 MHz</TD>
+<TD>      2.59</TD>
+<TD>.05       </TD>
+<TD>.05       </TD>
+<TD>Jy</TD>
+<TD>2649999870</TD>
+<TD>2.59</TD>
+<TD>0.05</TD>
+<TD>0.05</TD>
+<TD/>
+<TD/>
+<TD>6863499663.3</TD>
+<TD>132499993.5</TD>
+<TD>132499993.5</TD>
+<TD/>
+<TD/>
+<TD>Parkes</TD>
+<TD>?</TD>
+<TD>    2650</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1975AuJPA..38....1W</TD>
+</TR>
+<TR>
+<TD>125</TD>
+<TD>1410 MHz</TD>
+<TD>      4.25</TD>
+<TD>.15       </TD>
+<TD>.15       </TD>
+<TD>Jy</TD>
+<TD>1410000000</TD>
+<TD>4.25</TD>
+<TD>0.15</TD>
+<TD>0.15</TD>
+<TD/>
+<TD/>
+<TD>5992500000</TD>
+<TD>211500000</TD>
+<TD>211500000</TD>
+<TD/>
+<TD/>
+<TD>300ft</TD>
+<TD>?</TD>
+<TD>    1410</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1981A&amp;AS...45..367K</TD>
+</TR>
+<TR>
+<TD>126</TD>
+<TD>1410 MHz</TD>
+<TD>4.100     </TD>
+<TD/>
+<TD/>
+<TD>Jy</TD>
+<TD>1410000000</TD>
+<TD>4.1</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>5781000000</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>Parkes</TD>
+<TD>?</TD>
+<TD>    1410</TD>
+<TD>MHz</TD>
+<TD>integrated from scans</TD>
+<TD>1990PKS...C......0W</TD>
+</TR>
+<TR>
+<TD>127</TD>
+<TD>1.40 GHz</TD>
+<TD>      4106</TD>
+<TD/>
+<TD/>
+<TD>mJy</TD>
+<TD>1400000000</TD>
+<TD>4.106</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>5748400000</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>Green Bank 91m</TD>
+<TD>?</TD>
+<TD>1.4</TD>
+<TD>GHz</TD>
+<TD>flux integrated from map or image</TD>
+<TD>1992ApJS...79..331W</TD>
+</TR>
+<TR>
+<TD>128</TD>
+<TD>1400 MHz</TD>
+<TD>      4.29</TD>
+<TD>.12       </TD>
+<TD>.12       </TD>
+<TD>Jy</TD>
+<TD>1400000000</TD>
+<TD>4.29</TD>
+<TD>0.12</TD>
+<TD>0.12</TD>
+<TD/>
+<TD/>
+<TD>6006000000</TD>
+<TD>168000000</TD>
+<TD>168000000</TD>
+<TD/>
+<TD/>
+<TD>300ft</TD>
+<TD>?</TD>
+<TD>    1400</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1981A&amp;AS...45..367K</TD>
+</TR>
+<TR>
+<TD>129</TD>
+<TD>1400 MHz</TD>
+<TD>       4.4</TD>
+<TD>.20       </TD>
+<TD>.20       </TD>
+<TD>Jy</TD>
+<TD>1400000000</TD>
+<TD>4.4</TD>
+<TD>0.2</TD>
+<TD>0.2</TD>
+<TD/>
+<TD/>
+<TD>6160000000</TD>
+<TD>280000000</TD>
+<TD>280000000</TD>
+<TD/>
+<TD/>
+<TD>300ft</TD>
+<TD>?</TD>
+<TD>    1400</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1981A&amp;AS...45..367K</TD>
+</TR>
+<TR>
+<TD>130</TD>
+<TD>1.4 GHz (FIRST)</TD>
+<TD>3703.23   </TD>
+<TD/>
+<TD/>
+<TD>mJy</TD>
+<TD>1400000000</TD>
+<TD>3.703</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>5184200000</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>VLA</TD>
+<TD>B configuration</TD>
+<TD>       1.4</TD>
+<TD>GHz</TD>
+<TD>total flux; beam filling or dilution corrected</TD>
+<TD>2017MNRAS.464.1306C</TD>
+</TR>
+<TR>
+<TD>131</TD>
+<TD>1.4 GHz (NVSS)</TD>
+<TD>4067.100  </TD>
+<TD/>
+<TD/>
+<TD>mJy</TD>
+<TD>1400000000</TD>
+<TD>4.067</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>5693800000</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>VLA</TD>
+<TD>D, DnC configurations</TD>
+<TD>       1.4</TD>
+<TD>GHz</TD>
+<TD>total flux; beam filling or dilution corrected</TD>
+<TD>2017MNRAS.464.1306C</TD>
+</TR>
+<TR>
+<TD>132</TD>
+<TD>1400 MHz</TD>
+<TD>4.3       </TD>
+<TD>5         </TD>
+<TD>5         </TD>
+<TD>Jy</TD>
+<TD>1400000000</TD>
+<TD>4.3</TD>
+<TD>0.21</TD>
+<TD>0.21</TD>
+<TD/>
+<TD/>
+<TD>6020000000</TD>
+<TD>294000000</TD>
+<TD>294000000</TD>
+<TD/>
+<TD/>
+<TD>300ft</TD>
+<TD>300ft</TD>
+<TD>1400</TD>
+<TD>MHz</TD>
+<TD>flux integrated from map or image</TD>
+<TD>1969ApJ...157....1K</TD>
+</TR>
+<TR>
+<TD>133</TD>
+<TD>1400 MHz (NRAO)</TD>
+<TD>  4.39    </TD>
+<TD> 0.18     </TD>
+<TD> 0.18     </TD>
+<TD>Jy</TD>
+<TD>1400000000</TD>
+<TD>4.39</TD>
+<TD>0.18</TD>
+<TD>0.18</TD>
+<TD/>
+<TD/>
+<TD>6146000000</TD>
+<TD>252000000</TD>
+<TD>252000000</TD>
+<TD/>
+<TD/>
+<TD>300ft</TD>
+<TD>Dicke system radiometers</TD>
+<TD>1400</TD>
+<TD>MHz</TD>
+<TD>peak flux</TD>
+<TD>1966ApJS...13...65P</TD>
+</TR>
+<TR>
+<TD>134</TD>
+<TD>1.4GHz</TD>
+<TD>    4068.1</TD>
+<TD>   138.5  </TD>
+<TD>   138.5  </TD>
+<TD>mJy</TD>
+<TD>1400000000</TD>
+<TD>4.068</TD>
+<TD>0.1385</TD>
+<TD>0.1385</TD>
+<TD/>
+<TD/>
+<TD>5695200000</TD>
+<TD>193900000</TD>
+<TD>193900000</TD>
+<TD/>
+<TD/>
+<TD>VLA</TD>
+<TD>D, DnC configurations</TD>
+<TD>    1.40</TD>
+<TD>GHz</TD>
+<TD>flux integrated from map or image</TD>
+<TD>1998AJ....115.1693C</TD>
+</TR>
+<TR>
+<TD>135</TD>
+<TD>960 MHz</TD>
+<TD>      5.73</TD>
+<TD>.15       </TD>
+<TD>.15       </TD>
+<TD>Jy</TD>
+<TD>960000000</TD>
+<TD>5.73</TD>
+<TD>0.15</TD>
+<TD>0.15</TD>
+<TD/>
+<TD/>
+<TD>5500800000</TD>
+<TD>144000000</TD>
+<TD>144000000</TD>
+<TD/>
+<TD/>
+<TD>Parkes</TD>
+<TD>?</TD>
+<TD>     960</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1981A&amp;AS...45..367K</TD>
+</TR>
+<TR>
+<TD>136</TD>
+<TD>750 MHz (NRAO)</TD>
+<TD>  6.58    </TD>
+<TD> 0.22     </TD>
+<TD> 0.22     </TD>
+<TD>Jy</TD>
+<TD>750000000</TD>
+<TD>6.58</TD>
+<TD>0.22</TD>
+<TD>0.22</TD>
+<TD/>
+<TD/>
+<TD>4935000000</TD>
+<TD>165000000</TD>
+<TD>165000000</TD>
+<TD/>
+<TD/>
+<TD>300ft</TD>
+<TD>Dicke system radiometers</TD>
+<TD>750</TD>
+<TD>MHz</TD>
+<TD>peak flux</TD>
+<TD>1966ApJS...13...65P</TD>
+</TR>
+<TR>
+<TD>137</TD>
+<TD>750 MHz</TD>
+<TD>6.3       </TD>
+<TD>5         </TD>
+<TD>5         </TD>
+<TD>Jy</TD>
+<TD>750000000</TD>
+<TD>6.3</TD>
+<TD>0.32</TD>
+<TD>0.32</TD>
+<TD/>
+<TD/>
+<TD>4725000000</TD>
+<TD>240000000</TD>
+<TD>240000000</TD>
+<TD/>
+<TD/>
+<TD>300ft</TD>
+<TD>300ft</TD>
+<TD>750</TD>
+<TD>MHz</TD>
+<TD>flux integrated from map or image</TD>
+<TD>1969ApJ...157....1K</TD>
+</TR>
+<TR>
+<TD>138</TD>
+<TD>750 MHz</TD>
+<TD>       6.6</TD>
+<TD>.30       </TD>
+<TD>.30       </TD>
+<TD>Jy</TD>
+<TD>750000000</TD>
+<TD>6.6</TD>
+<TD>0.3</TD>
+<TD>0.3</TD>
+<TD/>
+<TD/>
+<TD>4950000000</TD>
+<TD>225000000</TD>
+<TD>225000000</TD>
+<TD/>
+<TD/>
+<TD>300ft</TD>
+<TD>?</TD>
+<TD>     750</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1981A&amp;AS...45..367K</TD>
+</TR>
+<TR>
+<TD>139</TD>
+<TD>750 MHz</TD>
+<TD>      6.97</TD>
+<TD>.19       </TD>
+<TD>.19       </TD>
+<TD>Jy</TD>
+<TD>750000000</TD>
+<TD>6.97</TD>
+<TD>0.19</TD>
+<TD>0.19</TD>
+<TD/>
+<TD/>
+<TD>5227500000</TD>
+<TD>142500000</TD>
+<TD>142500000</TD>
+<TD/>
+<TD/>
+<TD>300ft</TD>
+<TD>?</TD>
+<TD>     750</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1981A&amp;AS...45..367K</TD>
+</TR>
+<TR>
+<TD>140</TD>
+<TD>635 MHz</TD>
+<TD>      7.76</TD>
+<TD>.33       </TD>
+<TD>.33       </TD>
+<TD>Jy</TD>
+<TD>635000000</TD>
+<TD>7.76</TD>
+<TD>0.33</TD>
+<TD>0.33</TD>
+<TD/>
+<TD/>
+<TD>4927600000</TD>
+<TD>209550000</TD>
+<TD>209550000</TD>
+<TD/>
+<TD/>
+<TD>Parkes</TD>
+<TD>?</TD>
+<TD>     635</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1981A&amp;AS...45..367K</TD>
+</TR>
+<TR>
+<TD>141</TD>
+<TD>468 MHz</TD>
+<TD>      9.57</TD>
+<TD>.85       </TD>
+<TD>.85       </TD>
+<TD>Jy</TD>
+<TD>468000000</TD>
+<TD>9.57</TD>
+<TD>0.85</TD>
+<TD>0.85</TD>
+<TD/>
+<TD/>
+<TD>4478760000</TD>
+<TD>397800000</TD>
+<TD>397800000</TD>
+<TD/>
+<TD/>
+<TD>Parkes</TD>
+<TD>?</TD>
+<TD>     468</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1981A&amp;AS...45..367K</TD>
+</TR>
+<TR>
+<TD>142</TD>
+<TD>408 MHz</TD>
+<TD>9.740     </TD>
+<TD/>
+<TD/>
+<TD>Jy</TD>
+<TD>408000000</TD>
+<TD>9.74</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>3973920000</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>Parkes</TD>
+<TD>?</TD>
+<TD>     408</TD>
+<TD>MHz</TD>
+<TD>integrated from scans</TD>
+<TD>1990PKS...C......0W</TD>
+</TR>
+<TR>
+<TD>143</TD>
+<TD>408 MHz</TD>
+<TD>       8.3</TD>
+<TD>2.25      </TD>
+<TD>2.25      </TD>
+<TD>Jy</TD>
+<TD>408000000</TD>
+<TD>8.3</TD>
+<TD>2.25</TD>
+<TD>2.25</TD>
+<TD/>
+<TD/>
+<TD>3386400000</TD>
+<TD>918000000</TD>
+<TD>918000000</TD>
+<TD/>
+<TD/>
+<TD>Parkes</TD>
+<TD>?</TD>
+<TD>     408</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1969AuJPA...7....3E</TD>
+</TR>
+<TR>
+<TD>144</TD>
+<TD>408 MHz</TD>
+<TD>      9.74</TD>
+<TD>      0.30</TD>
+<TD>      0.30</TD>
+<TD>Jy</TD>
+<TD>408000000</TD>
+<TD>9.74</TD>
+<TD>0.3</TD>
+<TD>0.3</TD>
+<TD/>
+<TD/>
+<TD>3973920000</TD>
+<TD>122400000</TD>
+<TD>122400000</TD>
+<TD/>
+<TD/>
+<TD>Molonglo Cross</TD>
+<TD>?</TD>
+<TD>408</TD>
+<TD>MHz</TD>
+<TD>modelled datum</TD>
+<TD>1981MNRAS.194..693L</TD>
+</TR>
+<TR>
+<TD>145</TD>
+<TD>365 MHz</TD>
+<TD>     10.42</TD>
+<TD>.68       </TD>
+<TD>.68       </TD>
+<TD>Jy</TD>
+<TD>365000000</TD>
+<TD>10.42</TD>
+<TD>0.68</TD>
+<TD>0.68</TD>
+<TD/>
+<TD/>
+<TD>3803300000</TD>
+<TD>248200000</TD>
+<TD>248200000</TD>
+<TD/>
+<TD/>
+<TD>Interferometer</TD>
+<TD>?</TD>
+<TD>     365</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1981A&amp;AS...45..367K</TD>
+</TR>
+<TR>
+<TD>146</TD>
+<TD>365 MHz</TD>
+<TD>      9.74</TD>
+<TD>.16       </TD>
+<TD>.16       </TD>
+<TD>Jy</TD>
+<TD>365000000</TD>
+<TD>9.74</TD>
+<TD>0.16</TD>
+<TD>0.16</TD>
+<TD/>
+<TD/>
+<TD>3555100000</TD>
+<TD>58400000</TD>
+<TD>58400000</TD>
+<TD/>
+<TD/>
+<TD>Interferometer</TD>
+<TD>?</TD>
+<TD>     365</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1981A&amp;AS...45..367K</TD>
+</TR>
+<TR>
+<TD>147</TD>
+<TD>365 MHz (Texas)</TD>
+<TD>11.459    </TD>
+<TD>0.210     </TD>
+<TD>0.210     </TD>
+<TD>Jy</TD>
+<TD>365000000</TD>
+<TD>11.459</TD>
+<TD>0.21</TD>
+<TD>0.21</TD>
+<TD/>
+<TD/>
+<TD>4182535000</TD>
+<TD>76650000</TD>
+<TD>76650000</TD>
+<TD/>
+<TD/>
+<TD>Texas Interferometer</TD>
+<TD>Texas Interferometer</TD>
+<TD>365</TD>
+<TD>MHz</TD>
+<TD>integrated from scans</TD>
+<TD>1996AJ....111.1945D</TD>
+</TR>
+<TR>
+<TD>148</TD>
+<TD>318 MHz</TD>
+<TD>     11.55</TD>
+<TD>.47       </TD>
+<TD>.47       </TD>
+<TD>Jy</TD>
+<TD>318000000</TD>
+<TD>11.55</TD>
+<TD>0.47</TD>
+<TD>0.47</TD>
+<TD/>
+<TD/>
+<TD>3672900000</TD>
+<TD>149460000</TD>
+<TD>149460000</TD>
+<TD/>
+<TD/>
+<TD>Arecibo</TD>
+<TD>?</TD>
+<TD>     318</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1981A&amp;AS...45..367K</TD>
+</TR>
+<TR>
+<TD>149</TD>
+<TD>178 MHz</TD>
+<TD>   15.8   </TD>
+<TD>15.0      </TD>
+<TD>15.0      </TD>
+<TD>Jy</TD>
+<TD>178000000</TD>
+<TD>15.8</TD>
+<TD>2.37</TD>
+<TD>2.37</TD>
+<TD/>
+<TD/>
+<TD>2812400000</TD>
+<TD>421860000</TD>
+<TD>421860000</TD>
+<TD/>
+<TD/>
+<TD>Ryle</TD>
+<TD>?</TD>
+<TD>178</TD>
+<TD>MHz</TD>
+<TD>integrated from scans</TD>
+<TD>1967MmRAS..71...49G</TD>
+</TR>
+<TR>
+<TD>150</TD>
+<TD>178 MHz</TD>
+<TD>15.8      </TD>
+<TD>10        </TD>
+<TD>10        </TD>
+<TD>Jy</TD>
+<TD>178000000</TD>
+<TD>15.8</TD>
+<TD>1.58</TD>
+<TD>1.58</TD>
+<TD/>
+<TD/>
+<TD>2812400000</TD>
+<TD>281240000</TD>
+<TD>281240000</TD>
+<TD/>
+<TD/>
+<TD>Aperture synthesis system</TD>
+<TD>Aperture synthesis system</TD>
+<TD>178</TD>
+<TD>MHz</TD>
+<TD>flux integrated from map or image</TD>
+<TD>1969ApJ...157....1K</TD>
+</TR>
+<TR>
+<TD>151</TD>
+<TD>178 MHz</TD>
+<TD>15.80     </TD>
+<TD/>
+<TD/>
+<TD>Jy</TD>
+<TD>178000000</TD>
+<TD>15.8</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>2812400000</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>Parkes</TD>
+<TD>?</TD>
+<TD>     178</TD>
+<TD>MHz</TD>
+<TD>integrated from scans</TD>
+<TD>1990PKS...C......0W</TD>
+</TR>
+<TR>
+<TD>152</TD>
+<TD>178 MHz</TD>
+<TD>      16.9</TD>
+<TD>.80       </TD>
+<TD>.80       </TD>
+<TD>Jy</TD>
+<TD>178000000</TD>
+<TD>16.9</TD>
+<TD>0.8</TD>
+<TD>0.8</TD>
+<TD/>
+<TD/>
+<TD>3008200000</TD>
+<TD>142400000</TD>
+<TD>142400000</TD>
+<TD/>
+<TD/>
+<TD>Synthesis telescope</TD>
+<TD>?</TD>
+<TD>     178</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1981A&amp;AS...45..367K</TD>
+</TR>
+<TR>
+<TD>153</TD>
+<TD>178 MHz</TD>
+<TD>      17.5</TD>
+<TD>2.60      </TD>
+<TD>2.60      </TD>
+<TD>Jy</TD>
+<TD>178000000</TD>
+<TD>17.5</TD>
+<TD>2.6</TD>
+<TD>2.6</TD>
+<TD/>
+<TD/>
+<TD>3115000000</TD>
+<TD>462800000</TD>
+<TD>462800000</TD>
+<TD/>
+<TD/>
+<TD>Culgoora</TD>
+<TD>?</TD>
+<TD>     178</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1981A&amp;AS...45..367K</TD>
+</TR>
+<TR>
+<TD>154</TD>
+<TD>160 MHz</TD>
+<TD>      25.1</TD>
+<TD>3.30      </TD>
+<TD>3.30      </TD>
+<TD>Jy</TD>
+<TD>160000000</TD>
+<TD>25.1</TD>
+<TD>3.3</TD>
+<TD>3.3</TD>
+<TD/>
+<TD/>
+<TD>4016000000</TD>
+<TD>528000000</TD>
+<TD>528000000</TD>
+<TD/>
+<TD/>
+<TD>Culgoora</TD>
+<TD>?</TD>
+<TD>     160</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1981A&amp;AS...45..367K</TD>
+</TR>
+<TR>
+<TD>155</TD>
+<TD>160 MHz</TD>
+<TD>  22.9    </TD>
+<TD/>
+<TD/>
+<TD>Jy</TD>
+<TD>160000000</TD>
+<TD>22.9</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>3664000000</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>Culgoora Circular Array</TD>
+<TD>?</TD>
+<TD>160</TD>
+<TD>MHz</TD>
+<TD>flux integrated from map or image</TD>
+<TD>1995AuJPh..48..143S</TD>
+</TR>
+<TR>
+<TD>156</TD>
+<TD>145 MHz (PAPER)</TD>
+<TD>22.9      </TD>
+<TD/>
+<TD/>
+<TD>Jy</TD>
+<TD>145000000</TD>
+<TD>22.9</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>3320500000</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>PAPER SA</TD>
+<TD>?</TD>
+<TD>       145</TD>
+<TD>MHz</TD>
+<TD>flux integrated from map or image</TD>
+<TD>2011ApJ...734L..34J</TD>
+</TR>
+<TR>
+<TD>157</TD>
+<TD>80 MHz</TD>
+<TD>        39</TD>
+<TD>6.00      </TD>
+<TD>6.00      </TD>
+<TD>Jy</TD>
+<TD>80000000</TD>
+<TD>39</TD>
+<TD>6</TD>
+<TD>6</TD>
+<TD/>
+<TD/>
+<TD>3120000000</TD>
+<TD>480000000</TD>
+<TD>480000000</TD>
+<TD/>
+<TD/>
+<TD>Culgoora</TD>
+<TD>?</TD>
+<TD>      80</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1981A&amp;AS...45..367K</TD>
+</TR>
+<TR>
+<TD>158</TD>
+<TD>80 MHz</TD>
+<TD>  38.     </TD>
+<TD/>
+<TD/>
+<TD>Jy</TD>
+<TD>80000000</TD>
+<TD>38</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>3040000000</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>Culgoora Circular Array</TD>
+<TD>?</TD>
+<TD> 80</TD>
+<TD>MHz</TD>
+<TD>flux integrated from map or image</TD>
+<TD>1995AuJPh..48..143S</TD>
+</TR>
+<TR>
+<TD>159</TD>
+<TD>80 MHz</TD>
+<TD>36.00     </TD>
+<TD/>
+<TD/>
+<TD>Jy</TD>
+<TD>80000000</TD>
+<TD>36</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>2880000000</TD>
+<TD/>
+<TD/>
+<TD/>
+<TD/>
+<TD>Parkes</TD>
+<TD>?</TD>
+<TD>      80</TD>
+<TD>MHz</TD>
+<TD>integrated from scans</TD>
+<TD>1990PKS...C......0W</TD>
+</TR>
+<TR>
+<TD>160</TD>
+<TD>74 MHz (VLA)</TD>
+<TD>35.13     </TD>
+<TD>3.61      </TD>
+<TD>3.61      </TD>
+<TD>Jy</TD>
+<TD>73800000</TD>
+<TD>35.13</TD>
+<TD>3.61</TD>
+<TD>3.61</TD>
+<TD/>
+<TD/>
+<TD>2592594000</TD>
+<TD>266418000</TD>
+<TD>266418000</TD>
+<TD/>
+<TD/>
+<TD>VLA</TD>
+<TD>B, BnA configurations</TD>
+<TD>    73.8</TD>
+<TD>MHz</TD>
+<TD>flux integrated from map or image</TD>
+<TD>2007AJ....134.1245C</TD>
+</TR>
+<TR>
+<TD>161</TD>
+<TD>60 MHz</TD>
+<TD>37        </TD>
+<TD>8         </TD>
+<TD>8         </TD>
+<TD>Jy</TD>
+<TD>60000000</TD>
+<TD>37</TD>
+<TD>8</TD>
+<TD>8</TD>
+<TD/>
+<TD/>
+<TD>2220000000</TD>
+<TD>480000000</TD>
+<TD>480000000</TD>
+<TD/>
+<TD/>
+<TD>?</TD>
+<TD>?</TD>
+<TD>60</TD>
+<TD>MHz</TD>
+<TD>modelled datum; beam filling or dilution corrected</TD>
+<TD>1968Afz.....4..129A</TD>
+</TR>
+<TR>
+<TD>162</TD>
+<TD>38 MHz</TD>
+<TD>     45.73</TD>
+<TD>8.20      </TD>
+<TD>8.20      </TD>
+<TD>Jy</TD>
+<TD>38000000</TD>
+<TD>45.73</TD>
+<TD>8.2</TD>
+<TD>8.2</TD>
+<TD/>
+<TD/>
+<TD>1737740000</TD>
+<TD>311600000</TD>
+<TD>311600000</TD>
+<TD/>
+<TD/>
+<TD>Synthesis telescope</TD>
+<TD>?</TD>
+<TD>      38</TD>
+<TD>MHz</TD>
+<TD>not reported in paper</TD>
+<TD>1981A&amp;AS...45..367K</TD>
+</TR>
+<TR>
+<TD>163</TD>
+<TD>38 MHz</TD>
+<TD>42        </TD>
+<TD>25        </TD>
+<TD>25        </TD>
+<TD>Jy</TD>
+<TD>38000000</TD>
+<TD>42</TD>
+<TD>10.5</TD>
+<TD>10.5</TD>
+<TD/>
+<TD/>
+<TD>1596000000</TD>
+<TD>399000000</TD>
+<TD>399000000</TD>
+<TD/>
+<TD/>
+<TD>Aperture synthesis system</TD>
+<TD>Aperture synthesis system</TD>
+<TD>38</TD>
+<TD>MHz</TD>
+<TD>flux integrated from map or image</TD>
+<TD>1969ApJ...157....1K</TD>
+</TR>
+<TR>
+<TD>164</TD>
+<TD>22 MHz (DRAO)</TD>
+<TD>49        </TD>
+<TD>18        </TD>
+<TD>18        </TD>
+<TD>Jy</TD>
+<TD>22300000</TD>
+<TD>49</TD>
+<TD>18</TD>
+<TD>18</TD>
+<TD/>
+<TD/>
+<TD>1092700000</TD>
+<TD>401400000</TD>
+<TD>401400000</TD>
+<TD/>
+<TD/>
+<TD>T-array</TD>
+<TD>?</TD>
+<TD>     22.25</TD>
+<TD>MHz</TD>
+<TD>flux integrated from map or image</TD>
+<TD>1986A&amp;AS...65..485R</TD>
+</TR>
+</TABLEDATA>
+</DATA>
+</TABLE>
+</RESOURCE>
+</VOTABLE>

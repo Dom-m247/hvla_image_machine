@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VOTABLE version="1.5" xmlns="http://www.ivoa.net/xml/VOTable/v1.3"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.ivoa.net/xml/VOTable/v1.3  https://www.ivoa.net/xml/VOTable/VOTable-1.5.xsd">
+<RESOURCE type="results">
+<PARAM name="QUERY_STATUS" datatype='char' arraysize='*' value="ERROR">
+<DESCRIPTION>
+GeneralFault:
+Service could not complete request; Failed to resolve input object name (6)
+</DESCRIPTION>
+</PARAM>
+</RESOURCE>
+</VOTABLE>

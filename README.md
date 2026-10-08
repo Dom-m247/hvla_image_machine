@@ -345,7 +345,8 @@ tools/
 └── install_alias.sh           # One-time shell-function setup (see Installation)
 
 tests/
-└── query/                     # Offline catalog_client tests: python tests/query/run_*.py
+└── query/                     # Offline catalog_client tests: python -m unittest (~90 s)
+                               # HVLA_LIVE_API=1 also sends test_live.py's 7 real queries
 ```
 
 Each run's results folder collects the science products (FITS, pbcor, PNG, mask,
