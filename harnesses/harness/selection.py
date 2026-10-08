@@ -9,7 +9,6 @@ import contextlib
 import io
 import json
 import re
-import time
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from pathlib import Path
@@ -23,12 +22,6 @@ from .pipeline import (
 #already matches the pipeline's band tables. Bands outside those tables (4, P)
 #have no spw range or angular-resolution entry, so a run on one cannot be sized.
 BAND_ALIASES = {'U': 'Ku'}
-
-#NED_API.obj_exists returns False for a name it does not know AND for a query it
-#could not make -- a read timeout looks identical to a bad name, so retry before
-#believing it.
-NED_ATTEMPTS = 3
-NED_RETRY_SECONDS = 5
 
 
 class SelectionError(Exception):
@@ -235,16 +228,11 @@ class Selector:
       self._rs = None
 
   def _resolve(self, source_name):
-    """NED's record for a source, retried before it is called unresolvable."""
-    for attempt in range(1, NED_ATTEMPTS + 1):
-      if resolved := NED_API.obj_exists(source_name):
-        return resolved
-      if attempt < NED_ATTEMPTS:
-        self.log(f"  NED gave nothing for '{source_name}' "
-                 f"(attempt {attempt}/{NED_ATTEMPTS}); retrying")
-        time.sleep(NED_RETRY_SECONDS)
+    """NED's record for a source. Never retried: a failed query is not resent."""
+    if resolved := NED_API.obj_exists(source_name):
+      return resolved
     raise SelectionError(
-      f"NED returned nothing for '{source_name}' in {NED_ATTEMPTS} attempts "
+      f"NED returned nothing for '{source_name}' "
       f"(the name is unknown, or NED was unreachable -- its own message is above)")
 
   def segments_for(self, proj_code):

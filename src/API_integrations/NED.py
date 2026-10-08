@@ -1,10 +1,6 @@
-from astroquery.ipac.ned import Ned
+from API_integrations.catalog_client import ned_lookup, ned_photometry
 from classes.constants import BAND_MHZ_RANGES, MIN_FLUX_FOR_SELF_CAL
-import math
-import numpy
 from pprint import pp
-from requests.exceptions import Timeout, ConnectionError
-from typing import Any, cast
 
 
 class NED_API:
@@ -14,75 +10,33 @@ class NED_API:
     """
     Query NED to check a source exists under name
     """
-    ned = Ned()
     try:
-      ned.TIMEOUT = 10  # seconds
-      #astroquery is untyped: query_object returns an astropy Table at runtime
-      query = cast(Any, ned.query_object(object_name=source_name))
-      if len(query) == 1:
-        ra = float(query['RA'])
-        decl = float(query['DEC'])
-        ra_decl = {"ra": ra, "decl": decl}
-        result = {'ra_decl':ra_decl, 'alias':str(query[0]['Object Name']),
-                  'redshift': NED_API._redshift(query)}
-        return result
-      else:
-        return False
-    except (Timeout, ConnectionError) as e:
-        print(f"NED timeout or connection error: {e}")
-        return False
+      found = ned_lookup(source_name)
     except Exception as e:
       print(f"Error occurred while querying NED: {e}")
       return False
-    
-  @staticmethod
-  def _redshift(query):
-    """Redshift from a NED object query, or '' when NED has none.
-
-    Plenty of radio sources have no measured redshift, so an absent value is
-    normal and must not fail the lookup. NED returns a masked float column, and
-    an unmeasured redshift comes back as the masked constant rather than as a
-    missing key or None.
-    """
-    try:
-      value = query['Redshift'][0]
-    except Exception:
-      return ''
-    try:
-      if value is None or numpy.ma.is_masked(value):
-        return ''
-      value = float(value)
-      return '' if math.isnan(value) else value
-    except (TypeError, ValueError):
-      return ''
+    if found is None:
+      return False
+    ra_decl = {"ra": found['ra'], "decl": found['dec']}
+    return {'ra_decl': ra_decl, 'alias': found['name'],
+            'redshift': '' if found['redshift'] is None else found['redshift']}
 
   @staticmethod
   def get_photometry(source_name):
     """
-    Query NED for photometry table, with one retry on failure.
+    Query NED for photometry: [freq_hz, flux_jy] rows, or False when there are none.
     """
     print("Querying NED for source table")
-    ned = Ned()
-    for attempt in range(2):
-      try:
-        #astroquery is untyped: get_table returns an astropy Table at runtime
-        result = cast(Any, ned.get_table(object_name=source_name, table='photometry'))
-        return result
-      except Exception as e:
-        if attempt == 0:
-          print(f"Photometry query failed, retrying... ({e})")
-        else:
-          print(f"Error occurred while querying NED for Photometry: {e}")
-    return False
+    try:
+      return ned_photometry(source_name) or False
+    except Exception as e:
+      print(f"Error occurred while querying NED for Photometry: {e}")
+      return False
 
   @staticmethod
-  def do_photonometry_check(source_name, band, alias=None):
+  def do_photonometry_check(source_name, band):
     print("Checking self-calibration potential")
     photometry_table = NED_API.get_photometry(source_name)
-
-    if not photometry_table and alias and alias != source_name:
-      print(f"Retrying photometry query with NED alias: {alias}")
-      photometry_table = NED_API.get_photometry(alias)
 
     if not photometry_table:
       return False
@@ -90,9 +44,7 @@ class NED_API:
     band_range_low = (BAND_MHZ_RANGES[band][0] * 1e6) #- ((BAND_MHZ_RANGES[band][0] * 1e6)*0.2) #20% below the lower end of the band
     band_range_high = (BAND_MHZ_RANGES[band][1] * 1e6) #+ ((BAND_MHZ_RANGES[band][1] * 1e6)*0.2) #20% above the upper end of the band
 
-    for row in range(len(photometry_table)):
-      freq = photometry_table[row]['Frequency']
-      flux = photometry_table[row]['Flux Density']
+    for freq, flux in photometry_table:
       if (band_range_low) <= freq <= (band_range_high):
         if flux >= MIN_FLUX_FOR_SELF_CAL:
           #Source has potential for self-calibration with flux 
@@ -109,8 +61,7 @@ class NED_API:
     """
     ned_result = NED_API.obj_exists(source_name)
     if ned_result is not False:
-      alias = ned_result.get('alias')
-      if is_Self_Calable := NED_API.do_photonometry_check(source_name, band, alias=alias):
+      if is_Self_Calable := NED_API.do_photonometry_check(source_name, band):
         return is_Self_Calable
 
     return False
