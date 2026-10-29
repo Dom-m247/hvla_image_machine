@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Remove the scratch a run leaves behind. Results folders are archived output, so
-# they are skipped unless --results is given.
+# they are skipped unless --results is given; harness sweep folders are always skipped.
 
 set -u
 
@@ -11,7 +11,7 @@ usage() {
 Usage: ./cleanup.sh [--results]
 
   (no flags)  remove logs, listobs, MS directories and imaging products,
-              leaving every *_results/ folder untouched
+              leaving every *_results/ folder and harness sweep folder untouched
   --results   additionally delete the *_results/ folders themselves
   -h, --help  show this message
 EOF
@@ -30,8 +30,14 @@ done
 # names (<name>.log, <name>.mask, <name>.pbcor.tt0, <name>-listobs.txt) and deleting
 # those would gut the archived output. -exec rather than -delete, which implies -depth
 # and cannot be combined with -prune.
-scrub_files() { find . -name '*_results' -prune -o -type f -name "$1" -exec rm -f {} +; }
-scrub_dirs()  { find . -name '*_results' -prune -o -type d -name "$1" -exec rm -rf {} +; }
+PRUNE=( -name '*_results' )
+# Harness sweep folders are found by their sweep.json, so --sweeps-dir ones are kept too.
+while IFS= read -r sweep; do
+  PRUNE+=( -o -path "$sweep" )
+done < <(find . -name '*_results' -prune -o -type f -name sweep.json -printf '%h\n')
+
+scrub_files() { find . \( "${PRUNE[@]}" \) -prune -o -type f -name "$1" -exec rm -f {} +; }
+scrub_dirs()  { find . \( "${PRUNE[@]}" \) -prune -o -type d -name "$1" -exec rm -rf {} +; }
 
 # Remove .log and listobs files
 scrub_files "*.log"
