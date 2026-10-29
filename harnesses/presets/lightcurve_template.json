@@ -1,0 +1,52 @@
+{
+  "harness": "lightcurve",
+  "label": "every lightcurve option and seed key at its default; copy and edit",
+  "options": {
+    "batch_size": 4,
+    "cores": null,
+    "timeout": 14400,
+    "bands": [],
+    "projects": [],
+    "before_year": 2009,
+    "max_gb": 20.0,
+    "limit": 0,
+    "source_name": "archive",
+    "cleanup": true,
+    "keep_ms": true,
+    "attended": false,
+    "max_sep_arcsec": 100.0
+  },
+  "seed": {
+    "decisions": {
+      "flux_cal": "auto",
+      "phase_cal": "auto",
+      "refant": "auto",
+      "flagging": "auto",
+      "self_cal": "off",
+      "baseline_cal": "off",
+      "core_subtract": "off"
+    },
+    "reference_antenna": "auto",
+    "flagging_methods": ["tfcrop"],
+    "min_snr": 3.0,
+    "flux_cal_name": "",
+    "flux_cal_manual": null,
+    "phase_cal_name": "",
+    "flag_selection": null,
+    "self_cal_plan": [],
+    "self_cal_ap": null,
+    "self_cal_blcal": null,
+    "self_cal_cycles": 4,
+    "rms_region": "",
+    "image_filename": null,
+    "image_size": [1080, 1080],
+    "interactive_image": false,
+    "use_custom_cell_size": false,
+    "cell_size": "0.08arcsec",
+    "deconvolver": "mtmfs",
+    "weighting": "briggs",
+    "robust": 0.5,
+    "test_image": false,
+    "mask": ""
+  }
+}

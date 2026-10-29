@@ -6,17 +6,19 @@
       oversight.log     every event of the sweep, one line each, written as it happens
       oversight.jsonl   the same events, machine-readable
       report.json       the summary, rewritten at the end of every pass
-      runs/<slug>/      each run's working directory, ending in its own *_results/
-      failed/<slug>_failed/  what a failed run left behind
+      runs/<slug>/      each passed (or running) run's working directory, ending in its own *_results/
+      failed/<slug>_failed/  what a failed run left behind, its run directory as run/
 
-Selection is serial (one radio_search2 session); runs go out in parallel batches.
+Selection is serial (one radio_search2 session); runs go out batch_size at a time,
+the next starting as soon as any one ends.
 A failure anywhere is an event and a result, never an exception that ends the
 sweep: the runs beside it carry on.
 """
 import json
+import queue
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -214,12 +216,13 @@ def run_one(selection, sweep, cores, oversight, dry_run=False, fresh=False):
   """Seed, run and tidy up one selection. Never raises: a failure is a result.
 
   Everything is caught here rather than at the pool, so one broken run cannot
-  take its batch down with it -- the siblings keep going and the sweep proceeds
-  to the next batch.
+  take the others down with it -- they keep going and the next run starts in
+  its place.
   """
   options, label = sweep.options, f"{selection.name}: {selection.label}"
   try:
     run_seed = seed.build(selection, sweep.preset.seed, options['source_name'])
+    failures.reclaim(selection, sweep.failed_dir, sweep.runs_dir / selection.slug, fresh)
     run_dir = runner.prepare(selection, sweep.runs_dir, run_seed, fresh=fresh)
   except Exception as exc:
     print(f"  !! {label}: could not prepare the run directory: {exc}")
@@ -238,7 +241,7 @@ def run_one(selection, sweep, cores, oversight, dry_run=False, fresh=False):
   try:
     result = runner.execute(selection, run_dir, cores=cores, timeout=options['timeout'],
                             attended=options['attended'])
-  except Exception as exc:   #a bug in the harness must not take the batch with it
+  except Exception as exc:   #a bug in the harness must not take the other runs with it
     print(f"  !! {label}: the harness itself failed: {exc!r}")
     result = runner.RunResult(selection, run_dir, 'setup-error',
                               detail=f"{type(exc).__name__}: {exc}")
@@ -261,24 +264,36 @@ def run_one(selection, sweep, cores, oversight, dry_run=False, fresh=False):
   return result
 
 
-def run_batches(selections, sweep, oversight, dry_run=False, fresh=False):
-  """Work through the selections in parallel batches (one at a time when attended)."""
+def run_parallel(selections, sweep, oversight, dry_run=False, fresh=False):
+  """Keep batch_size runs going at once, starting the next as soon as any one ends
+  (one at a time when attended). Results come back in selection order."""
   options = sweep.options
   size = 1 if options['attended'] else options['batch_size']
-  slots = core_slots(options['cores'], size)
-  results = []
-  batches = [selections[i:i + size] for i in range(0, len(selections), size)]
-  for number, batch in enumerate(batches, 1):
-    print(f"\n=== Batch {number}/{len(batches)}: "
-          f"{', '.join(s.slug for s in batch)} ===")
-    started = time.perf_counter()
-    with ThreadPoolExecutor(max_workers=len(batch)) as pool:
-      futures = [pool.submit(run_one, selection, sweep, slots[slot], oversight,
-                             dry_run, fresh)
-                 for slot, selection in enumerate(batch)]
-      results += [future.result() for future in futures]
-    print(f"=== Batch {number} finished in {(time.perf_counter() - started) / 60:.1f} min ===")
-  return results
+  #a run borrows a free core slot and hands it back when it ends
+  free_slots = queue.SimpleQueue()
+  for slot in core_slots(options['cores'], size):
+    free_slots.put(slot)
+
+  def run_in_slot(selection):
+    cores = free_slots.get()
+    try:
+      return run_one(selection, sweep, cores, oversight, dry_run, fresh)
+    finally:
+      free_slots.put(cores)
+
+  print(f"\n=== {len(selections)} run(s), up to {size} at a time ===")
+  started = time.perf_counter()
+  with ThreadPoolExecutor(max_workers=size) as pool:
+    futures = [pool.submit(run_in_slot, selection) for selection in selections]
+    try:
+      for number, _ in enumerate(as_completed(futures), 1):
+        print(f"=== {number}/{len(futures)} finished, "
+              f"{(time.perf_counter() - started) / 60:.1f} min into the pass ===")
+    except KeyboardInterrupt:
+      #the runs under way get the Ctrl-C too; the queued ones must not start after them
+      pool.shutdown(cancel_futures=True)
+      raise
+  return [future.result() for future in futures]
 
 
 def parse_cores(spec):
@@ -432,7 +447,7 @@ def _finish(sweep, oversight, selections, skipped, started, dry_run, fresh):
     print('Nothing to run.')
     return 1
   try:
-    results = run_batches(selections, sweep, oversight, dry_run, fresh)
+    results = run_parallel(selections, sweep, oversight, dry_run, fresh)
   except KeyboardInterrupt:
     oversight.event('sweep-end', note='interrupted')
     print('\nInterrupted; resume with: run_harness.py resume ' + str(sweep.root))

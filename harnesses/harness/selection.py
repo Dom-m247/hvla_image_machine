@@ -14,8 +14,8 @@ from datetime import datetime
 from pathlib import Path
 
 from .pipeline import (
-  BAND_GHZ_RANGES, CLI, DelosDownload, NED_API, Options, PRE_EVLA_YEAR,
-  RadioSearchIntegration, parseArchFileInfo, sensitivity_jy, size_mb,
+  BAND_GHZ_RANGES, CLI, DelosDownload, LoadingAnimation, NED_API, Options, PRE_EVLA_YEAR,
+  RadioSearchIntegration, parseArchFileInfo, sensitivity_jy, size_mb, sortBySensitivity,
 )
 
 #radio_search2 writes Ku band as 'U' in some rows; every other band code it emits
@@ -119,10 +119,10 @@ class Selection:
 
 
 def normalize_band(band):
-  """A radio_search2 band code as the pipeline's band tables spell it, or None
-  when the pipeline has no entry for it."""
+  """A radio_search2 band code (or a --bands entry, any case) as the pipeline's
+  band tables spell it, or None when the pipeline has no entry for it."""
   code = BAND_ALIASES.get(str(band).strip(), str(band).strip())
-  return code if code in BAND_GHZ_RANGES else None
+  return next((known for known in BAND_GHZ_RANGES if known.upper() == code.upper()), None)
 
 
 def parse_separation_arcsec(text):
@@ -238,7 +238,11 @@ class Selector:
   def segments_for(self, proj_code):
     """--archfileinfo for a project, parsed and cached for the session."""
     if proj_code not in self._archfiles:
-      self._archfiles[proj_code] = parseArchFileInfo(self._rs('--archfileinfo', proj_code))
+      raw = []
+      LoadingAnimation.performing_action(
+        f"archive file listing for {proj_code}",
+        target=lambda: raw.append(self._rs('--archfileinfo', proj_code)))
+      self._archfiles[proj_code] = parseArchFileInfo(raw[0])
     return self._archfiles[proj_code]
 
   def select_all(self, source_name, projects=None, bands=None, max_sep_arcsec=None):
@@ -255,14 +259,26 @@ class Selector:
     """
     resolved = self._resolve(source_name)
     projects = {p.upper() for p in projects or ()}
-    bands = {(normalize_band(b) or b).upper() for b in bands or ()}
+    wanted = [normalize_band(b) for b in bands or ()]
+    if unknown := [b for b, known in zip(bands or (), wanted) if known is None]:
+      raise SelectionError(f"no band table entry for {', '.join(unknown)} "
+                           f"(known: {', '.join(BAND_GHZ_RANGES)})")
+    #radio_search2 filters by band far faster than it lists every band, so each
+    #requested band is its own search; 'auto' (all bands) only when none is given
+    search_bands = sorted(set(wanted)) or ['auto']
+    bands = {b.upper() for b in wanted}
 
     options = Options()
     options.search_alias = resolved['alias']
-    options.band = 'auto'          #search every band; --bands filters afterwards
-    observations = RadioSearchIntegration.run_search(self._rs, options)
+    observations = []
+    for band in search_bands:
+      options.band = band
+      observations += RadioSearchIntegration.run_search(self._rs, options)
+    observations = sortBySensitivity(observations)
     if not observations:
-      raise SelectionError(f"radio_search found no observations for '{resolved['alias']}'")
+      scope = f" at {', '.join(search_bands)}-band" if bands else ''
+      raise SelectionError(
+        f"radio_search found no observations for '{resolved['alias']}'{scope}")
 
     if missing := projects - {o.proj_code.upper() for o in observations}:
       self.log(f"  !! no observations of '{resolved['alias']}' in project(s): "
@@ -280,13 +296,16 @@ class Selector:
         f"no pre-{self.before_year} observation with a usable band{scope} "
         f"among {len(observations)} rows for '{resolved['alias']}'")
 
+    unlisted = {obs.proj_code for obs in candidates} - set(self._archfiles)
+    self.log(f"  {len(candidates)} candidate observation(s); listing archive files "
+             f"for {len(unlisted)} project(s)")
     selections, rejected = [], []
     for obs in candidates:
+      segments = self.segments_for(obs.proj_code)
       #select_segment_files prints every file name, which for a catch-all segment
       #is thousands of them; the harness prints its own table instead
       with contextlib.redirect_stdout(io.StringIO()):
-        files = RadioSearchIntegration.select_segment_files(
-          self.segments_for(obs.proj_code), obs)
+        files = RadioSearchIntegration.select_segment_files(segments, obs)
       if files:
         selections.append(self._build(source_name, resolved, obs, files))
       else:

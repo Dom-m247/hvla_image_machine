@@ -21,9 +21,11 @@ if str(SRC) not in sys.path:
 from API_integrations.NED import NED_API                      # noqa: E402
 from archive_dowload.radio_search_integration import (        # noqa: E402
   DelosDownload, RadioSearchIntegration, parseArchFileInfo, sensitivity_jy, size_mb,
+  sortBySensitivity,
 )
 from classes import creds                                     # noqa: E402
 from classes.CLI_input import CLI                             # noqa: E402
+from classes.Loading_Animation import LoadingAnimation       # noqa: E402
 from classes.image_data import first_value, imstat_dict       # noqa: E402
 from classes.constants import (                               # noqa: E402
   AUTO, BAND_GHZ_RANGES, DECISIONS, DEFAULT_IMAGE_SIZE, FLAG_METHODS_DEFAULT,
@@ -48,11 +50,11 @@ PRE_EVLA_YEAR = CLI.RADIO_SEARCH_HIGHLIGHT_YEAR
 __all__ = [
   'AUTO', 'BAND_GHZ_RANGES', 'CLEAN_ROBUST', 'CLI', 'DECISIONS',
   'DEFAULT_IMAGE_SIZE', 'DelosDownload', 'FLAG_METHODS_DEFAULT', 'FOLDER_NAME', 'FORCE',
-  'IMPORT_JSON', 'MAIN_SCRIPT', 'MIN_SNR', 'MS_SUB_PATH', 'NED_API', 'OFF',
+  'IMPORT_JSON', 'LoadingAnimation', 'MAIN_SCRIPT', 'MIN_SNR', 'MS_SUB_PATH', 'NED_API', 'OFF',
   'first_value', 'imstat_dict',
   'Options', 'PRE_EVLA_YEAR', 'REPO_ROOT', 'RadioSearchIntegration', 'SRC',
   'VENV_PYTHON', 'creds', 'parseArchFileInfo', 'revmove_path', 'sensitivity_jy',
-  'size_mb',
+  'size_mb', 'sortBySensitivity',
 ]
 
 

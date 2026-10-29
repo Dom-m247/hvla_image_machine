@@ -7,6 +7,8 @@ footing, and plots them per target:
     <sweep>/lightcurve.csv            one row per passed run, plotted or not
     <sweep>/lightcurve_<source>.png   integrated and peak flux density vs time, a row per band
     <sweep>/lightcurve_<source>.csv   the points that plot shows, in its units (mJy)
+    <sweep>/lightcurve_<source>_config_<cfg>.{png,csv}   the same, one array config's epochs
+    <sweep>/lightcurve_<source>[_config_<cfg>]_{integrated,peak}.png   its two columns, a png each
 
 The fit is made on the flat-noise image, so its fluxes are attenuated by the primary
 beam wherever the target sits off the pointing centre -- and a lightcurve sweep takes
@@ -20,17 +22,18 @@ import csv
 import json
 import math
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import casatasks as ct
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.dates import AutoDateLocator, ConciseDateFormatter, date2num
 from matplotlib.figure import Figure
+from matplotlib.path import Path as LinePath
 from matplotlib.transforms import Bbox
 from matplotlib.ticker import StrMethodFormatter
 
-from .pipeline import first_value, imstat_dict
+from .pipeline import CLI, first_value, imstat_dict
 from .runner import find_results_dir
 from .selection import observation_date, read_manifest
 
@@ -67,31 +70,64 @@ PLOT_COLUMNS = ('band', 'frequency_ghz', 'time', 'mjd', 'proj_code', 'config',
                 *MJY_COLUMNS.values(), 'slug')
 
 
-def build(sweep, log=print, label_points=True):
+def build(sweep, log=print, label_points=True, ask_exclude=False, by_config=False,
+          separate_flux=False):
   """Write the sweep's lightcurve CSV, and per target a plot and a CSV of the points
   it shows. Returns the plot paths. label_points puts each epoch's project code
-  beside its point."""
+  beside its point; ask_exclude asks which project codes to leave off the plots;
+  by_config draws each array configuration's epochs as images of their own
+  (_config_<cfg>); separate_flux draws integrated and peak flux as a png each."""
   rows = collect(sweep, log)
   if not rows:
     log('Lightcurve: no passed run has a source fit yet; nothing to plot.')
     return []
+  if ask_exclude:
+    plotted = sorted({r['proj_code'] for r in rows if r['plotted']})
+    excluded = set(CLI.getExcludedProjects(plotted)) if plotted else set()
+    for r in rows:
+      if r['plotted'] and r['proj_code'] in excluded:
+        r['plotted'], r['note'] = False, 'excluded on replot'
   write_csv(rows, sweep.root / CSV_NAME)
   log(f"\nLightcurve table: {sweep.root / CSV_NAME}")
   plots = []
   for source in dict.fromkeys(r['source'] for r in rows):
     target_rows = [r for r in rows if r['source'] == source]
     stem = f"lightcurve_{_safe(source)}"
-    path = sweep.root / f"{stem}.png"
-    if plot(source, target_rows, path, subtitle=sweep.root.name, label_points=label_points):
-      plots.append(path)
-      write_plot_csv(target_rows, sweep.root / f"{stem}.csv")
-      shown = sum(r['plotted'] for r in target_rows)
-      log(f"Lightcurve plot:  {path}  ({shown} of {len(target_rows)} epoch(s) plotted)")
-      log(f"Plotted points:   {sweep.root / f'{stem}.csv'}")
+    if by_config:
+      span = time_span(target_rows)   #so a target's config images line up
+      sets = [(f"{stem}_config_{_safe(c) if c else 'unknown'}",
+               [r for r in target_rows if r['config'] == c],
+               f"{c} config" if c else 'config unknown')
+              for c in config_order(target_rows)]
+    else:
+      span, sets = None, [(stem, target_rows, '')]
+    for set_stem, set_rows, heading in sets:
+      plots += draw(source, set_rows, sweep.root, set_stem, log, heading=heading, span=span,
+                    label_points=label_points, separate_flux=separate_flux)
     for r in target_rows:
       if not r['plotted']:
         log(f"  -- {r['slug']}: not plotted ({r['note']})")
   return plots
+
+
+def draw(source, rows, root, stem, log=print, heading='', span=None, label_points=True,
+         separate_flux=False):
+  """<stem>.png (or _integrated.png and _peak.png) and <stem>.csv of their points.
+  Returns the pngs drawn; none when no row is plotted."""
+  figures = ([(f"{stem}_{name}.png", (panel,)) for name, panel in zip(PANEL_FILES, PANELS)]
+             if separate_flux else [(f"{stem}.png", PANELS)])
+  drawn = []
+  for name, panels in figures:
+    if plot(source, rows, root / name, subtitle=root.name, label_points=label_points,
+            panels=panels, heading=heading, span=span):
+      drawn.append(root / name)
+  if drawn:
+    write_plot_csv(rows, root / f"{stem}.csv")
+    shown = sum(r['plotted'] for r in rows)
+    for path in drawn:
+      log(f"Lightcurve plot:  {path}  ({shown} of {len(rows)} epoch(s) plotted)")
+    log(f"Plotted points:   {root / f'{stem}.csv'}")
+  return drawn
 
 
 # ----------------------------------------------------------------- collection
@@ -242,6 +278,8 @@ def write_plot_csv(rows, path):
 # ------------------------------------------------------------------- plotting
 PANELS = (('integrated_flux_jy', 'integrated_flux_err_jy', 'Integrated flux density', 'mJy'),
           ('peak_flux_jy_per_beam', 'peak_flux_err_jy_per_beam', 'Peak flux density', 'mJy/beam'))
+PANEL_FILES = ('integrated', 'peak')   #each panel's png suffix when they're drawn apart
+CONFIG_ORDER = ('A', 'AB', 'B', 'BC', 'C', 'CD', 'D')   #longest baselines first; hybrids between
 
 
 def band_order(rows):
@@ -250,12 +288,31 @@ def band_order(rows):
                 key=lambda b: _median([r['frequency_ghz'] or 0 for r in rows if r['band'] == b]) or 0)
 
 
-def plot(source, rows, path, subtitle='', label_points=True):
-  """Integrated and peak flux density vs time, one row of panels per band.
+def config_order(rows):
+  """The rows' array configs in CONFIG_ORDER, any it doesn't know after, unknown last."""
+  return sorted(dict.fromkeys(r['config'] for r in rows),
+                key=lambda c: (not c, CONFIG_ORDER.index(c) if c in CONFIG_ORDER
+                               else len(CONFIG_ORDER), c))
+
+
+def time_span(rows):
+  """The plotted rows' first and last times, padded by matplotlib's default 5% margin."""
+  times = [r['time'] for r in rows if r['plotted']]
+  if not times:
+    return None
+  pad = max((max(times) - min(times)) * 0.05, timedelta(days=30))
+  return min(times) - pad, max(times) + pad
+
+
+def plot(source, rows, path, subtitle='', label_points=True, panels=PANELS, heading='',
+         span=None):
+  """Flux density vs time, a column per entry of panels (integrated and peak by
+  default) and a row per band.
 
   Bands sit in separate rows rather than sharing an axis: a spectral index puts
-  them at different levels. A band's two panels share one flux scale.
-  label_points writes each epoch's project code beside its point.
+  them at different levels. A row's panels share one flux scale. label_points
+  writes each epoch's project code beside its point; heading follows the title;
+  span fixes the time axis' (start, end).
   """
   shown = [r for r in rows if r['plotted']]
   if not shown:
@@ -263,20 +320,23 @@ def plot(source, rows, path, subtitle='', label_points=True):
   bands = band_order(shown)
 
   fig = Figure(figsize=(11, 1.4 + 2.8 * len(bands)), facecolor=SURFACE, layout='constrained')
-  axes = fig.subplots(len(bands), len(PANELS), sharex=True, sharey='row', squeeze=False)
+  axes = fig.subplots(len(bands), len(panels), sharex=True, sharey='row', squeeze=False)
+  if span:
+    axes[0][0].set_xlim(*span)
   labelled = []
   for row_axes, band in zip(axes, bands):
     band_rows = [r for r in shown if r['band'] == band]
     ghz = _median([r['frequency_ghz'] for r in band_rows if r['frequency_ghz']])
     label = f"{band} band" + (f" ({ghz:.2f} GHz)" if ghz else '')
-    for ax, (value_key, error_key, measure, unit) in zip(row_axes, PANELS):
+    for ax, (value_key, error_key, measure, unit) in zip(row_axes, panels):
       _style(ax)
       points = [r for r in band_rows if r[value_key] is not None]
       ax.errorbar([r['time'] for r in points],
                   [r[value_key] * 1e3 for r in points],
                   yerr=[(r[error_key] or 0) * 1e3 for r in points],
-                  fmt='o', color=SERIES, markersize=7, markeredgecolor=SURFACE,
-                  markeredgewidth=1.5, elinewidth=1.5, capsize=0, zorder=3)
+                  fmt='o-', color=SERIES, linewidth=1.2, markersize=7,
+                  markeredgecolor=SURFACE, markeredgewidth=1.5, elinewidth=1.5,
+                  capsize=0, zorder=3)
       ax.set_title(f"{label} — {measure.lower()}", loc='left', fontsize=10,
                    color=INK_SECONDARY)
       ax.set_ylabel(f"{measure} ({unit})", color=INK_MUTED, fontsize=9)
@@ -293,7 +353,8 @@ def plot(source, rows, path, subtitle='', label_points=True):
     ax.xaxis.set_major_formatter(ConciseDateFormatter(locator))
     ax.set_xlabel('Observation date', color=INK_MUTED, fontsize=9)
 
-  fig.suptitle(f"{source} lightcurve", x=0.01, ha='left', fontsize=13, color=INK)
+  fig.suptitle(f"{source} lightcurve" + (f" — {heading}" if heading else ''),
+               x=0.01, ha='left', fontsize=13, color=INK)
   dropped = len(rows) - len(shown)
   fig.supxlabel(f"{subtitle}   ·   {len(shown)} epoch(s)"
                 + (f", {dropped} not plotted (see {CSV_NAME})" if dropped else '')
@@ -314,8 +375,8 @@ LABEL_SHARE_PT = 30   #a same-project point this close to a labelled one shares 
 
 def _label_points(fig, labelled):
   """Project code beside each point, in the first LABEL_SPOTS spot that stays inside
-  the panel and clear of the other labels and points; where none is clear, the
-  first spot. Needs the final layout, so it runs last, on a drawn figure."""
+  the panel and clear of the other labels, points and the line joining them; where
+  none is clear, the first spot. Needs the final layout, so it runs last, on a drawn figure."""
   canvas = FigureCanvasAgg(fig)
   canvas.draw()
   renderer = canvas.get_renderer()
@@ -327,6 +388,7 @@ def _label_points(fig, labelled):
     xy = [(r['time'], r[value_key] * 1e3) for r in points]
     at = ax.transData.transform([(date2num(t), v) for t, v in xy])
     markers = [Bbox.from_extents(x - pad, y - pad, x + pad, y + pad) for x, y in at]
+    line = LinePath(at) if len(at) > 1 else None
     placed = []   #(project, display position, label box)
     for r, point, here in zip(points, xy, at):
       code = r['proj_code']
@@ -337,7 +399,8 @@ def _label_points(fig, labelled):
         box = label.get_window_extent(renderer)
         inside = (frame.x0 <= box.x0 and box.x1 <= frame.x1
                   and frame.y0 <= box.y0 and box.y1 <= frame.y1)
-        if inside and not any(box.overlaps(b) for b in markers + [b for *_, b in placed]):
+        if (inside and not any(box.overlaps(b) for b in markers + [b for *_, b in placed])
+            and not (line and line.intersects_bbox(box, filled=False))):
           break
         label.remove()
       else:

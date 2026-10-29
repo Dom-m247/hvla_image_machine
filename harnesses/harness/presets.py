@@ -1,6 +1,6 @@
 """Named, editable settings for a sweep: harnesses/presets/<name>.json.
 
-A preset has two halves. "options" are the harness's own knobs (batch size,
+A preset has two halves. "options" are the harness's own knobs (runs in parallel,
 bands, the pre-EVLA cutoff...), which any command-line flag overrides. "seed" is
 the import.json recipe every run of the sweep is driven by, layered over
 seed.recipe()'s defaults. Everything is checked here, when the preset loads, so
@@ -18,8 +18,8 @@ PRESETS_DIR = Path(__file__).resolve().parent.parent / 'presets'
 #The knobs every harness kind understands. A kind adds its own (kinds/*.py
 #DEFAULT_OPTIONS); a preset or a flag naming anything else is an error.
 COMMON_OPTIONS = {
-  'batch_size': 4,          #runs in parallel; batches run one after another
-  'cores': None,            #'24-31' pins the sweep to those cores, split across a batch
+  'batch_size': 4,          #runs in parallel; the next starts as soon as one ends
+  'cores': None,            #'24-31' pins the sweep to those cores, split across the runs
   'timeout': runner.DEFAULT_TIMEOUT,
   'bands': [],              #only these bands
   'projects': [],           #only these project codes (a target's own list wins)

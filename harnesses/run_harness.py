@@ -8,6 +8,7 @@
     ./run_harness.py resume sweeps/<full-auto or lightcurve sweep>  # re-run failed runs
     ./run_harness.py summarize sweeps/<sweep>
     ./run_harness.py summarize sweeps/<sweep> --no-project-labels
+    ./run_harness.py summarize sweeps/<sweep> --by-config --separate-flux
     ./run_harness.py presets
 
 A target is a source name, or 'name, PROJ' to hold it to a project. Settings come
@@ -35,9 +36,10 @@ SELECTION_OPTION_FLAGS = ('bands', 'projects', 'before_year', 'max_gb', 'limit',
 
 
 def _run_flags(parser):
-  parser.add_argument('--batch-size', type=int, help='runs executed in parallel')
+  parser.add_argument('--batch-size', type=int,
+                      help='runs executed in parallel; the next starts as soon as one ends')
   parser.add_argument('--cores', help='CPU cores to confine the sweep to, e.g. "24-31"; '
-                                      'split evenly across a batch')
+                                      'split evenly across the parallel runs')
   parser.add_argument('--timeout', type=int, help='seconds before a single run is killed')
   parser.add_argument('--no-cleanup', dest='cleanup', action='store_const', const=False,
                       help="keep a passed run's measurement sets and scratch")
@@ -93,6 +95,12 @@ def parse_args(argv=None):
   sub.add_argument('--no-project-labels', dest='label_points', action='store_false',
                    help="leave the lightcurve points unlabelled (by default each "
                         "carries its project code)")
+  sub.add_argument('--by-config', action='store_true',
+                   help="each array configuration's epochs as a lightcurve image of "
+                        "their own (lightcurve_<source>_config_<cfg>.png)")
+  sub.add_argument('--separate-flux', action='store_true',
+                   help='integrated and peak flux density as a png each '
+                        '(lightcurve_<source>_integrated.png, _peak.png) instead of one')
 
   commands.add_parser('presets', help='list the presets and what they are for')
   return parser.parse_args(argv)
@@ -145,7 +153,10 @@ def main(argv=None):
     if not hasattr(KINDS.get(sweep.kind), 'summarize'):
       print(f"error: the {sweep.kind} harness has no summary", file=sys.stderr)
       return 2
-    return 0 if sweep_module.summarize(sweep, label_points=args.label_points) else 1
+    return 0 if sweep_module.summarize(sweep, label_points=args.label_points,
+                                       ask_exclude=sys.stdin.isatty(),
+                                       by_config=args.by_config,
+                                       separate_flux=args.separate_flux) else 1
 
   if args.command == 'resume':
     try:
