@@ -13,6 +13,7 @@ bash tools/run_harness.sh full-auto --targets-file names.txt --select-only   # s
 bash tools/run_harness.sh resume harnesses/sweeps/full-auto_full_auto_20260924-150000  # re-run what didn't pass
 bash tools/run_harness.sh summarize harnesses/sweeps/lightcurve_lightcurve_20260924-161811  # re-plot a lightcurve
 bash tools/run_harness.sh summarize harnesses/sweeps/lightcurve_lightcurve_20260924-161811 --no-project-labels  # ...without project codes
+bash tools/run_harness.sh summarize harnesses/sweeps/lightcurve_lightcurve_20260924-161811 --by-config --separate-flux  # ...a png per array config and per flux
 bash tools/run_harness.sh presets                                        # list presets
 ```
 
@@ -79,7 +80,16 @@ with no flux-scale term.
 
 `summarize <sweep folder>` rebuilds these files from whatever has passed so far,
 including for a sweep made before this existed. `--no-project-labels` leaves the
-points unlabelled.
+points unlabelled. At a terminal it first asks for project codes to leave off the
+plots, such as an outlier; their epochs stay in `lightcurve.csv`, noted `excluded on replot`.
+
+- `--by-config` draws each array configuration's epochs as their own image,
+  `lightcurve_<source>_config_<cfg>.png` with a `.csv` of its points. A resolved
+  source's flux depends on the config, since compact configs pick up extended
+  emission that A filters out. A target's config images share one time axis.
+- `--separate-flux` draws integrated and peak flux density as a png each,
+  `lightcurve_<source>_integrated.png` and `_peak.png`, instead of side by side.
+  It combines with `--by-config` (`lightcurve_<source>_config_A_integrated.png`).
 
 ## Targets
 
@@ -133,6 +143,7 @@ to start if a preset:
 | `full_auto_selfcal` | as above, plus the scored self-cal ladder (4 cycles) |
 | `lightcurve`        | fixed imaging (size, cell, weighting) so epochs can be compared; parallel |
 | `lightcurve_deep`   | as `lightcurve`, cleaned interactively; attended |
+| `lightcurve_template` | every `lightcurve` option and seed key at its default; copy it to start a preset |
 
 The lightcurve presets use a fixed `cell_size` of `0.08arcsec`, which suits
 X-band A-config. Set it for your band and array, and pass `--bands` so every
@@ -164,9 +175,11 @@ sweeps/<harness>_<preset>_<YYYYmmdd-HHMMSS>/
   lightcurve.csv    lightcurve only: every passed epoch's fit (see Lightcurves)
   lightcurve_<source>.png  lightcurve only: flux density over time
   lightcurve_<source>.csv  lightcurve only: the points that plot shows
-  runs/<slug>/      a run's working directory, ending in its own *_results/
-                    (with the calibrated MS as <name>.ms, unless --no-keep-ms)
-  failed/<slug>_failed/  what a failed run left behind
+  lightcurve_<source>_config_<cfg>.png/.csv, _integrated.png, _peak.png
+                    lightcurve only: from summarize --by-config / --separate-flux
+  runs/<slug>/      a passed (or running) run's working directory, ending in its own
+                    *_results/ (with the calibrated MS as <name>.ms, unless --no-keep-ms)
+  failed/<slug>_failed/  what a failed run left behind, its run directory as run/
 ```
 
 `<slug>` is `<source>__<proj>_<seg>_<band>`. Events are `sweep-start`,
@@ -174,8 +187,9 @@ sweeps/<harness>_<preset>_<YYYYmmdd-HHMMSS>/
 `failure` (reason, artifact folder), `sweep-resume`, `summary-failed` and `sweep-end`.
 
 **Resume** re-runs every run whose last `run-end` wasn't `passed`, using the
-copied preset in `sweep.json` and reusing each run directory: importvla and the
-splits skip work already on disk. `--fresh` wipes a run directory first.
+copied preset in `sweep.json` and reusing each run directory: a failed run's
+`run/` moves back to `runs/<slug>/`, and importvla and the splits skip work
+already on disk. `--fresh` wipes a run directory first.
 `--batch-size`, `--cores`, `--timeout`, `--no-cleanup` and `--no-keep-ms` can be
 changed when you resume. A target that failed selection has no run to resume, so start a new
 sweep for it.
@@ -201,8 +215,9 @@ A failed run's `failed/<slug>_failed/` holds:
 - `harness_run.out`, with the progress animation's redraws collapsed
 - the CASA logs, `import.json`, `harness_seed.json`, `replay.py` and the listobs files
 - any results folder, minus its tarballs
+- `run/`: the whole run directory, moved out of `runs/` as it was, so you can inspect it
 
-The run directory itself is left as it was, so you can inspect it.
+`runs/` therefore holds only runs that passed, or are running.
 
 ## How a run is driven
 
@@ -241,7 +256,7 @@ harness/
   lightcurve_plot.py  the lightcurve harness's summary: fits -> CSVs + plot
   selection.py        targets, name -> observations -> archive files, the manifest
   seed.py             the import.json a run is driven by
-  sweep.py            sweep folder, oversight log, batches, report, resume
+  sweep.py            sweep folder, oversight log, parallel runs, report, resume
   runner.py           one run: its directory, its subprocess, its cleanup
   failures.py         failure artifacts
 ```
