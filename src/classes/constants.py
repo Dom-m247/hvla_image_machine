@@ -45,6 +45,10 @@ CLEAN_NITER = 9999             #safety cap; SELF_CAL_NSIGMA is the real stop
 #boxes hold noise, not un-normalized zeros
 CLEAN_PBLIMIT = -0.01
 SELF_CAL_INITIAL_NITER = 1000  #initial clean is shallow: it only feeds the first gaincal
+#auto-multithresh masks only above sidelobethreshold x PSF sidelobe level x peak, so a
+#snapshot's high sidelobes can lift CASA's default (3.0) past the peak and mask nothing
+TCLEAN_STOP_ZERO_MASK = 7               #tclean stopcode: empty mask, nothing cleaned
+AUTOMASK_RETRY_SIDELOBE_THRESHOLD = 2.0 #re-clean an empty automask at this
 #--- core subtraction ---
 #Clean only the compact core into the model, uvsub it out, then image what is left
 #(the jet). 'auto' masks a circle this many synthesized beams around the fitted peak;

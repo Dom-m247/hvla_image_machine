@@ -43,6 +43,20 @@ class Cleaner:
     return mask if Path(mask).exists() else ''
 
   @staticmethod
+  def _tclean(**kw):
+    '''ct.tclean, re-run in place at AUTOMASK_RETRY_SIDELOBE_THRESHOLD when
+    auto-multithresh found nothing to mask (see constants).'''
+    result = ct.tclean(**kw)
+    if (kw.get('usemask') == 'auto-multithresh' and isinstance(result, dict)
+        and result.get('stopcode') == TCLEAN_STOP_ZERO_MASK):
+      retry = (f"{kw['imagename']}: automask empty at the default sidelobethreshold; "
+               f"re-cleaning at {AUTOMASK_RETRY_SIDELOBE_THRESHOLD}")
+      print(retry)
+      run_log.event(retry)
+      result = ct.tclean(**{**kw, 'sidelobethreshold': AUTOMASK_RETRY_SIDELOBE_THRESHOLD})
+    return result
+
+  @staticmethod
   def _tclean_kwargs(options:Options) -> dict[str, Any]:
     '''tclean params shared by every imaging cycle, so the initial clean and the cycles
     scored against it are made identically. Callers add imagename, niter and the mask
@@ -75,7 +89,7 @@ class Cleaner:
       #shallow: this model only has to feed the first gaincal, not be a finished image
       niter = SELF_CAL_INITIAL_NITER
     #add nmajor=1/2 instead of lowering niter?
-    ct.tclean(imagename=options.image_filename,
+    Cleaner._tclean(imagename=options.image_filename,
                   niter=niter,
                   **Cleaner._tclean_kwargs(options),
                   **mask_kwargs
@@ -98,7 +112,7 @@ class Cleaner:
 
     `mask`: a saved/carried mask to reuse for this clean (see _mask_kwargs).'''
     name = options.image_filename + '_' + str(label)
-    ct.tclean(imagename=name,
+    Cleaner._tclean(imagename=name,
                   niter=CLEAN_NITER,
                   **Cleaner._tclean_kwargs(options),
                   **Cleaner._mask_kwargs(options, mask, nsigma)
@@ -158,7 +172,7 @@ class Cleaner:
       Cleaner._clear_image(name)  #a test image is always a fresh look, never a restart
       print(f"\nTest image {attempt + 1}: cell={options.cell_size}, "
             f"imsize={options.image_size}, robust={options.robust}")
-      ct.tclean(**{**Cleaner._tclean_kwargs(options), 'imagename': name,
+      Cleaner._tclean(**{**Cleaner._tclean_kwargs(options), 'imagename': name,
                    'niter': TEST_IMAGE_NITER, 'interactive': False,
                    **Cleaner._mask_kwargs(options)})
       png = Cleaner.export_png(name)
@@ -274,8 +288,8 @@ class Cleaner:
     LoadingAnimation.performing_action(action='uvsub (core subtraction)',
                                        target=ct.uvsub, args=(sub_vis,))
     #3) image what is left
-    ct.tclean(**{**shared, 'vis': sub_vis, 'imagename': name, 'niter': CLEAN_NITER,
-                 **Cleaner._mask_kwargs(options)})
+    Cleaner._tclean(**{**shared, 'vis': sub_vis, 'imagename': name, 'niter': CLEAN_NITER,
+                       **Cleaner._mask_kwargs(options)})
     ct.impbcor(imagename=name+'.image.tt0', pbimage=name+'.pb.tt0',
                outfile=name+'.pbcorimage', overwrite=True)
     Cleaner.export_png(name)

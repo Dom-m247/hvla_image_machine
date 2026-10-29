@@ -24,5 +24,7 @@ def choose(selector, target, options):
   return sorted(selections, key=observation_date), rejected + too_big
 
 
-def summarize(sweep, label_points=True):
-  return lightcurve_plot.build(sweep, label_points=label_points)
+def summarize(sweep, label_points=True, ask_exclude=False, by_config=False,
+              separate_flux=False):
+  return lightcurve_plot.build(sweep, label_points=label_points, ask_exclude=ask_exclude,
+                               by_config=by_config, separate_flux=separate_flux)

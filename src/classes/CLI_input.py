@@ -403,6 +403,19 @@ class CLI:
       print(f"Not a folder: {path}")
 
   @staticmethod
+  def getExcludedProjects(codes) -> list:
+    '''Project codes (from `codes`) to leave off a replotted lightcurve; enter excludes none.'''
+    known = {c.upper(): c for c in codes}
+    print(f"\nProjects plotted: {', '.join(codes)}")
+    while True:
+      val = input("Project codes to exclude (comma or space separated, enter for none): ")
+      picked = list(dict.fromkeys(p.upper() for p in val.replace(',', ' ').split()))
+      if unknown := [p for p in picked if p not in known]:
+        print(f"Not plotted: {', '.join(unknown)}")
+        continue
+      return [known[p] for p in picked]
+
+  @staticmethod
   def getReferenceAntenna() -> str:
     '''Name a reference antenna outright. Only asked in 'manual' mode; enter defers
     to the run-time picker, which lists the ranked antennas once the MS is read.'''

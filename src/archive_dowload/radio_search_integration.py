@@ -340,7 +340,8 @@ class RadioSearchIntegration:
     BANDS for a real band.
     """
     band = options.band if options.band and options.band != 'auto' else ''
-    args = (options.search_alias, 'BANDS', band) if band else (options.search_alias,)
+    #radio_search2 only reads upper-case band codes ('KU', not 'Ku')
+    args = (options.search_alias, 'BANDS', band.upper()) if band else (options.search_alias,)
     #the remote search prints nothing until it finishes, so animate rather than
     #leaving a silent terminal that reads as a hang
     results = []
