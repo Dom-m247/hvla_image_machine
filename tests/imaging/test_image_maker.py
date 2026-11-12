@@ -47,6 +47,33 @@ class SizeImage(unittest.TestCase):
     self.assertFalse(Cleaner.wants_outlier_fields(imaging_options('C', 'A', fov='fixed')))
 
 
+class Gridder(unittest.TestCase):
+  def test_curvature_criterion(self):
+    self.assertTrue(sky.needs_wprojection(15 * 60, 36000, 1.4))    #L band A: half the beam
+    self.assertFalse(sky.needs_wprojection(2 * 60, 36000, 1.4))    #...but not a 4' field
+    self.assertFalse(sky.needs_wprojection(5 * 60, 1000, 4.86))    #C band D
+
+  def choose(self, side, cell, span_m, freq_ghz, fields=()):
+    antennas = [SimpleNamespace(east_offset=0.0, north_offset=0.0),
+                SimpleNamespace(east_offset=span_m, north_offset=0.0)]
+    options = SimpleNamespace(cell_size=f"{cell}arcsec", image_size=[side, side],
+                              outlier_fields=list(fields), calibrated_filename='x',
+                              observation_data=SimpleNamespace(antennas=antennas))
+    with mock.patch.object(sky, 'mean_freq_ghz', return_value=freq_ghz), \
+         mock.patch('classes.run_log.note'):
+      Cleaner.choose_gridder(options)
+    return options.gridder
+
+  def test_wide_low_frequency_images_are_w_projected(self):
+    self.assertEqual(self.choose(4096, 1.12, 36000, 0.33), 'wproject')      #P band A, 76'
+    self.assertEqual(self.choose(1024, 0.26, 36000, 1.4), 'standard')       #L band A, 4.4'
+    self.assertEqual(self.choose(1024, 0.26, 36000, 1.4, [{'imsize': 1024}]), 'standard')
+
+  def test_kwargs(self):
+    self.assertEqual(Cleaner._gridder_kwargs('wproject'), {'gridder': 'wproject', 'wprojplanes': -1})
+    self.assertEqual(Cleaner._gridder_kwargs('standard'), {'gridder': 'standard'})
+
+
 class MaskKwargs(unittest.TestCase):
   def test_automatic_imaging_uses_the_vla_automask(self):
     kw = Cleaner._mask_kwargs(SimpleNamespace(mask='', interactive_image=False))

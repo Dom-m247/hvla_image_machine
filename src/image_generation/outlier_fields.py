@@ -12,6 +12,7 @@ from scipy import ndimage
 
 from API_integrations.catalog_client import nvss_sources
 from classes import image_data, run_log, sky
+from data_calibration.parse_listobs import max_baseline_m
 from classes.constants import (
   CLEAN_PBLIMIT, NVSS_DEC_LIMIT_DEG, NVSS_FREQ_GHZ, NVSS_SEARCH_RADIUS_FWHM, NVSS_SPECTRAL_INDEX,
   OUTLIER_FIELD_MAX_PX, OUTLIER_FIELD_MIN_PX, OUTLIER_FIELD_SUFFIX,
@@ -100,7 +101,7 @@ def _plan(options, cell_arcsec, beam_arcsec):
          f"{PB_EDGE_FWHM * fwhm / 60:.1f}', where tclean stops cleaning")
     return []
 
-  base, cell_s = _sweep(options, vis, fwhm, beam_arcsec)
+  base, cell_s = _sweep(options, vis, fwhm, beam_arcsec, freq_ghz)
   model, cs = _read(base + '.model')
   pb, _ = _read(base + '.pb')
   beam = image_data.beam_from_header(image_data.read_header(base + '.image'))
@@ -150,7 +151,7 @@ def _read(path):
     ia.close()
 
 
-def _sweep(options, vis, fwhm, beam_arcsec):
+def _sweep(options, vis, fwhm, beam_arcsec, freq_ghz):
   '''Clean out to OUTLIER_SWEEP_RADIUS_FWHM, tapered to 3 pixels a beam, down to
   OUTLIER_MIN_APPARENT_JY. Writes no model column. Returns (image base, cell in arcsec).'''
   base = options.image_filename + OUTLIER_SWEEP_SUFFIX
@@ -158,11 +159,16 @@ def _sweep(options, vis, fwhm, beam_arcsec):
     ct.rmtables(str(path)) if path.is_dir() else path.unlink()
   cell = 2 * OUTLIER_SWEEP_RADIUS_FWHM * fwhm / OUTLIER_SWEEP_IMSIZE
   taper = [f"{3 * cell:.3f}arcsec"] if (beam_arcsec or 0) < 3 * cell else []
+  baseline = max_baseline_m(getattr(options.observation_data, 'antennas', None))
+  if taper:   #the taper is the resolution the sweep images at
+    baseline = min(baseline, 299792458.0 / (freq_ghz * 1e9) / math.radians(3 * cell / 3600))
+  wide = sky.needs_wprojection(math.sqrt(2) * OUTLIER_SWEEP_RADIUS_FWHM * fwhm, baseline, freq_ghz)
   _say(f"outlier search: {OUTLIER_SWEEP_IMSIZE} px at {cell:.2f}\" out to "
        f"{OUTLIER_SWEEP_RADIUS_FWHM:g} x the {fwhm / 60:.1f}' primary-beam FWHM"
-       + (f", tapered to {taper[0]}" if taper else ''))
+       + (f", tapered to {taper[0]}" if taper else '') + (', w-projected' if wide else ''))
   ct.tclean(vis=vis, imagename=base, imsize=[OUTLIER_SWEEP_IMSIZE] * 2, cell=f"{cell:.4f}arcsec",
-            specmode='mfs', gridder='standard', deconvolver='hogbom', weighting='natural',
+            specmode='mfs', deconvolver='hogbom', weighting='natural',
+            **({'gridder': 'wproject', 'wprojplanes': -1} if wide else {'gridder': 'standard'}),
             uvtaper=taper, niter=OUTLIER_SWEEP_NITER, threshold=f"{OUTLIER_MIN_APPARENT_JY}Jy",
             nsigma=OUTLIER_SWEEP_NSIGMA, pblimit=CLEAN_PBLIMIT, interactive=False,
             savemodel='none', phasecenter=getattr(options, 'phasecenter', ''))

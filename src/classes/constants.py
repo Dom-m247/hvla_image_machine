@@ -71,6 +71,9 @@ FIELD_OF_VIEW_MODES = (FOV_PRIMARY_BEAM, FOV_FIXED)
 MAIN_IMAGE_PX = 1024
 MAIN_IMAGE_CELLS_PER_BEAM = 5
 MAIN_IMAGE_MAX_FWHM = 2.0         #the main image is never wider than this many PB FWHM
+#w-projection once a field's half-diagonal theta satisfies theta^2 * Bmax/lambda above this;
+#each outlier field is gridded on its own phase centre, so its own size is what counts
+W_PROJECTION_THRESHOLD = 1.0
 #--- outlier fields (image_generation/outlier_fields.py) ---
 #A source outside the main image gets its own tclean field so its sidelobes are cleaned
 #out of the main image; sources come from a shallow, tapered clean of the primary beam.

@@ -4,7 +4,7 @@ import math
 
 import casatools
 
-from classes.constants import PB_FWHM_ARCMIN_GHZ
+from classes.constants import PB_FWHM_ARCMIN_GHZ, W_PROJECTION_THRESHOLD
 
 
 def mean_freq_ghz(vis):
@@ -21,6 +21,13 @@ def mean_freq_ghz(vis):
 def pb_fwhm_arcsec(freq_ghz):
   '''Primary-beam FWHM at a frequency, in arcsec.'''
   return PB_FWHM_ARCMIN_GHZ / freq_ghz * 60
+
+
+def needs_wprojection(radius_arcsec, baseline_m, freq_ghz):
+  '''True when the sky's curvature across a field of this radius matters on this baseline:
+  theta^2 * B / lambda above W_PROJECTION_THRESHOLD.'''
+  theta = math.radians(radius_arcsec / 3600)
+  return theta ** 2 * baseline_m * freq_ghz * 1e9 / 299792458.0 > W_PROJECTION_THRESHOLD
 
 
 def ms_pointing(vis, field=0):

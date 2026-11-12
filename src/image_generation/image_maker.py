@@ -9,6 +9,7 @@ from classes import run_log
 from typing import Any
 from pathlib import Path
 import casatasks as ct
+import math
 import os
 import shutil
 from classes.Loading_Animation import *
@@ -115,7 +116,25 @@ class Cleaner:
       'imsize': options.image_size,
       'pblimit': CLEAN_PBLIMIT,
       'phasecenter': Cleaner.phasecenter(options),
+      **Cleaner._gridder_kwargs(getattr(options, 'gridder', 'standard')),
     }
+
+  @staticmethod
+  def _gridder_kwargs(gridder):
+    return {'gridder': gridder, **({'wprojplanes': -1} if gridder == 'wproject' else {})}
+
+  @staticmethod
+  def choose_gridder(options:Options):
+    '''w-projection when the widest field imaged needs it (sky.needs_wprojection).'''
+    cell = Cleaner._arcsec_value(options.cell_size)
+    side = max([*options.image_size] + [f['imsize'] for f in getattr(options, 'outlier_fields', None) or []])
+    radius = side / math.sqrt(2) * cell
+    baseline = parse.max_baseline_m(getattr(options.observation_data, 'antennas', None))
+    freq = sky.mean_freq_ghz(options.calibrated_filename + '.ms')
+    options.gridder = 'wproject' if sky.needs_wprojection(radius, baseline, freq) else 'standard'
+    if options.gridder == 'wproject':
+      run_log.note('IMAGING', 'Gridder', f"wproject: a {side * cell / 60:.1f}' field on a "
+                                         f"{baseline / 1000:.1f} km baseline at {freq:.3g} GHz")
 
   @staticmethod
   def phasecenter(options:Options):
@@ -159,6 +178,7 @@ class Cleaner:
         action='outlier-field search', target=outlier_fields.plan,
         args=(options, Cleaner._arcsec_value(options.cell_size),
               Cleaner._expected_beam_arcsec(options)))
+    Cleaner.choose_gridder(options)
     #Same stop/mask treatment as every other clean: nsigma stops at the noise floor and
     #auto-multithresh masks when imaging automatically, so an auto run is reproducible
     #without a human. Interactive runs draw their own mask instead (_mask_kwargs).

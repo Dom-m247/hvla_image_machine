@@ -358,23 +358,22 @@ def vla_config_from_antennas(antennas):
   (BnA/CnB/DnC) fall to whichever standard config their longest baseline is
   nearest, which is what matters for sizing the imaging cell. Returns '' if the
   layout is unavailable (too few antennas / missing offsets)."""
-  if not antennas or len(antennas) < 2:
+  max_baseline_km = max_baseline_m(antennas) / 1000.0
+  if not max_baseline_km:
     return ''
-  try:
-    coords = [(a.east_offset, a.north_offset) for a in antennas]
-  except AttributeError:
-    return ''
-  max_baseline = 0.0
-  for i in range(len(coords)):
-    for j in range(i + 1, len(coords)):
-      baseline = math.hypot(coords[i][0] - coords[j][0], coords[i][1] - coords[j][1])
-      if baseline > max_baseline:
-        max_baseline = baseline
-  max_baseline_km = max_baseline / 1000.0
   for threshold, config in _VLA_CONFIG_BY_MAX_BASELINE_KM:
     if max_baseline_km >= threshold:
       return config
   return ''
+
+def max_baseline_m(antennas):
+  """Longest baseline in metres, from the listobs East/North offsets; 0 when unknown."""
+  try:
+    coords = [(a.east_offset, a.north_offset) for a in antennas or []]
+  except AttributeError:
+    return 0.0
+  return max((math.hypot(a[0] - b[0], a[1] - b[1])
+              for i, a in enumerate(coords) for b in coords[i + 1:]), default=0.0)
 
 def antennas_distance(options:Options):
   """calculate and sort antenna distances"""
