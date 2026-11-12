@@ -27,7 +27,7 @@ SEED_KEYS = tuple(k for k in Options.IMPORT_FIELDS + ('cell_size', 'self_cal_cyc
 #decide for itself does, and the opt-in stages stay off.
 BASE_DECISIONS = {'flux_cal': AUTO, 'phase_cal': AUTO, 'refant': AUTO,
                   'flagging': AUTO, 'self_cal': OFF, 'baseline_cal': OFF,
-                  'core_subtract': OFF}
+                  'core_subtract': OFF, 'outlier_fields': OFF}
 
 
 def build(selection, overrides=None, source_name='archive'):

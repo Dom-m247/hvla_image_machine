@@ -4,6 +4,7 @@ from classes.constants import *
 from data_calibration import main_calibrations
 from data_calibration import parse_listobs as parse
 from image_generation import source_fit
+from image_generation import outlier_fields
 from classes import run_log
 from typing import Any
 from pathlib import Path
@@ -43,18 +44,57 @@ class Cleaner:
     return mask if Path(mask).exists() else ''
 
   @staticmethod
-  def _tclean(**kw):
-    '''ct.tclean, re-run in place at AUTOMASK_RETRY_SIDELOBE_THRESHOLD when
-    auto-multithresh found nothing to mask (see constants).'''
+  def _tclean(options, **kw):
+    '''ct.tclean with the run's outlier fields, re-run in place at
+    AUTOMASK_RETRY_SIDELOBE_THRESHOLD when auto-multithresh found nothing to mask.'''
+    kw = {**kw, **outlier_fields.tclean_kwargs(options, kw['imagename'])}
     result = ct.tclean(**kw)
-    if (kw.get('usemask') == 'auto-multithresh' and isinstance(result, dict)
-        and result.get('stopcode') == TCLEAN_STOP_ZERO_MASK):
+    if Cleaner._automask_empty(kw, result):
       retry = (f"{kw['imagename']}: automask empty at the default sidelobethreshold; "
                f"re-cleaning at {AUTOMASK_RETRY_SIDELOBE_THRESHOLD}")
       print(retry)
       run_log.event(retry)
+      kw = {**kw, **outlier_fields.tclean_kwargs(options, kw['imagename'])}  #masks now exist
       result = ct.tclean(**{**kw, 'sidelobethreshold': AUTOMASK_RETRY_SIDELOBE_THRESHOLD})
+      if 'outlierfile' in kw and Cleaner._automask_empty(kw, result):
+        result = Cleaner._clean_outliers_only(options, kw)
     return result
+
+  @staticmethod
+  def _clean_outliers_only(options, kw):
+    '''Re-clean from scratch with the main field held to its centre pixel: tclean stops
+    every field once one field's mask is empty (stopcode 7), outliers included.'''
+    note = (f"{kw['imagename']}: main field still has nothing to mask; re-cleaning so "
+            f"the outlier fields are cleaned")
+    print(note)
+    run_log.event(note)
+    size = kw.get('imsize') or options.image_size
+    nx, ny = (size, size) if isinstance(size, int) else (size[0], size[-1])
+    Cleaner._clear_image(kw['imagename'])  #tclean won't take mask= beside an existing .mask
+    return ct.tclean(**{**kw, **outlier_fields.tclean_kwargs(options, kw['imagename']),
+                        'usemask': 'user',
+                        'mask': f"box[[{nx // 2}pix,{ny // 2}pix],[{nx // 2}pix,{ny // 2}pix]]"})
+
+  @staticmethod
+  def _automask_empty(kw, result):
+    '''True when auto-multithresh masked nothing in the main field. With outlier fields
+    their own masks keep the clean going, so the main field's mask is read instead.'''
+    if kw.get('usemask') != 'auto-multithresh' or not isinstance(result, dict):
+      return False
+    if result.get('stopcode') == TCLEAN_STOP_ZERO_MASK:
+      return True
+    if 'outlierfile' not in kw:
+      return False
+    stats = image_data.imstat_dict(imagename=kw['imagename'] + '.mask')
+    return image_data.first_value(stats.get('max')) == 0
+
+  @staticmethod
+  def _expected_beam_arcsec(options):
+    '''The synthesized beam the band/config tables give, or None.'''
+    try:
+      return BAND_ANGULAR_RESOLUTION[options.band][Cleaner._config_index(options)]
+    except (KeyError, IndexError, TypeError):
+      return None
 
   @staticmethod
   def _tclean_kwargs(options:Options) -> dict[str, Any]:
@@ -81,6 +121,11 @@ class Cleaner:
     '''The initial clean: the baseline every self-cal cycle is scored against. Same
     params as the cycles (_tclean_kwargs); niter is the deliberate exception.'''
     options.cell_size = Cleaner.find_cell_size(options)
+    if options.decision('outlier_fields') != OFF:
+      LoadingAnimation.performing_action(
+        action='outlier-field search', target=outlier_fields.plan,
+        args=(options, Cleaner._arcsec_value(options.cell_size),
+              Cleaner._expected_beam_arcsec(options)))
     #Same stop/mask treatment as every other clean: nsigma stops at the noise floor and
     #auto-multithresh masks when imaging automatically, so an auto run is reproducible
     #without a human. Interactive runs draw their own mask instead (_mask_kwargs).
@@ -89,7 +134,7 @@ class Cleaner:
       #shallow: this model only has to feed the first gaincal, not be a finished image
       niter = SELF_CAL_INITIAL_NITER
     #add nmajor=1/2 instead of lowering niter?
-    Cleaner._tclean(imagename=options.image_filename,
+    Cleaner._tclean(options, imagename=options.image_filename,
                   niter=niter,
                   **Cleaner._tclean_kwargs(options),
                   **mask_kwargs
@@ -112,7 +157,7 @@ class Cleaner:
 
     `mask`: a saved/carried mask to reuse for this clean (see _mask_kwargs).'''
     name = options.image_filename + '_' + str(label)
-    Cleaner._tclean(imagename=name,
+    Cleaner._tclean(options, imagename=name,
                   niter=CLEAN_NITER,
                   **Cleaner._tclean_kwargs(options),
                   **Cleaner._mask_kwargs(options, mask, nsigma)
@@ -172,7 +217,7 @@ class Cleaner:
       Cleaner._clear_image(name)  #a test image is always a fresh look, never a restart
       print(f"\nTest image {attempt + 1}: cell={options.cell_size}, "
             f"imsize={options.image_size}, robust={options.robust}")
-      Cleaner._tclean(**{**Cleaner._tclean_kwargs(options), 'imagename': name,
+      Cleaner._tclean(options, **{**Cleaner._tclean_kwargs(options), 'imagename': name,
                    'niter': TEST_IMAGE_NITER, 'interactive': False,
                    **Cleaner._mask_kwargs(options)})
       png = Cleaner.export_png(name)
@@ -212,11 +257,12 @@ class Cleaner:
 
     tclean refuses to start when an existing <base>.mask sits beside an explicit
     mask= selection, and would otherwise restart from stale residuals.'''
-    for path in sorted(Path().glob(base + '.*')):
-      try:
-        ct.rmtables(str(path)) if path.is_dir() else path.unlink()
-      except Exception as e:
-        print(f"could not remove {path}: {e}")
+    for pattern in (base + '.*', *outlier_fields.product_globs(base)):
+      for path in sorted(Path().glob(pattern)):
+        try:
+          ct.rmtables(str(path)) if path.is_dir() else path.unlink()
+        except Exception as e:
+          print(f"could not remove {path}: {e}")
 
   @staticmethod
   def _core_mask(options, image):
@@ -288,8 +334,8 @@ class Cleaner:
     LoadingAnimation.performing_action(action='uvsub (core subtraction)',
                                        target=ct.uvsub, args=(sub_vis,))
     #3) image what is left
-    Cleaner._tclean(**{**shared, 'vis': sub_vis, 'imagename': name, 'niter': CLEAN_NITER,
-                       **Cleaner._mask_kwargs(options)})
+    Cleaner._tclean(options, **{**shared, 'vis': sub_vis, 'imagename': name,
+                                'niter': CLEAN_NITER, **Cleaner._mask_kwargs(options)})
     ct.impbcor(imagename=name+'.image.tt0', pbimage=name+'.pb.tt0',
                outfile=name+'.pbcorimage', overwrite=True)
     Cleaner.export_png(name)
@@ -740,6 +786,9 @@ class Cleaner:
       Cleaner._copy_tree_into(mask, mask_dest)
       options.mask = str(mask_dest)
       print(f"results: saved clean mask -> {mask_dest} (import.json will reference it)")
+
+    #3b2) the best image's outlier fields and target field, as FITS
+    outlier_fields.export(options, base, results_dir, name)
 
     #3c) core-subtracted (jet) image, when core subtraction ran: FITS + pbcor + PNG,
     #    named .coresub so it never collides with the main image's products

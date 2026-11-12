@@ -354,7 +354,7 @@ def antennas_distance(options:Options):
     distance = math.sqrt(pow(antenna.east_offset,2)+pow(antenna.north_offset,2))
     pair = {'id': antenna.name, 'distance': distance}
     distance_list.append(pair)
-    if distance < bestdistance:
+    if distance < bestdistance:       
       bestdistance = distance
   return sorted(distance_list, key=lambda x: x['distance'])
   #stuff?

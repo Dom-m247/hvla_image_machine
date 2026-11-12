@@ -58,6 +58,26 @@ CORE_MASK_BEAMS = 2
 #subtraction is warned about (not skipped -- it is a product the user asked for).
 MIN_FLUX_FOR_CORE_SUBTRACT = 0.02 #Jy/beam
 CORE_SUBTRACT_SUFFIX = '_coresub'  #image name; the subtracted MS is <calibrated>_sub.ms
+#--- outlier fields (image_generation/outlier_fields.py) ---
+#A source outside the main image gets its own tclean field so its sidelobes are cleaned
+#out of the main image; sources come from a shallow, tapered clean of the primary beam.
+PB_FWHM_ARCMIN_GHZ = 43.0          #CASA's VLA beam model: 8.62' FWHM at 4.985 GHz (scales 1/freq)
+PB_EDGE_FWHM = 1.05                #that beam meets |CLEAN_PBLIMIT| at 1.045 FWHM; tclean cleans inside
+OUTLIER_SWEEP_RADIUS_FWHM = 1.25   #the search looks past that edge, to warn about what it can't field
+OUTLIER_SWEEP_IMSIZE = 1024
+OUTLIER_SWEEP_NITER = 20000        #safety cap; the threshold/nsigma below is the real stop
+OUTLIER_SWEEP_NSIGMA = 5.0
+OUTLIER_MIN_APPARENT_JY = 0.005    #beam-attenuated flux that earns a field
+OUTLIER_SWEEP_DYNAMIC_RANGE = 1000 #fainter than brightest/this is likely its calibration errors
+OUTLIER_MERGE_BEAMS = 2            #components this close (search beams) are one source
+OUTLIER_MARGIN_BEAMS = 3           #search beams of padding around a source's components
+OUTLIER_MAX_FIELDS = 20            #brightest first
+OUTLIER_FIELD_MIN_PX = 128
+OUTLIER_FIELD_MAX_PX = 1024
+OUTLIER_TARGET_FIELD_PX = 512
+OUTLIER_FIELD_SUFFIX = '_outlier'  #+ two digits; the target's field is TARGET_FIELD_SUFFIX
+TARGET_FIELD_SUFFIX = '_targetfield'
+OUTLIER_SWEEP_SUFFIX = '_pbsweep'
 #--- test image ---
 #A quick, shallow clean shown before the real imaging so cell/image size/robust can be
 #judged on this data rather than guessed. Cheap on purpose: it is thrown away.
@@ -227,6 +247,7 @@ DECISIONS = {
   'self_cal':     {'label': 'Self-calibration',     'modes': (OFF, AUTO, GUIDED),    'default': OFF,  'gui': 'image'},
   'baseline_cal': {'label': 'Baseline cal (blcal)', 'modes': (OFF, AUTO, VERIFY),    'default': OFF,  'gui': 'image'},
   'core_subtract':{'label': 'Core subtraction',     'modes': (OFF, AUTO, MANUAL),    'default': OFF,  'gui': 'image'},
+  'outlier_fields':{'label': 'Outlier fields',      'modes': (OFF, AUTO),            'default': OFF,  'gui': 'image'},
 }
 
 

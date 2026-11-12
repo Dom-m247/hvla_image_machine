@@ -121,8 +121,10 @@ dashes, e.g. `--batch-size`, except `--no-cleanup`, `--no-keep-ms` and `--max-se
 **`seed`** sets any `import.json` key except the ones that describe the
 observation (`source`, `archive_file(s)`, `band`, `proj_code`, NED fields). Those
 always come from the selected observation. `decisions` is merged key by key into
-the baseline (everything `auto`, with self-cal, blcal and core subtraction `off`),
-so a preset only lists what it changes. The defaults are in `harness/seed.py`
+the baseline (everything `auto`, with self-cal, blcal, core subtraction and
+outlier fields `off`), so a preset only lists what it changes. Set
+`"outlier_fields": "auto"` for epochs pointed away from the target: bright sources
+outside the main image get their own clean field, and so does the target. The defaults are in `harness/seed.py`
 (`recipe`).
 
 Presets are checked when they load, before any network call. The sweep refuses

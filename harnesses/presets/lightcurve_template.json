@@ -24,7 +24,8 @@
       "flagging": "auto",
       "self_cal": "off",
       "baseline_cal": "off",
-      "core_subtract": "off"
+      "core_subtract": "off",
+      "outlier_fields": "off"
     },
     "reference_antenna": "auto",
     "flagging_methods": ["tfcrop"],
