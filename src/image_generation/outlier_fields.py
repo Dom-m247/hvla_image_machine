@@ -88,7 +88,7 @@ def export(options, base, results_dir, name):
 
 def _plan(options, cell_arcsec, beam_arcsec):
   vis = options.calibrated_filename + '.ms'
-  freq_ghz, frame = _observing(vis)
+  freq_ghz, frame = _observing(vis), 'J2000'
   fwhm = PB_FWHM_ARCMIN_GHZ / freq_ghz * 60  #arcsec
   nx, ny = _image_size(options.image_size)
   main_half = (nx * cell_arcsec / 2, ny * cell_arcsec / 2)
@@ -141,15 +141,14 @@ def _read(path):
 
 
 def _observing(vis):
-  '''(mean frequency in GHz, direction frame) of the calibrated MS.'''
+  '''Mean frequency of the calibrated MS, in GHz.'''
   msmd = casatools.msmetadata()
   msmd.open(vis)
   try:
     freq = float(np.mean([msmd.meanfreq(s) for s in range(msmd.nspw())]))
-    frame = msmd.phasecenter(0)['refer']
   finally:
     msmd.close()
-  return freq / 1e9, frame
+  return freq / 1e9
 
 
 def _sweep(options, vis, fwhm, beam_arcsec):
@@ -167,7 +166,7 @@ def _sweep(options, vis, fwhm, beam_arcsec):
             specmode='mfs', gridder='standard', deconvolver='hogbom', weighting='natural',
             uvtaper=taper, niter=OUTLIER_SWEEP_NITER, threshold=f"{OUTLIER_MIN_APPARENT_JY}Jy",
             nsigma=OUTLIER_SWEEP_NSIGMA, pblimit=CLEAN_PBLIMIT, interactive=False,
-            savemodel='none')
+            savemodel='none', phasecenter=getattr(options, 'phasecenter', ''))
   return base, cell
 
 

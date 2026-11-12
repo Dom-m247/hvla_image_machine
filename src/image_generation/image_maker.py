@@ -1,4 +1,4 @@
-from classes import image_data
+from classes import image_data, sky
 from pre_calibration.options_class import Options
 from classes.constants import *
 from data_calibration import main_calibrations
@@ -114,13 +114,23 @@ class Cleaner:
       'cell': options.cell_size,
       'imsize': options.image_size,
       'pblimit': CLEAN_PBLIMIT,
+      'phasecenter': Cleaner.phasecenter(options),
     }
+
+  @staticmethod
+  def phasecenter(options:Options):
+    '''The pointing in J2000, so every image is J2000 whatever frame the data is in.'''
+    if not getattr(options, 'phasecenter', ''):
+      options.pointing = sky.ms_pointing(options.calibrated_filename + '.ms')
+      options.phasecenter = sky.phasecenter(*options.pointing)
+    return options.phasecenter
 
   @staticmethod
   def initial_cycle(options:Options, niter=CLEAN_NITER):
     '''The initial clean: the baseline every self-cal cycle is scored against. Same
     params as the cycles (_tclean_kwargs); niter is the deliberate exception.'''
     options.cell_size = Cleaner.find_cell_size(options)
+    Cleaner.phasecenter(options)
     if options.decision('outlier_fields') != OFF:
       LoadingAnimation.performing_action(
         action='outlier-field search', target=outlier_fields.plan,
