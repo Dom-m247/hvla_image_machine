@@ -203,6 +203,17 @@ class Cleaner:
     return ct.imstat(imagename=options.image_filename+'.image.tt0')
   
   @staticmethod
+  def cleaned_flux(options:Options, base):
+    '''Flux in Jy that a clean put in the models of `base` and of its outlier fields.'''
+    total = 0.0
+    for field_base in [base] + [base + f['suffix'] for f in getattr(options, 'outlier_fields', None) or []]:
+      model = next((field_base + ext for ext in ('.model.tt0', '.model')
+                    if Path(field_base + ext).is_dir()), '')
+      if model:
+        total += image_data.first_value(image_data.imstat_dict(imagename=model).get('sum')) or 0.0
+    return total
+
+  @staticmethod
   def _clean_and_measure(options:Options, label, mask=None, nsigma=None):
     '''Clean the (re-calibrated) source MS into <image_filename>_<label>, pbcor + PNG
     it, and return imstat on the flat-noise restored image. Shared by the self-cal and
@@ -570,15 +581,15 @@ class Cleaner:
     run_log.cycle('initial', dynamic_range=best['dr'], decision='baseline to beat')
 
     if options.do_self_cal:
-      peak = initial.peak()
-      if peak is None or peak < MIN_FLUX_FOR_SELF_CAL or best['dr'] <= 0:
-        #self-cal on a too-faint source (or a degenerate zero-RMS image) just solves
+      #judged on the whole field: the solve uses every source cleaned, not just the target
+      cleaned = Cleaner.cleaned_flux(options, fn)
+      if cleaned < MIN_FLUX_FOR_SELF_CAL or best['dr'] <= 0:
+        #self-cal on a too-faint field (or a degenerate zero-RMS image) just solves
         #the noise -> skip it entirely
-        measured = 'unmeasurable' if peak is None else f"{peak:.3g}"
-        print(f"Peak {measured} Jy/beam < {MIN_FLUX_FOR_SELF_CAL} floor (or non-positive DR) "
-              f"-> too faint to self-cal; keeping the initial image.")
-        run_log.cycle('self-cal', decision=f"SKIPPED -- peak {measured} Jy/beam below the "
-                                           f"{MIN_FLUX_FOR_SELF_CAL} Jy/beam floor")
+        print(f"Cleaned flux {cleaned:.3g} Jy < {MIN_FLUX_FOR_SELF_CAL} Jy floor (or non-positive "
+              f"DR) -> too faint to self-cal; keeping the initial image.")
+        run_log.cycle('self-cal', decision=f"SKIPPED -- {cleaned:.3g} Jy cleaned in the field, "
+                                           f"below the {MIN_FLUX_FOR_SELF_CAL} Jy floor")
       else:
         schedule = Cleaner._solint_schedule(options, max(0, options.self_cal_cycles))
         prev_dr = best['dr']

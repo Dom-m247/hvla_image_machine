@@ -31,7 +31,7 @@ DEFAULT_IMAGE_SIZE = [1080,1080] # keep me a perfect Square!
 INITIAL_NITER = 250 # half of niter from tutorial
 MIN_SNR = 3.0 #a default min SNR for gaincal
 FIRST_IMAGE = 'image'
-MIN_FLUX_FOR_SELF_CAL = 0.02 #Jy/beam; skip self-cal below this peak (too faint to solve on)
+MIN_FLUX_FOR_SELF_CAL = 0.02 #Jy; skip self-cal when the field's cleaned flux is below this
 #Baseline (blcal) calibration solves ~N^2/2 per-baseline terms, so it needs far more
 #SNR than antenna-based self-cal and can absorb real structure -> higher peak floor.
 MIN_FLUX_FOR_BASELINE_CAL = 0.1 #Jy/beam; opt-in blcal only runs on bright sources above this

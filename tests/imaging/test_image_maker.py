@@ -74,6 +74,29 @@ class Gridder(unittest.TestCase):
     self.assertEqual(Cleaner._gridder_kwargs('standard'), {'gridder': 'standard'})
 
 
+def write_image(path, value_at):
+  '''A 16x16 CASA image, zero but for {(x, y): value}.'''
+  import casatools
+  import numpy as np
+  pixels = np.zeros((16, 16, 1, 1))
+  for (x, y), value in value_at.items():
+    pixels[x, y, 0, 0] = value
+  ia = casatools.image()
+  ia.fromarray(outfile=path, pixels=pixels, overwrite=True)
+  ia.close()
+
+
+class CleanedFlux(unittest.TestCase):
+  def test_main_and_outlier_models_add_up(self):
+    with tempfile.TemporaryDirectory() as tmp:
+      base = f"{tmp}/run"
+      write_image(base + '.model.tt0', {(3, 3): 0.010, (8, 8): 0.004})
+      write_image(base + '_outlier01.model.tt0', {(5, 5): 0.012})
+      options = SimpleNamespace(outlier_fields=[{'suffix': '_outlier01'}, {'suffix': '_outlier02'}])
+      self.assertAlmostEqual(Cleaner.cleaned_flux(options, base), 0.026)
+      self.assertAlmostEqual(Cleaner.cleaned_flux(SimpleNamespace(), base), 0.014)
+
+
 class MaskKwargs(unittest.TestCase):
   def test_automatic_imaging_uses_the_vla_automask(self):
     kw = Cleaner._mask_kwargs(SimpleNamespace(mask='', interactive_image=False))
