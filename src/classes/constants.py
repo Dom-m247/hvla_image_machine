@@ -19,6 +19,7 @@ BANDPASS_B0 = '.B0'
 GAINCAL_G1 = '.G1'
 FLUXSCALE_X = '.fluxscale' # + '1','2' ..etc
 CALIBRATED_MS = 'source' #final calibrated ms for imaging
+MAX_IMAGING_CHANNELS = 16 #the calibrated split averages each spw down to at most this
 
 GAINCAL_G2 = '.G2'
 SELF_CAL= '.selfcal'

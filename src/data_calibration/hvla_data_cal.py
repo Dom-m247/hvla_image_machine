@@ -1,4 +1,5 @@
 import casatasks as ct
+import math
 import re
 import shutil
 import sys,os
@@ -207,9 +208,24 @@ def calibrated_split(options:Options):
     print(f"The calibrated data exists, not splitting")
     ct.casalog.post(f"{options.initial_calibration_filename+'.ms'} -> {options.calibrated_filename+'.ms'}")
   else:
-    ct.split(vis=options.initial_calibration_filename+'.ms',outputvis=options.calibrated_filename+'.ms',datacolumn = 'corrected', field=options.source_ids.casa_field)
+    widths = channel_widths(options.initial_calibration_filename+'.ms')
+    average = {'width': widths} if any(w > 1 for w in widths) else {}
+    if average:
+      run_log.note('CALIBRATION', 'Channel averaging',
+                   f"width {widths} per spw, to at most {MAX_IMAGING_CHANNELS} channels")
+    ct.split(vis=options.initial_calibration_filename+'.ms',outputvis=options.calibrated_filename+'.ms',datacolumn = 'corrected', field=options.source_ids.casa_field, **average)
     ct.casalog.post(f"{options.initial_calibration_filename+'.ms'} -> {options.calibrated_filename+'.ms'}")
   parse.log_listobs(options.calibrated_filename,options)
+
+def channel_widths(vis):
+  """Per-spw split width averaging each spw to at most MAX_IMAGING_CHANNELS channels."""
+  import casatools
+  msmd = casatools.msmetadata()
+  msmd.open(vis)
+  try:
+    return [max(1, math.ceil(msmd.nchan(spw) / MAX_IMAGING_CHANNELS)) for spw in range(msmd.nspw())]
+  finally:
+    msmd.close()
 
 def build_setjy(options):
   #the split calibration runs on; a model set on the full MS doesn't carry over
