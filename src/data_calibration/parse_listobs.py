@@ -161,14 +161,16 @@ def parse_observations(listobs_text):
 
   # Lines with full date prefix: "DD-Mon-YYYY/HH:MM:SS.s - HH:MM:SS.s  scan fld name nrows [spw] [intv]"
   # The average-interval bracket can be fractional (e.g. [3.33, 3.33]), so allow '.'
+  # The name is lazy: it may hold spaces ('NGC 4565_1'), so it ends where the
+  # nRows + bracket tail begins
   FULL_RE = re.compile(
     r'(\d{2}-\w+-\d{4})/(\d{2}:\d{2}:\d{2}\.\d+)\s*-\s*(\d{2}:\d{2}:\d{2}\.\d+)\s+'
-    r'(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+(\[[\d,\s]+\])\s+(\[[\d,\s.]+\])'
+    r'(\d+)\s+(\d+)\s+(.+?)\s+(\d+)\s+(\[[\d,\s]+\])\s+(\[[\d,\s.]+\])'
   )
   # Continuation lines with time only (date carried forward from previous full line)
   TIME_RE = re.compile(
     r'(\d{2}:\d{2}:\d{2}\.\d+)\s*-\s*(\d{2}:\d{2}:\d{2}\.\d+)\s+'
-    r'(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+(\[[\d,\s]+\])\s+(\[[\d,\s.]+\])'
+    r'(\d+)\s+(\d+)\s+(.+?)\s+(\d+)\s+(\[[\d,\s]+\])\s+(\[[\d,\s.]+\])'
   )
 
   observations = []
@@ -226,18 +228,43 @@ def parse_sources(listobs_text):
     if not line.strip() or 'ID' in line:
       continue
     parts = line.split()
-    # Sources line format:
-    # Parts: [0]ID [1]Name [2]SpwID [3]RestFreq [4]SysVel
+    # Sources line format: ID Name SpwID RestFreq SysVel; a name may hold spaces,
+    # so it is whatever sits between the ID and the last three columns
     if len(parts) >= 5:
       source = {
         'id': int(parts[0]),
-        'name': parts[1],
-        'SpwId': parts[2],
-        'RestFreq': float(parts[3]),
-        'SysVel': float(parts[4]),  
+        'name': ' '.join(parts[1:-3]),
+        'SpwId': parts[-3],
+        'RestFreq': float(parts[-2]),
+        'SysVel': float(parts[-1]),
       }
       sources.append(source)
   return sources
+
+
+#a field row's tail: RA, Decl, Epoch (+SrcId when listobs runs them together, as in
+#'B1950_VLA0'), then SrcId and/or nRows. Everything before it is ID, Code and Name.
+FIELD_TAIL = re.compile(
+  r'^\s*(\d+)\s+(.*?)\s*(\d{1,2}:\d{2}:\d{2}\.\d*)\s+([+\-]?[\d.]+)\s+([\w_]+)\s+(\d+)(?:\s+(\d+))?\s*$')
+
+
+def _split_code_name(line, head, code_col, name_col):
+  '''(code, name) from the text between a field row's ID and its RA. The Code column is
+  one letter or blank, so it is read by its header position; the name is the rest.'''
+  code = None
+  if code_col is not None and name_col is not None and name_col <= len(line):
+    token = line[code_col:name_col].strip()
+    if re.fullmatch(r'[A-Z]', token):
+      code = token
+  name = head.strip()
+  if code and name.startswith(code) and name[len(code):].startswith(' '):
+    name = name[len(code):].strip()
+  elif code is None and code_col is None:
+    #no header to read the column from: a lone leading capital is the code
+    match = re.match(r'([A-Z])\s+(\S.*)$', name)
+    if match:
+      code, name = match.group(1), match.group(2).strip()
+  return code, name
 
 def parse_fields(listobs_text):
   '''Parse fields section, handling empty Code field and long epoch names'''
@@ -247,28 +274,32 @@ def parse_fields(listobs_text):
   
   fields = []
   lines = fields_section.group(1).strip().split('\n')
-  
+  code_col = name_col = None
+
   for line in lines:
-    if not line.strip() or 'ID' in line:
+    if not line.strip():
       continue
-    
-    # Use regex to parse: ID [Code] Name RA Decl Epoch SrcId nRows
-    # Code is optional (single letter or empty)
-    # Epoch can contain letters, numbers, and underscores (e.g., B1950_VLA0, J2000)
-    match = re.match(r'\s*(\d+)\s+([A-Z]?)\s+(\S+)\s+([\d:.]+)\s+([\d+\-.]+)\s+([\w_]+)\s+(\d+)(?:\s+(\d+))?', line)
+    if re.match(r'\s*ID\s+Code\s+Name', line):
+      #the header fixes where the one-letter Code column and the Name column start
+      code_col, name_col = line.index('Code'), line.index('Name')
+      continue
+    # ID [Code] Name RA Decl Epoch SrcId nRows. Code is optional; the name may hold
+    # spaces ('NGC 4565_1'); Epoch can run into SrcId ('B1950_VLA0')
+    match = FIELD_TAIL.match(line)
     if match:
+      code, name = _split_code_name(line, match.group(2), code_col, name_col)
       # Handle case where SrcId and nRows might both be present or just nRows
-      src_id = int(match.group(7))
-      nrows = int(match.group(8)) if match.group(8) else int(match.group(7))
-      
+      src_id = int(match.group(6))
+      nrows = int(match.group(7)) if match.group(7) else int(match.group(6))
+
       field = {
         'id': int(match.group(1)),
-        'code': match.group(2) if match.group(2) else None,  # None if empty
-        'name': match.group(3),
-        'ra': match.group(4),
-        'decl': match.group(5),
-        'epoch': match.group(6),
-        'src_id': src_id if match.group(8) else None,
+        'code': code,
+        'name': name,
+        'ra': match.group(3),
+        'decl': match.group(4),
+        'epoch': match.group(5),
+        'src_id': src_id if match.group(7) else None,
         'nrows': nrows
       }
       fields.append(field)

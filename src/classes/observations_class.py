@@ -23,9 +23,12 @@ def vla_antenna_name(name):
 
 def casa_field(name):
   """A field name as a CASA field selection. An all-digit name ('02093547') would be
-  read as a field ID, so it is double-quoted to force name matching."""
+  read as a field ID, and one with spaces or selection syntax ('NGC 4565_1', 'A,B')
+  would be split, so those are double-quoted to force name matching."""
   text = str(name or '')
-  return f'"{text}"' if text.isdigit() else text
+  if text.isdigit() or not re.fullmatch(r'[A-Za-z0-9_+\-.]+', text):
+    return f'"{text}"' if text else text
+  return text
 
 
 class Obs_information:
