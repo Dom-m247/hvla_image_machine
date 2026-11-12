@@ -34,7 +34,7 @@ class Cleaner:
       kw['usemask'] = 'user'
       kw['mask'] = str(use_mask)
     elif not options.interactive_image:
-      kw['usemask'] = 'auto-multithresh'
+      kw.update(usemask='auto-multithresh', **AUTOMASK_KWARGS)
     return kw
 
   @staticmethod
