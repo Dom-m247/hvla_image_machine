@@ -1,7 +1,9 @@
 import casatasks as ct
+import json
 import math
 import re
 import shutil
+import subprocess
 import sys,os
 
 from classes import CLI_input
@@ -10,7 +12,7 @@ from classes.source_class import source_info
 from classes.Loading_Animation import LoadingAnimation
 from classes.constants import *
 from classes import *
-from classes import run_log
+from classes import call_recorder, run_log
 from pre_calibration.options_class import Options #self referential problem/
 from pathlib import Path
 
@@ -133,10 +135,10 @@ def do_vla_import(archive_files,output_ms:str,project=''):
 
 def _importvla(archive_files, vis, project):
   if not project:
-    ct.importvla(archivefiles=archive_files,vis=vis)
+    run_importvla(archivefiles=archive_files,vis=vis)
     return
   try:
-    ct.importvla(archivefiles=archive_files,vis=vis,project=project)
+    run_importvla(archivefiles=archive_files,vis=vis,project=project)
   except Exception:
     if _ms_rows(vis):
       raise   #the filter matched; the failure is the import's own
@@ -145,7 +147,21 @@ def _importvla(archive_files, vis, project):
     print(f"No records for project {project} in {archive_files}; importing every project in them.")
     run_log.event(f"importvla: project {project} matched nothing; importing unfiltered")
     shutil.rmtree(vis, ignore_errors=True)
-    ct.importvla(archivefiles=archive_files,vis=vis)
+    run_importvla(archivefiles=archive_files,vis=vis)
+
+IMPORT_CHILD = Path(__file__).with_name('import_child.py')
+
+def run_importvla(**kwargs):
+  """ct.importvla(**kwargs) in a child process; raises RuntimeError with its message."""
+  call_recorder.record('importvla', kwargs)
+  args = json.dumps({'kwargs': kwargs, 'logfile': ct.casalog.logfile()})
+  done = subprocess.run([sys.executable, str(IMPORT_CHILD), args], capture_output=True, text=True)
+  lines = [line for line in done.stdout.splitlines() if line.startswith('{')]
+  if done.returncode or not lines:
+    raise RuntimeError(f"importvla process exited {done.returncode}: "
+                       f"{(done.stderr.strip().splitlines() or ['no output'])[-1][-300:]}")
+  if error := json.loads(lines[-1]).get('error'):
+    raise RuntimeError(error)
 
 def _ms_rows(table):
   """Rows in a table (an MS, or one of its subtables); 0 when missing or unreadable."""

@@ -50,6 +50,12 @@ def start():
   _active = True
 
 
+def record(name, kwargs):
+  """Add a task call made in another process to the replay, in order."""
+  if _active:
+    _calls.append(_format_call(name, (), kwargs))
+
+
 def stop():
   """Restore the original (unrecorded) tasks."""
   global _active
