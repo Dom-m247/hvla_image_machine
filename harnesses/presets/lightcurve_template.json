@@ -40,6 +40,7 @@
     "self_cal_cycles": 4,
     "rms_region": "",
     "image_filename": null,
+    "field_of_view": "primary_beam",
     "image_size": [1080, 1080],
     "interactive_image": false,
     "use_custom_cell_size": false,

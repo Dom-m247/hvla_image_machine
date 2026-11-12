@@ -62,6 +62,15 @@ CORE_MASK_BEAMS = 2
 #subtraction is warned about (not skipped -- it is a product the user asked for).
 MIN_FLUX_FOR_CORE_SUBTRACT = 0.02 #Jy/beam
 CORE_SUBTRACT_SUFFIX = '_coresub'  #image name; the subtracted MS is <calibrated>_sub.ms
+#--- field of view ---
+#'primary_beam' sizes the main image itself, on the pointing, and gives every bright source
+#outside it an outlier field; 'fixed' images image_size at the run's cell, no outlier
+#fields unless that decision asks for them (the GUI's choice, and older import.json's)
+FOV_PRIMARY_BEAM, FOV_FIXED = 'primary_beam', 'fixed'
+FIELD_OF_VIEW_MODES = (FOV_PRIMARY_BEAM, FOV_FIXED)
+MAIN_IMAGE_PX = 1024
+MAIN_IMAGE_CELLS_PER_BEAM = 5
+MAIN_IMAGE_MAX_FWHM = 2.0         #the main image is never wider than this many PB FWHM
 #--- outlier fields (image_generation/outlier_fields.py) ---
 #A source outside the main image gets its own tclean field so its sidelobes are cleaned
 #out of the main image; sources come from a shallow, tapered clean of the primary beam.

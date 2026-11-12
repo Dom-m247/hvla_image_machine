@@ -28,8 +28,9 @@ from classes.CLI_input import CLI                             # noqa: E402
 from classes.Loading_Animation import LoadingAnimation       # noqa: E402
 from classes.image_data import first_value, imstat_dict       # noqa: E402
 from classes.constants import (                               # noqa: E402
-  AUTO, BAND_GHZ_RANGES, DECISIONS, DEFAULT_IMAGE_SIZE, FLAG_METHODS_DEFAULT,
-  FOLDER_NAME, FORCE, IMPORT_JSON, MIN_SNR, MS_SUB_PATH, OFF, CLEAN_ROBUST,
+  AUTO, BAND_GHZ_RANGES, DECISIONS, DEFAULT_IMAGE_SIZE, FIELD_OF_VIEW_MODES,
+  FLAG_METHODS_DEFAULT, FOLDER_NAME, FORCE, FOV_PRIMARY_BEAM, IMPORT_JSON, MIN_SNR,
+  MS_SUB_PATH, OFF, CLEAN_ROBUST,
 )
 from pre_calibration.import_settings import revmove_path      # noqa: E402
 from pre_calibration.options_class import Options             # noqa: E402
@@ -48,7 +49,8 @@ VENV_PYTHON = REPO_ROOT / '.hvla_env' / 'bin' / 'python'
 PRE_EVLA_YEAR = CLI.RADIO_SEARCH_HIGHLIGHT_YEAR
 
 __all__ = [
-  'AUTO', 'BAND_GHZ_RANGES', 'CLEAN_ROBUST', 'CLI', 'DECISIONS',
+  'AUTO', 'BAND_GHZ_RANGES', 'CLEAN_ROBUST', 'CLI', 'DECISIONS', 'FIELD_OF_VIEW_MODES',
+  'FOV_PRIMARY_BEAM',
   'DEFAULT_IMAGE_SIZE', 'DelosDownload', 'FLAG_METHODS_DEFAULT', 'FOLDER_NAME', 'FORCE',
   'IMPORT_JSON', 'LoadingAnimation', 'MAIN_SCRIPT', 'MIN_SNR', 'MS_SUB_PATH', 'NED_API', 'OFF',
   'first_value', 'imstat_dict',

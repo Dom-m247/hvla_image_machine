@@ -30,7 +30,7 @@ class CLI:
       options.flagging_methods = CLI.getFlaggingMethods()
     options.min_snr = CLI.getMinSNR()
     options.image_filename = CLI.getImageFilename()
-    options.image_size = CLI.getImageSize()
+    CLI.getFieldOfView(options)
     options.interactive_image = CLI.getYesNo("Enable interactive imaging?")
     options.use_custom_cell_size = CLI.getYesNo("Use a custom cell size?")
     if options.use_custom_cell_size:
@@ -40,6 +40,15 @@ class CLI:
     options.test_image = CLI.getYesNo("Make a test image first (to check cell/image size)?")
     if options.do_self_cal:   #set by the self_cal decision above
       options.self_cal_cycles = CLI.getSelfCalCycles()
+
+  @staticmethod
+  def getFieldOfView(options:Options):
+    '''Primary-beam field (sized automatically) or a fixed image size.'''
+    options.field_of_view = CLI._select('Field of view (primary_beam images the whole beam, '
+                                        'with outlier fields)', list(FIELD_OF_VIEW_MODES),
+                                        FOV_PRIMARY_BEAM)
+    if options.field_of_view == FOV_FIXED:
+      options.image_size = CLI.getImageSize()
 
 
   @staticmethod
@@ -59,7 +68,7 @@ class CLI:
       options.flagging_methods = CLI.getFlaggingMethods()
     options.min_snr = CLI.getMinSNR()
     options.image_filename = CLI.getImageFilename()
-    options.image_size = CLI.getImageSize()
+    CLI.getFieldOfView(options)
     options.interactive_image = CLI.getYesNo("Enable interactive imaging?")
     options.use_custom_cell_size = CLI.getYesNo("Use a custom cell size?")
     if options.use_custom_cell_size:

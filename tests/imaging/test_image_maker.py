@@ -2,9 +2,49 @@
 import tempfile
 import unittest
 from types import SimpleNamespace
+from unittest import mock
 
+from classes import sky
 from classes.constants import AUTOMASK_KWARGS, SELF_CAL_NSIGMA
 from image_generation.image_maker import Cleaner
+
+
+def imaging_options(band, config, fov='primary_beam', custom_cell=''):
+  return SimpleNamespace(field_of_view=fov, band=band, array_config=config,
+                         use_custom_cell_size=bool(custom_cell), cell_size=custom_cell,
+                         image_size=[256, 256], calibrated_filename='x',
+                         observation_data=SimpleNamespace(antennas=[]),
+                         decision=lambda name: 'off')
+
+
+class SizeImage(unittest.TestCase):
+  def size(self, options, freq_ghz):
+    with mock.patch.object(sky, 'mean_freq_ghz', return_value=freq_ghz), \
+         mock.patch('classes.run_log.note'):
+      Cleaner.size_image(options)
+    return options.cell_size, options.image_size
+
+  def test_primary_beam_field_is_1024_px_at_a_fifth_of_a_beam(self):
+    self.assertEqual(self.size(imaging_options('C', 'A'), 4.86), ('0.066arcsec', [1024, 1024]))
+
+  def test_never_wider_than_twice_the_beam_fwhm(self):
+    cell, size = self.size(imaging_options('X', 'D'), 8.4)
+    self.assertEqual(cell, '1.44arcsec')
+    fwhm = 43.0 / 8.4 * 60
+    self.assertLessEqual(size[0] * 1.44, 2 * fwhm)
+    self.assertGreater(size[0] * 1.44, 1.8 * fwhm)
+
+  def test_a_custom_cell_is_kept(self):
+    self.assertEqual(self.size(imaging_options('C', 'A', custom_cell='0.1arcsec'), 4.86),
+                     ('0.1arcsec', [1024, 1024]))
+
+  def test_fixed_keeps_the_image_size_and_a_tenth_of_a_beam(self):
+    self.assertEqual(self.size(imaging_options('C', 'A', fov='fixed'), 4.86),
+                     ('0.033arcsec', [256, 256]))
+
+  def test_outlier_fields_follow_the_field_of_view(self):
+    self.assertTrue(Cleaner.wants_outlier_fields(imaging_options('C', 'A')))
+    self.assertFalse(Cleaner.wants_outlier_fields(imaging_options('C', 'A', fov='fixed')))
 
 
 class MaskKwargs(unittest.TestCase):

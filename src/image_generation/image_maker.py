@@ -126,12 +126,35 @@ class Cleaner:
     return options.phasecenter
 
   @staticmethod
+  def size_image(options:Options):
+    '''Set the cell and image size. The primary-beam field is MAIN_IMAGE_PX at a fifth of
+    a beam, never wider than MAIN_IMAGE_MAX_FWHM; fixed keeps image_size.'''
+    options.cell_size = Cleaner.find_cell_size(options)
+    if getattr(options, 'field_of_view', FOV_FIXED) != FOV_PRIMARY_BEAM:
+      return
+    if not options.use_custom_cell_size:
+      beam = BAND_ANGULAR_RESOLUTION[options.band][Cleaner._config_index(options)]
+      options.cell_size = Cleaner._as_arcsec(f"{beam / MAIN_IMAGE_CELLS_PER_BEAM:.4g}")
+    cell = Cleaner._arcsec_value(options.cell_size)
+    fwhm = sky.pb_fwhm_arcsec(sky.mean_freq_ghz(options.calibrated_filename + '.ms'))
+    size = outlier_fields.fft_size(min(MAIN_IMAGE_PX, MAIN_IMAGE_MAX_FWHM * fwhm / cell))
+    options.image_size = [size, size]
+    run_log.note('IMAGING', 'Field of view',
+                 f"primary beam: {size} px at {cell:g}\" = {size * cell / 60:.1f}' "
+                 f"(beam FWHM {fwhm / 60:.1f}')")
+
+  @staticmethod
+  def wants_outlier_fields(options:Options):
+    return (getattr(options, 'field_of_view', FOV_FIXED) == FOV_PRIMARY_BEAM
+            or options.decision('outlier_fields') != OFF)
+
+  @staticmethod
   def initial_cycle(options:Options, niter=CLEAN_NITER):
     '''The initial clean: the baseline every self-cal cycle is scored against. Same
     params as the cycles (_tclean_kwargs); niter is the deliberate exception.'''
-    options.cell_size = Cleaner.find_cell_size(options)
+    Cleaner.size_image(options)
     Cleaner.phasecenter(options)
-    if options.decision('outlier_fields') != OFF:
+    if Cleaner.wants_outlier_fields(options):
       LoadingAnimation.performing_action(
         action='outlier-field search', target=outlier_fields.plan,
         args=(options, Cleaner._arcsec_value(options.cell_size),
@@ -220,7 +243,7 @@ class Cleaner:
     #an imported run replays the cell/imsize/robust it already settled on
     if not getattr(options, 'test_image', False) or not decisions.is_interactive(options):
       return
-    options.cell_size = Cleaner.find_cell_size(options)
+    Cleaner.size_image(options)
     attempt = 0
     while True:
       name = f"{options.image_filename}{TEST_IMAGE_SUFFIX}{attempt or ''}"

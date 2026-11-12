@@ -10,8 +10,8 @@ import json
 from pathlib import Path
 
 from .pipeline import (
-  AUTO, CLEAN_ROBUST, DECISIONS, DEFAULT_IMAGE_SIZE, FLAG_METHODS_DEFAULT,
-  IMPORT_JSON, MIN_SNR, OFF, Options, delocalize,
+  AUTO, CLEAN_ROBUST, DECISIONS, DEFAULT_IMAGE_SIZE, FIELD_OF_VIEW_MODES, FLAG_METHODS_DEFAULT,
+  FOV_PRIMARY_BEAM, IMPORT_JSON, MIN_SNR, OFF, Options, delocalize,
 )
 
 #Filled from the selected observation, never from a preset: a preset that set
@@ -83,6 +83,7 @@ def recipe(overrides=None):
 
     #--- imaging --------------------------------------------------------------
     'image_filename': None,        #auto-generated as <proj>_<source>_<band>
+    'field_of_view': FOV_PRIMARY_BEAM,
     'image_size': list(DEFAULT_IMAGE_SIZE),
     'interactive_image': False,    #tclean must not open a window and wait
     'use_custom_cell_size': False, #let find_cell_size size it from band + config
@@ -125,6 +126,8 @@ def _check(seed):
       f"{k}={v!r} (one of {', '.join(DECISIONS[k]['modes'])})" for k, v in bad.items()))
   if seed['use_custom_cell_size'] and not seed.get('cell_size'):
     raise ValueError("use_custom_cell_size is set but no cell_size was given")
+  if seed.get('field_of_view') not in FIELD_OF_VIEW_MODES:
+    raise ValueError(f"field_of_view must be one of {', '.join(FIELD_OF_VIEW_MODES)}")
   #process_input_dict reads self_cal_cycles with [] whenever self-cal is on
   if seed['decisions'].get('self_cal', OFF) != OFF and 'self_cal_cycles' not in seed:
     raise ValueError("self_cal is on but no self_cal_cycles was given")

@@ -9,13 +9,13 @@ import casatools
 import numpy as np
 from scipy import ndimage
 
-from classes import image_data, run_log
+from classes import image_data, run_log, sky
 from classes.constants import (
   CLEAN_PBLIMIT, OUTLIER_FIELD_MAX_PX, OUTLIER_FIELD_MIN_PX, OUTLIER_FIELD_SUFFIX,
   OUTLIER_MARGIN_BEAMS, OUTLIER_MAX_FIELDS, OUTLIER_MERGE_BEAMS, OUTLIER_MIN_APPARENT_JY,
   OUTLIER_SWEEP_DYNAMIC_RANGE, OUTLIER_SWEEP_IMSIZE, OUTLIER_SWEEP_NITER, OUTLIER_SWEEP_NSIGMA,
   OUTLIER_SWEEP_RADIUS_FWHM, OUTLIER_SWEEP_SUFFIX, OUTLIER_TARGET_FIELD_PX, PB_EDGE_FWHM,
-  PB_FWHM_ARCMIN_GHZ, TARGET_FIELD_SUFFIX)
+  TARGET_FIELD_SUFFIX)
 
 TARGET_LABEL = TARGET_FIELD_SUFFIX.lstrip('_')
 #tclean won't clean where its beam is under this, and fails outright on a field with no
@@ -88,8 +88,8 @@ def export(options, base, results_dir, name):
 
 def _plan(options, cell_arcsec, beam_arcsec):
   vis = options.calibrated_filename + '.ms'
-  freq_ghz, frame = _observing(vis), 'J2000'
-  fwhm = PB_FWHM_ARCMIN_GHZ / freq_ghz * 60  #arcsec
+  freq_ghz, frame = sky.mean_freq_ghz(vis), 'J2000'
+  fwhm = sky.pb_fwhm_arcsec(freq_ghz)
   nx, ny = _image_size(options.image_size)
   main_half = (nx * cell_arcsec / 2, ny * cell_arcsec / 2)
   if min(main_half) >= PB_EDGE_FWHM * fwhm:
@@ -138,17 +138,6 @@ def _read(path):
     return ia.getchunk()[:, :, 0, 0], ia.coordsys()
   finally:
     ia.close()
-
-
-def _observing(vis):
-  '''Mean frequency of the calibrated MS, in GHz.'''
-  msmd = casatools.msmetadata()
-  msmd.open(vis)
-  try:
-    freq = float(np.mean([msmd.meanfreq(s) for s in range(msmd.nspw())]))
-  finally:
-    msmd.close()
-  return freq / 1e9
 
 
 def _sweep(options, vis, fwhm, beam_arcsec):
@@ -217,12 +206,12 @@ def _field(entry, index, cs, frame, ref, cell_s, cell_arcsec):
   label = TARGET_LABEL if entry['target'] else f"{OUTLIER_FIELD_SUFFIX.lstrip('_')}{index:02d}"
   return {'label': label, 'suffix': '_' + label, 'frame': frame,
           'ra_rad': float(ra), 'dec_rad': float(dec),
-          'imsize': _fft_size(size),
+          'imsize': fft_size(size),
           'apparent_jy': entry['flux'] or None,
           'offset_arcmin': round(math.dist(centre, ref) * cell_s / 60, 2)}
 
 
-def _fft_size(size):
+def fft_size(size):
   '''The largest image size <= size that tclean grids efficiently: rounding up could
   push a field into its neighbour.'''
   su = casatools.synthesisutils()

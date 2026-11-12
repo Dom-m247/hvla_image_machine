@@ -21,7 +21,7 @@ class Options:
     'reference_antenna', 'flux_cal_name', 'flux_cal_manual', 'phase_cal_name',
     'flagging_methods', 'flag_selection', 'rms_region',
     'self_cal_plan', 'self_cal_ap', 'self_cal_blcal',
-    'min_snr', 'image_filename',
+    'min_snr', 'image_filename', 'field_of_view',
     'image_size', 'interactive_image', 'use_custom_cell_size', 'deconvolver',
     'weighting', 'robust', 'test_image', 'mask',
   )
@@ -86,6 +86,8 @@ class Options:
     self.solint = None
     self.self_cal_cycles = SELF_CAL_DEFAULT_CYCLES #overridden by the GUI/CLI when self-cal is on
     self.robust = CLEAN_ROBUST #briggs robust; run-level, so scored cycles stay comparable
+    self.field_of_view = FOV_PRIMARY_BEAM
+    self.image_size = list(DEFAULT_IMAGE_SIZE)
     self.test_image = False #shallow throwaway clean to judge cell/imsize/robust first
     #path to a saved clean mask (a tclean .mask image or a region file) to replay the
     #interactively-drawn regions; '' = none. Set from a saved run and round-trips
@@ -137,6 +139,9 @@ class Options:
       self.reference_antenna = dict_in['reference_antenna']
       self.min_snr = dict_in['min_snr']
       self.image_filename = dict_in['image_filename']
+      self.field_of_view = dict_in.get('field_of_view') or FOV_FIXED
+      if self.field_of_view not in FIELD_OF_VIEW_MODES:
+        raise ValueError(f"field_of_view {self.field_of_view!r} is not one of {FIELD_OF_VIEW_MODES}")
       self.image_size = dict_in['image_size']
       self.interactive_image = dict_in['interactive_image']
       self.use_custom_cell_size = dict_in['use_custom_cell_size']

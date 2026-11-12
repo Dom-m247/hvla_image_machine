@@ -208,6 +208,7 @@ def _imaging_rows(options):
   rows = [
     ('Deconvolver', _get(options, 'deconvolver')),
     ('Weighting', _get(options, 'weighting')),
+    ('Field of view', _get(options, 'field_of_view')),
     ('Cell size', _cell(options)),
     ('Image size', _image_size(options)),
     ('Masking', _masking(options)),
@@ -374,6 +375,8 @@ def _cell(options):
   size = _get(options, 'cell_size')
   if getattr(options, 'use_custom_cell_size', False):   #raw: _get's placeholder is truthy
     return f"{size}   (custom)"
+  if getattr(options, 'field_of_view', '') == 'primary_beam':
+    return f"{size}   (1/5 of the band/config angular resolution)"
   return f"{size}   (1/10 of the band/config angular resolution)"
 
 

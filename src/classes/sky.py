@@ -1,7 +1,26 @@
-"""Positions on the sky, in J2000 radians: the data's pointing and the angles between them."""
+"""Positions on the sky, in J2000 radians: the data's pointing and the angles between them,
+and the primary beam they sit in."""
 import math
 
 import casatools
+
+from classes.constants import PB_FWHM_ARCMIN_GHZ
+
+
+def mean_freq_ghz(vis):
+  '''Mean frequency of an MS's spws, in GHz.'''
+  msmd = casatools.msmetadata()
+  msmd.open(vis)
+  try:
+    freqs = [msmd.meanfreq(spw) for spw in range(msmd.nspw())]
+  finally:
+    msmd.close()
+  return sum(freqs) / len(freqs) / 1e9
+
+
+def pb_fwhm_arcsec(freq_ghz):
+  '''Primary-beam FWHM at a frequency, in arcsec.'''
+  return PB_FWHM_ARCMIN_GHZ / freq_ghz * 60
 
 
 def ms_pointing(vis, field=0):

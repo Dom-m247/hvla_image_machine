@@ -69,7 +69,10 @@ Ka, and Q**.
   chosen from the gaincal solution-failure rate.
 - **Imaging with `tclean`** — array-config-aware cell size, LAS-bounded multiscale
   scales, and mode-aware masking (interactive drawing, or `auto-multithresh` when
-  automatic).
+  automatic). Images are made in J2000 whatever frame the data is in.
+- **Primary-beam field** — `field_of_view: primary_beam` (the default outside the GUI)
+  images 1024 px at a fifth of a beam on the pointing, never wider than twice the beam
+  FWHM, and gives bright sources outside it outlier fields. `fixed` images `image_size`.
 - **Adaptive self-calibration** — a data-driven solint ladder (`inf` → shortening
   toward the integration time → `int`), phase cycles then a guarded amp+phase pass,
   scored by dynamic range with keep-best and early stopping; faint sources are skipped.

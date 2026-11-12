@@ -818,6 +818,7 @@ class BreakpointsWindow:
             "reference_antenna": self.ref_antenna_var.get(),
             "min_snr": self.snr_var.get(),
             "image_filename": self.image_filename_var.get() if self.use_custom_naming_var.get() else None,
+            "field_of_view": FOV_FIXED,
             "image_size": [self.image_size_var.get(),self.image_size_var.get()],
             "interactive_image": self.interactive_var.get(),
             "use_custom_cell_size": self.use_custom_cell_var.get(),
