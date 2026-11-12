@@ -1,6 +1,7 @@
 """Outlier fields: a bright source outside the main image gets its own tclean field so its
 sidelobes are cleaned out of the main image, and a target outside it gets a field to be
-measured in. Sources come from a shallow, tapered clean of the primary beam (no catalogue)."""
+measured in. Sources come from a shallow, tapered clean of the primary beam, and from NVSS
+for the ones the sweep missed."""
 import math
 from pathlib import Path
 
@@ -9,9 +10,11 @@ import casatools
 import numpy as np
 from scipy import ndimage
 
+from API_integrations.catalog_client import nvss_sources
 from classes import image_data, run_log, sky
 from classes.constants import (
-  CLEAN_PBLIMIT, OUTLIER_FIELD_MAX_PX, OUTLIER_FIELD_MIN_PX, OUTLIER_FIELD_SUFFIX,
+  CLEAN_PBLIMIT, NVSS_DEC_LIMIT_DEG, NVSS_FREQ_GHZ, NVSS_SEARCH_RADIUS_FWHM, NVSS_SPECTRAL_INDEX,
+  OUTLIER_FIELD_MAX_PX, OUTLIER_FIELD_MIN_PX, OUTLIER_FIELD_SUFFIX,
   OUTLIER_MARGIN_BEAMS, OUTLIER_MAX_FIELDS, OUTLIER_MERGE_BEAMS, OUTLIER_MIN_APPARENT_JY,
   OUTLIER_SWEEP_DYNAMIC_RANGE, OUTLIER_SWEEP_IMSIZE, OUTLIER_SWEEP_NITER, OUTLIER_SWEEP_NSIGMA,
   OUTLIER_SWEEP_RADIUS_FWHM, OUTLIER_SWEEP_SUFFIX, OUTLIER_TARGET_FIELD_PX, PB_EDGE_FWHM,
@@ -112,6 +115,13 @@ def _plan(options, cell_arcsec, beam_arcsec):
               + [i['flux'] / OUTLIER_SWEEP_DYNAMIC_RANGE for i in islands])
   entries, beyond = _entries(islands, pb, main_box, floor, OUTLIER_MARGIN_BEAMS * beam_px,
                              min_half)
+  catalogued, catalogued_beyond = _catalogued(
+    options, _nvss(options, fwhm), cs, pb, ref, freq_ghz, fwhm, cell_s, main_box, islands, floor,
+    OUTLIER_MARGIN_BEAMS * beam_px, min_half)
+  if catalogued or catalogued_beyond:
+    _say(f"NVSS: {len(catalogued) + len(catalogued_beyond)} source(s) above the floor that the "
+         f"sweep did not find")
+  entries, beyond = entries + catalogued, beyond + catalogued_beyond
   target = _target_entry(options, cs, frame, pb, ref, main_box, cell_s, edge,
                          OUTLIER_TARGET_FIELD_PX / 2 * cell_arcsec / cell_s, min_half)
   entries = _merge(entries + ([target] if target else []))
@@ -157,6 +167,70 @@ def _sweep(options, vis, fwhm, beam_arcsec):
             nsigma=OUTLIER_SWEEP_NSIGMA, pblimit=CLEAN_PBLIMIT, interactive=False,
             savemodel='none', phasecenter=getattr(options, 'phasecenter', ''))
   return base, cell
+
+
+def _nvss(options, fwhm):
+  '''NVSS sources within NVSS_SEARCH_RADIUS_FWHM of the pointing; [] when there are none to
+  be had, so the sweep plans alone.'''
+  pointing = getattr(options, 'pointing', None)
+  if not pointing:
+    return []
+  ra, dec = (math.degrees(a) for a in pointing)
+  if dec < NVSS_DEC_LIMIT_DEG:
+    _say(f"NVSS does not reach dec {dec:.0f}; outlier fields come from the sweep alone")
+    return []
+  try:
+    found = nvss_sources(ra, dec, NVSS_SEARCH_RADIUS_FWHM * fwhm / 3600)
+  except Exception as exc:
+    found, why = None, f"failed ({exc})"
+  else:
+    why = 'could not be reached'
+  if found is None:
+    _say(f"NVSS lookup {why}; outlier fields come from the sweep alone")
+    return []
+  return found
+
+
+def _catalogued(options, sources, cs, pb, ref, freq_ghz, fwhm, cell_s, main_box, islands,
+                floor, margin, min_half):
+  '''(entries, beyond) for the catalogued sources at or above floor that the sweep did not
+  find: boxes for those outside the main image, islands for those past the beam's edge.
+  Every source's predicted apparent flux goes on options.catalogued_sources.'''
+  options.catalogued_sources = []
+  entries, beyond = [], []
+  for ra, dec, flux_14 in sources:
+    at = _pixel(cs, ra, dec)
+    offset = math.dist(at, ref) * cell_s
+    response = _beam_at(pb, at)
+    flux = flux_14 * (freq_ghz / NVSS_FREQ_GHZ) ** NVSS_SPECTRAL_INDEX
+    apparent = flux * (response if response > PB_LIMIT else _gaussian_beam(offset, fwhm))
+    options.catalogued_sources.append({'ra_deg': ra, 'dec_deg': dec, 'flux_jy': flux,
+                                       'apparent_jy': apparent,
+                                       'offset_arcmin': round(offset / 60, 2)})
+    if apparent < floor or any(_inside(at, _pad(i['box'], margin)) for i in islands):
+      continue
+    if response <= PB_LIMIT:
+      beyond.append({'x': at[0], 'y': at[1], 'flux': apparent})
+      continue
+    box = _square(_pad((at[0], at[0], at[1], at[1]), margin), min_half)
+    if not _overlaps(box, main_box):
+      entries.append({'box': box, 'flux': apparent, 'target': False, 'at': at})
+  return entries, beyond
+
+
+def _pixel(cs, ra_deg, dec_deg):
+  '''Pixel position of a J2000 position on a J2000 image.'''
+  world = cs.referencevalue(format='n')['numeric']
+  world[0], world[1] = math.radians(ra_deg), math.radians(dec_deg)
+  return tuple(cs.topixel(world)['numeric'][:2])
+
+
+def _gaussian_beam(offset_arcsec, fwhm_arcsec):
+  return math.exp(-4 * math.log(2) * (offset_arcsec / fwhm_arcsec) ** 2)
+
+
+def _inside(point, box):
+  return box[0] <= point[0] <= box[1] and box[2] <= point[1] <= box[3]
 
 
 def _target_entry(options, cs, frame, pb, ref, main_box, cell_s, edge, half, min_half):

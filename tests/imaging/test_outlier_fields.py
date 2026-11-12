@@ -1,5 +1,6 @@
 '''outlier_fields' pixel geometry, outlier-file writer and cleanup globs, on synthetic
 arrays: no MS, no tclean.'''
+import math
 import tempfile
 import unittest
 from fnmatch import fnmatch
@@ -110,6 +111,58 @@ class BeamLimit(unittest.TestCase):
                                   min_half=3)
     self.assertEqual([e['at'] for e in entries], [(45.0, 32.0)])
     self.assertEqual(beyond, [past_edge])
+
+
+class FlatSky:
+  '''Stand-in coordinate system: J2000, `cell` arcsec pixels, (ra0, dec0) degrees at (32, 32).'''
+  def __init__(self, ra0, dec0, cell):
+    self.ra0, self.dec0, self.cell = math.radians(ra0), math.radians(dec0), math.radians(cell / 3600)
+
+  def referencevalue(self, format='n'):
+    return {'numeric': [self.ra0, self.dec0, 0.0, 0.0]}
+
+  def topixel(self, world):
+    x = 32 - (world[0] - self.ra0) * math.cos(self.dec0) / self.cell
+    return {'numeric': [x, 32 + (world[1] - self.dec0) / self.cell, 0.0, 0.0]}
+
+
+class Catalogued(unittest.TestCase):
+  '''NVSS sources the sweep missed, on a 64-px sky of 10" pixels whose beam ends at 20 px.'''
+  SKY = FlatSky(180.0, 0.0, 10.0)
+
+  def plan(self, sources, islands=()):
+    options = SimpleNamespace()
+    entries, beyond = of._catalogued(
+      options, sources, self.SKY, radial_pb(), (32, 32), 1.4, 300.0, 10.0,
+      of._box_around((32, 32), 5, 5), list(islands), 0.005, 2, 3)
+    return options, entries, beyond
+
+  @staticmethod
+  def at(dx, dy):
+    '''A source dx, dy pixels from the centre, as (ra, dec) degrees.'''
+    return 180.0 - dx * 10 / 3600, dy * 10 / 3600
+
+  def test_outside_the_main_image_and_inside_the_beam_gets_a_field(self):
+    options, entries, beyond = self.plan([(*self.at(12, 0), 0.1)])
+    self.assertEqual(len(entries), 1)
+    self.assertAlmostEqual(entries[0]['at'][0], 44.0, places=6)
+    self.assertAlmostEqual(entries[0]['flux'], 0.1 * radial_pb()[43:46, 31:34].min())
+    self.assertEqual(beyond, [])
+    self.assertEqual(options.catalogued_sources[0]['offset_arcmin'], 2.0)
+
+  def test_one_the_sweep_found_is_left_to_the_sweep(self):
+    _, entries, _ = self.plan([(*self.at(12, 0), 0.1)], islands=[island(44, 32, 0.08)])
+    self.assertEqual(entries, [])
+
+  def test_past_the_beam_edge_is_a_warning_at_the_gaussian_beam(self):
+    _, entries, beyond = self.plan([(*self.at(0, 25), 1.0)])
+    self.assertEqual(entries, [])
+    self.assertAlmostEqual(beyond[0]['flux'], math.exp(-4 * math.log(2) * (250 / 300) ** 2))
+
+  def test_faint_sources_are_listed_but_not_fielded(self):
+    options, entries, beyond = self.plan([(*self.at(12, 0), 0.001)])
+    self.assertEqual((entries, beyond), ([], []))
+    self.assertEqual(len(options.catalogued_sources), 1)
 
 
 class OutlierFile(unittest.TestCase):

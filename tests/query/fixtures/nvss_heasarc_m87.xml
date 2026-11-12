@@ -1,0 +1,255 @@
+<?xml version="1.0"?>
+<VOTABLE xmlns="http://www.ivoa.net/xml/VOTable/v1.3" xsi:schemaLocation="http://www.ivoa.net/xml/VOTable/v1.3 http://www.ivoa.net/xml/VOTable/v1.3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="1.4">
+ <RESOURCE type="results">
+  <INFO name="QUERY_STATUS" value="OK">No errors detected in query preprocessing</INFO>
+  <TABLE>
+   <DESCRIPTION>Query result for:&#xA;SELECT TOP 50 * FROM nvss WHERE CONTAINS(POINT(&apos;ICRS&apos;, ra, dec), CIRCLE(&apos;ICRS&apos;, 187.70593, 12.39112, 0.25)) = 1</DESCRIPTION>
+   <FIELD datatype="char" arraysize="*" name="__row" ID="DataLinkID"/>
+   <FIELD datatype="char" arraysize="*" ucd="meta.id;meta.main" name="name">
+    <DESCRIPTION>Catalog Designation</DESCRIPTION>
+   </FIELD>
+   <FIELD unit="deg" datatype="double" ucd="pos.eq.ra;meta.main" precision="F5" name="ra">
+    <DESCRIPTION>Right Ascension</DESCRIPTION>
+   </FIELD>
+   <FIELD unit="deg" datatype="double" ucd="pos.eq.dec;meta.main" precision="F5" name="dec">
+    <DESCRIPTION>Declination</DESCRIPTION>
+   </FIELD>
+   <FIELD unit="deg" datatype="double" ucd="pos.galactic.lon" precision="F5" name="lii">
+    <DESCRIPTION>Galactic Longitude</DESCRIPTION>
+   </FIELD>
+   <FIELD unit="deg" datatype="double" ucd="pos.galactic.lat" precision="F5" name="bii">
+    <DESCRIPTION>Galactic Latitude</DESCRIPTION>
+   </FIELD>
+   <FIELD unit="s" datatype="double" ucd="stat.error;pos.eq.ra" precision="F2" name="ra_error" width="5">
+    <DESCRIPTION>RMS Uncertainty in Right Ascension (s)</DESCRIPTION>
+   </FIELD>
+   <FIELD unit="arcsec" datatype="double" ucd="stat.error;pos.eq.dec" precision="F1" name="dec_error" width="4">
+    <DESCRIPTION>RMS Uncertainty in Declination (arcsec)</DESCRIPTION>
+   </FIELD>
+   <FIELD unit="mJy" datatype="double" ucd="phot.flux.density;em.radio" precision="F1" name="flux_20_cm" width="6">
+    <DESCRIPTION>Integrated 1.4-GHz Flux Density (mJy)</DESCRIPTION>
+   </FIELD>
+   <FIELD unit="mJy" datatype="double" ucd="stat.error;phot.flux.density;em.radio" precision="F1" name="flux_20_cm_error" width="5">
+    <DESCRIPTION>RMS Uncertainty in Flux Density at 20 cm</DESCRIPTION>
+   </FIELD>
+   <FIELD datatype="char" arraysize="*" ucd="meta.code.error;phys.size.smajAxis" name="limit_major_axis">
+    <DESCRIPTION>Limit Flag for Major Axis</DESCRIPTION>
+   </FIELD>
+   <FIELD unit="arcsec" datatype="double" ucd="phys.size.smajAxis" precision="F1" name="major_axis" width="5">
+    <DESCRIPTION>Length of Fitted Major Axis of Radio Source (arcsec)</DESCRIPTION>
+   </FIELD>
+   <FIELD unit="arcsec" datatype="double" ucd="stat.error;phys.size.smajAxis" precision="F1" name="major_axis_error" width="4">
+    <DESCRIPTION>RMS Uncertainty in Major Axis</DESCRIPTION>
+   </FIELD>
+   <FIELD datatype="char" arraysize="*" ucd="meta.code.error;phys.size.sminAxis" name="limit_minor_axis">
+    <DESCRIPTION>Limit Flag for Fitted Minor Axis</DESCRIPTION>
+   </FIELD>
+   <FIELD unit="arcsec" datatype="double" ucd="phys.size.sminAxis" precision="F1" name="minor_axis" width="5">
+    <DESCRIPTION>Length of Minor Axis of Radio Source (arcsec)</DESCRIPTION>
+   </FIELD>
+   <FIELD unit="arcsec" datatype="double" ucd="stat.error;phys.size.sminAxis" precision="F1" name="minor_axis_error" width="4">
+    <DESCRIPTION>RMS Uncertainty in Minor Axis</DESCRIPTION>
+   </FIELD>
+   <FIELD unit="deg" datatype="double" ucd="pos.posAng" precision="F1" name="position_angle" width="5">
+    <DESCRIPTION>Position Angle of the Fitted Major Axis (degree)</DESCRIPTION>
+   </FIELD>
+   <FIELD unit="deg" datatype="double" ucd="stat.error;pos.posAng" precision="F1" name="position_angle_error" width="5">
+    <DESCRIPTION>RMS Uncertainty in Position Angle</DESCRIPTION>
+   </FIELD>
+   <FIELD datatype="char" arraysize="*" ucd="meta.code" name="residual_code">
+    <DESCRIPTION>Flag Indicates Residual Type: P=Peak, S=Integrated</DESCRIPTION>
+   </FIELD>
+   <FIELD unit="mJy/beam" datatype="double" ucd="phot.flux.density;em.radio" precision="F1" name="residual_flux" width="4">
+    <DESCRIPTION>Residual Flux (mJy/beam)</DESCRIPTION>
+   </FIELD>
+   <FIELD unit="mJy" datatype="double" ucd="phot.flux.density;phys.polarization" precision="F2" name="pol_flux" width="6">
+    <DESCRIPTION>Integrated Linearly Polarized Flux Density (mJy)</DESCRIPTION>
+   </FIELD>
+   <FIELD unit="mJy" datatype="double" ucd="stat.error;phot.flux.density;phys.polarization" precision="F2" name="pol_flux_error" width="6">
+    <DESCRIPTION>RMS Uncertainty in the Integrated Linearly Polarized Flux Density</DESCRIPTION>
+   </FIELD>
+   <FIELD unit="deg" datatype="double" ucd="pos.posAng;phys.polarization" precision="F2" name="pol_angle" width="6">
+    <DESCRIPTION>Linear Polarization Position Angle (degree)</DESCRIPTION>
+   </FIELD>
+   <FIELD unit="mJy" datatype="double" ucd="stat.error;pos.posAng;phys.polarization" precision="F2" name="pol_angle_error" width="6">
+    <DESCRIPTION>RMS Uncertainty in Polarization Angle</DESCRIPTION>
+   </FIELD>
+   <FIELD datatype="char" arraysize="*" ucd="meta.id;obs.field" name="field_name">
+    <DESCRIPTION>Name of the Survey Image Field</DESCRIPTION>
+   </FIELD>
+   <FIELD datatype="double" ucd="pos.cartesian.x;instr.pixel" precision="F1" name="x_pixel" width="6">
+    <DESCRIPTION>X Position of the Pixel Where the Source Is Located in the Field</DESCRIPTION>
+   </FIELD>
+   <FIELD datatype="double" ucd="pos.cartesian.y;instr.pixel" precision="F1" name="y_pixel" width="6">
+    <DESCRIPTION>Y Position of the Pixel Where the Source Is Located in the Field</DESCRIPTION>
+   </FIELD>
+   <FIELD datatype="double" name="__x_ra_dec"/>
+   <FIELD datatype="double" name="__y_ra_dec"/>
+   <FIELD datatype="double" name="__z_ra_dec"/>
+   <DATA>
+    <BINARY>
+     <STREAM encoding="base64">
+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
+seKhAdY/y+Bpcn7Txg==
+     </STREAM>
+    </BINARY>
+   </DATA>
+  </TABLE>
+ </RESOURCE>
+ <RESOURCE utype="adhoc:service" type="meta">
+  <PARAM datatype="char" arraysize="*" name="standardID" value="ivo://ivoa.net/std/DataLink#links-1.1"/>
+  <PARAM datatype="char" arraysize="*" name="accessURL" value="https://heasarc.gsfc.nasa.gov/xamin/vo/datalink/nvss?datalink_key&amp;"/>
+  <GROUP name="inputParams">
+   <PARAM ref="DataLinkID" datatype="char" arraysize="*" name="id" value=""/>
+  </GROUP>
+ </RESOURCE>
+</VOTABLE>

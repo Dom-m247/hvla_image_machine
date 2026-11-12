@@ -88,6 +88,11 @@ OUTLIER_MAX_FIELDS = 20            #brightest first
 OUTLIER_FIELD_MIN_PX = 128
 OUTLIER_FIELD_MAX_PX = 1024
 OUTLIER_TARGET_FIELD_PX = 512
+#NVSS sources the sweep missed are fielded at their predicted apparent flux
+NVSS_FREQ_GHZ = 1.4
+NVSS_SPECTRAL_INDEX = -0.7
+NVSS_SEARCH_RADIUS_FWHM = 1.5
+NVSS_DEC_LIMIT_DEG = -40.0
 OUTLIER_FIELD_SUFFIX = '_outlier'  #+ two digits; the target's field is TARGET_FIELD_SUFFIX
 TARGET_FIELD_SUFFIX = '_targetfield'
 OUTLIER_SWEEP_SUFFIX = '_pbsweep'

@@ -1,5 +1,5 @@
-'''SIMBAD/NED client. Every request passes one host-wide gate, at most one request send per
-INTERVAL_NS across all processes, and a per-user SQLite cache. Nothing else in the
+'''SIMBAD/NED/HEASARC client. Every request passes one host-wide gate, at most one request send
+per INTERVAL_NS across all processes, and a per-user SQLite cache. Nothing else in the
 project may send to these services.'''
 import fcntl
 import io
@@ -15,6 +15,7 @@ from urllib.parse import quote, urlencode
 
 import numpy
 import requests
+from astropy import units as u
 from astropy.io import votable
 from requests.adapters import HTTPAdapter
 
@@ -33,6 +34,9 @@ SIMBAD_QUERY = ("SELECT basic.main_id, basic.ra, basic.dec, ids.ids FROM ident A
                 "JOIN basic ON basic.oid = lookup.oidref JOIN ids ON ids.oidref = basic.oid "
                 "WHERE lookup.id = '{}'")
 REPO_URL = 'https://github.com/domo4448/hvla_image_machine'
+HEASARC_TAP = 'https://heasarc.gsfc.nasa.gov/xamin/vo/tap/sync'
+NVSS_QUERY = ("SELECT ra, dec, flux_20_cm FROM nvss WHERE "
+              "CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', {:.5f}, {:.5f}, {:.4f})) = 1")
 
 
 #--- gate ---------------------------------------------------------------------
@@ -328,6 +332,31 @@ def ned_photometry(name):
     return None
   return _ned('ned-photometry', f'ned:phot:{name}', 'PhotometryOfObject',
               {'TARGET': name}, _parse_photometry, TTL_PHOTOMETRY, (10, 60))
+
+
+#--- NVSS (HEASARC) ------------------------------------------------------------
+
+def _parse_nvss(body):
+  '''[ra_deg, dec_deg, flux_jy] per source of a HEASARC nvss query; [] when none.'''
+  rows = _votable_table(body)
+  if rows is None or len(rows) == 0:
+    return []
+  scale = (rows['flux_20_cm'].unit or u.Unit('mJy')).to(u.Unit('Jy'))
+  found = []
+  for ra, dec, flux in zip(rows['ra'], rows['dec'], rows['flux_20_cm']):
+    ra, dec, flux = _number(ra), _number(dec), _number(flux)
+    if None not in (ra, dec, flux):
+      found.append([ra, dec, flux * scale])
+  return found
+
+def nvss_sources(ra_deg, dec_deg, radius_deg):
+  '''[ra_deg, dec_deg, flux_jy at 1.4 GHz] of every NVSS source within radius_deg of a J2000
+  position ([] when none), or None when HEASARC cannot answer.'''
+  form = {'REQUEST': 'doQuery', 'LANG': 'ADQL', 'FORMAT': 'votable', 'MAXREC': '10000',
+          'QUERY': NVSS_QUERY.format(ra_deg, dec_deg, radius_deg)}
+  return _fetch(f'nvss:{ra_deg:.4f}:{dec_deg:.4f}:{radius_deg:.4f}', _parse_nvss, TTL_FOUND,
+                f"NVSS within {radius_deg:.2f} deg", [('heasarc-nvss', 'POST', HEASARC_TAP)],
+                data=form, timeout=(10, 60))
 
 
 #--- SIMBAD -------------------------------------------------------------------
