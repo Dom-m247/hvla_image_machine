@@ -224,6 +224,7 @@ def _final_image_rows(options):
     rows.append(('Measurements', _MISSING + ' (no fit record on this run)'))
     return rows + _extra.get('FINAL IMAGE', [])
   beam = fit.get('beam') or {}
+  rows += _target_rows(fit)
   rows += [
     ('Peak flux', _quantity(fit.get('peak_flux'))),
     ('Integrated flux', _quantity(fit.get('integrated_flux'))),
@@ -242,6 +243,28 @@ def _final_image_rows(options):
     ('Fit residual RMS', f"{_number(fit.get('residual_rms_jy_per_beam'), '.3e')} Jy/beam"),
   ]
   return rows + _extra.get('FINAL IMAGE', [])
+
+
+def _target_rows(fit):
+  target = fit.get('target')
+  if not target:
+    return [('Target', fit.get('note') or _MISSING)]
+  if fit.get('detected'):
+    verdict = f"DETECTED at {_number(fit.get('snr'), '.1f')} sigma"
+  elif fit.get('upper_limit_jy') is not None:
+    verdict = (f"UPPER LIMIT {fit['upper_limit_jy'] * 1e3:.3g} mJy ({fit['detection_sigma']:g} "
+               f"sigma, primary-beam corrected; peak {_number(fit.get('snr'), '.1f')} sigma)")
+  else:
+    verdict = _MISSING
+  return [
+    ('Target position', f"{target['ra_deg']:.6f} {target['dec_deg']:+.6f} "
+                        f"(from {target['position_from']})"),
+    ('Measured in', f"the {fit.get('image_field')} image"),
+    ('From the pointing', f"{_number(fit.get('pointing_offset_arcmin'), '.2f')}'   "
+                          f"(primary beam {_number(fit.get('pb_response'), '.3f')})"),
+    ('Detection', verdict),
+    ('', ''),
+  ]
 
 
 def _output_rows(options):

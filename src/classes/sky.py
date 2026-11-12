@@ -52,6 +52,30 @@ def to_j2000(direction):
   return float(direction['m0']['value']) % (2 * math.pi), float(direction['m1']['value'])
 
 
+def target_position(options):
+  '''(ra_deg, dec_deg, where it came from) of the science target, found once per run: the
+  recorded catalogue position, else a catalogue lookup, else the data's pointing.'''
+  if found := getattr(options, 'target_position', None):
+    return found
+  try:
+    found = (float(options.source_ra), float(options.source_decl), 'NED')
+  except (AttributeError, TypeError, ValueError):
+    from API_integrations.simbad import simbad
+    name = getattr(options, 'search_alias', '') or getattr(options, 'source', '')
+    found = simbad.position(name) if name else None
+  if not found and (pointing := getattr(options, 'pointing', None)):
+    found = (math.degrees(pointing[0]), math.degrees(pointing[1]), 'pointing')
+  if found:
+    options.target_position = found
+  return found
+
+
+def offset_arcmin(position, pointing):
+  '''Angle from the pointing (J2000 radians) to a (ra_deg, dec_deg, ...) position.'''
+  return math.degrees(separation(*pointing, math.radians(position[0]),
+                                 math.radians(position[1]))) * 60
+
+
 def phasecenter(ra, dec):
   '''A tclean phasecenter string for a J2000 position in radians.'''
   return f"J2000 {ra:.12f}rad {dec:.12f}rad"

@@ -175,6 +175,62 @@ def restored_image(base):
   return ''
 
 
+#----------------------------------------------------------------- pixel access
+
+def world_to_pixel(image, ra_deg, dec_deg):
+  '''(x, y) pixel of a J2000 position on a J2000 image, or None if unreadable.'''
+  import math
+  import casatools
+  ia = casatools.image()
+  try:
+    ia.open(image)
+    cs = ia.coordsys()
+    world = cs.referencevalue(format='n')['numeric']
+    world[0], world[1] = math.radians(ra_deg), math.radians(dec_deg)
+    x, y = cs.topixel(world)['numeric'][:2]
+    return float(x), float(y)
+  except Exception as exc:
+    print(f"image_data: could not place {ra_deg}, {dec_deg} on {image}: {exc}")
+    return None
+  finally:
+    ia.close()
+
+
+def peak_near(image, at, radius_px):
+  '''(value, (x, y)) of the brightest pixel within radius_px of `at`, or (None, None)
+  when `at` is off the image.'''
+  import casatools
+  import numpy as np
+  ia = casatools.image()
+  try:
+    ia.open(image)
+    nx, ny = ia.shape()[:2]
+    x0, x1 = max(0, int(at[0] - radius_px)), min(nx - 1, int(at[0] + radius_px + 1))
+    y0, y1 = max(0, int(at[1] - radius_px)), min(ny - 1, int(at[1] + radius_px + 1))
+    if x0 > x1 or y0 > y1 or not (0 <= at[0] < nx and 0 <= at[1] < ny):
+      return None, None
+    chunk = ia.getchunk(blc=[x0, y0], trc=[x1, y1])
+  except Exception as exc:
+    print(f"image_data: could not read {image} near {at}: {exc}")
+    return None, None
+  finally:
+    ia.close()
+  plane = chunk.reshape(chunk.shape[0], chunk.shape[1], -1)[:, :, 0]
+  xs, ys = np.indices(plane.shape)
+  inside = (xs + x0 - at[0]) ** 2 + (ys + y0 - at[1]) ** 2 <= radius_px ** 2
+  if not inside.any():
+    return None, None
+  values = np.where(inside, plane, -np.inf)
+  i, j = np.unravel_index(int(np.argmax(values)), values.shape)
+  return float(values[i, j]), (int(i + x0), int(j + y0))
+
+
+def value_at(image, at):
+  '''The pixel value at `at` (rounded), or None off the image or unreadable.'''
+  value, _ = peak_near(image, (round(at[0]), round(at[1])), 0)
+  return value
+
+
 #----------------------------------------------------------------- header access
 
 def read_header(image):

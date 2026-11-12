@@ -156,8 +156,12 @@ DO_MEAN_RMS = False
 RMS_CORNER_BOX_FRACTION = 0.25      #corner box side, as a fraction of the shorter image side
 RMS_EDGE_MARGIN_FRACTION = 0.02     #inset from the image edge, same units
 MAD_TO_SIGMA = 1.4826               #robust fallback estimator: sigma = 1.4826 * MAD
-#--- 2D Gaussian source fit (image_generation/source_fit.py) ---
-FIT_BOX_BEAMS = 10                  #imfit box half-side, in synthesized beams, around the peak
+#--- the target's measurement (image_generation/source_fit.py) ---
+#The target is measured at its catalogue position: detected when the brightest pixel within
+#TARGET_SEARCH_BEAMS of it reaches DETECTION_SIGMA x the off-source rms, else an upper limit.
+DETECTION_SIGMA = 5.0
+TARGET_SEARCH_BEAMS = 1.0
+TARGET_FIT_BOX_BEAMS = 3            #imfit box half-side, in synthesized beams, around the target
 FIT_BOX_MIN_PIXELS = 32             #...but never smaller than this
 FIT_BOX_MAX_IMAGE_FRACTION = 0.25   #...and never more than this fraction of the shorter image
                                     #side, so an over-sampled image (many pixels per beam)

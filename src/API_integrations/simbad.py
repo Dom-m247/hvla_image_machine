@@ -17,12 +17,18 @@ class simbad:
   def coordinates(source_name):
     '''(ra_deg, dec_deg) for a source, NED's when SIMBAD has none; None when neither
     can resolve it or be reached.'''
+    found = simbad.position(source_name)
+    return found[:2] if found else None
+
+  @staticmethod
+  def position(source_name):
+    '''(ra_deg, dec_deg, 'SIMBAD' or 'NED') as coordinates() finds it, or None.'''
     found = _safe(simbad_resolve, source_name)
     if found and found['ra'] is not None and found['dec'] is not None:
-      return found['ra'], found['dec']
+      return found['ra'], found['dec'], 'SIMBAD'
     if ned := _safe(ned_lookup, source_name):
       print(f"SIMBAD has no position for {source_name}; using NED's")
-      return ned['ra'], ned['dec']
+      return ned['ra'], ned['dec'], 'NED'
     return None
 
   @staticmethod

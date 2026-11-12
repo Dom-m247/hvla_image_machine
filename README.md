@@ -70,6 +70,10 @@ Ka, and Q**.
 - **Imaging with `tclean`** — array-config-aware cell size, LAS-bounded multiscale
   scales, and mode-aware masking (interactive drawing, or `auto-multithresh` when
   automatic). Images are made in J2000 whatever frame the data is in.
+- **Target measurement** — the target is measured at its catalogue position: detected
+  when the peak within a beam reaches `detection_sigma` (default 5) times the off-source
+  rms, and then fitted there; otherwise `<name>.fit.json` holds a primary-beam-corrected
+  upper limit.
 - **Primary-beam field** — `field_of_view: primary_beam` (the default outside the GUI)
   images 1024 px at a fifth of a beam on the pointing, never wider than twice the beam
   FWHM, and gives bright sources outside it outlier fields. `fixed` images `image_size`.

@@ -43,12 +43,29 @@ class CLI:
 
   @staticmethod
   def getFieldOfView(options:Options):
-    '''Primary-beam field (sized automatically) or a fixed image size.'''
+    '''Primary-beam field (sized automatically) or a fixed image size, and the target's
+    detection threshold.'''
     options.field_of_view = CLI._select('Field of view (primary_beam images the whole beam, '
                                         'with outlier fields)', list(FIELD_OF_VIEW_MODES),
                                         FOV_PRIMARY_BEAM)
     if options.field_of_view == FOV_FIXED:
       options.image_size = CLI.getImageSize()
+    options.detection_sigma = CLI.getDetectionSigma()
+
+  @staticmethod
+  def getDetectionSigma() -> float:
+    '''Detection threshold at the target, in off-source rms; enter for the default.'''
+    while True:
+      val = input(f"Detection threshold in sigma (or press enter for {DETECTION_SIGMA:g}): ").strip()
+      if val == '':
+        return DETECTION_SIGMA
+      try:
+        sigma = float(val)
+        if sigma > 0:
+          return sigma
+        print("The threshold must be positive.")
+      except ValueError:
+        print("Invalid input. Please enter a number.")
 
 
   @staticmethod

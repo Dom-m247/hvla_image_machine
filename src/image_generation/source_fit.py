@@ -20,11 +20,13 @@ from typing import Any, cast
 import astropy.units as u
 import casatasks as ct
 
-from classes.image_data import (beam_from_header, convert_unit, first_value,
-                                header_value, image_shape, imstat_dict,
-                                pixel_scale_arcsec, to_arcsec)
-from classes.constants import (FIT_BOX_BEAMS, FIT_BOX_MAX_IMAGE_FRACTION,
-                               FIT_BOX_MIN_PIXELS)
+from classes import sky
+from classes.image_data import (Image, beam_from_header, convert_unit, first_value,
+                                header_value, image_shape, imstat_dict, peak_near,
+                                pixel_scale_arcsec, restored_image, to_arcsec, value_at,
+                                world_to_pixel)
+from classes.constants import (DETECTION_SIGMA, FIT_BOX_MAX_IMAGE_FRACTION, FIT_BOX_MIN_PIXELS,
+                               TARGET_FIELD_SUFFIX, TARGET_FIT_BOX_BEAMS, TARGET_SEARCH_BEAMS)
 from classes.source_class import flux_scale_record
 from pre_calibration.options_class import Options
 
@@ -36,40 +38,22 @@ GIGAHERTZ = u.Unit('GHz')
 
 
 def fit_best_image(options: Options, image):
-  '''Fit the run's best image and archive the result.
-
-  `image` is the winning image_data.Image, which already knows its own path,
-  beam and off-source noise. Writes <name>.fit.json and imfit's log into the
-  results folder, prints a summary, and returns the record -- or None if there
-  was nothing to fit. Keyed, not positional, so adding or reordering a field
-  cannot shift the archived values.
-  '''
+  '''Measure the science target on the run's best image, or on its own outlier field when
+  it lies outside it, and archive the record as <name>.fit.json in the results folder.
+  Returns the record, or None if there was nothing to measure.'''
   if image is None or not image.path:
     print("Source fit skipped: no restored image found for the best cycle.")
     return None
-
-  header = image.header()
-  #the off-source RMS sets imfit's reported uncertainties, and is only meaningful
-  #if the noise is uniform across the fit region -- which is why the fit runs on
-  #the flat-noise restored image and not the pbcor one, whose noise rises with radius
-  rms = image.off_source_rms()
-  box = peak_fit_box(image, header)
-
   results_dir = Path(getattr(options, 'results_dir', '') or '.')
   name = getattr(options, 'results_name', '') or Path(image.path).name.split('.')[0]
 
-  fit = fit_source(image.path, rms=rms, box=box,
-                   logfile=results_dir / f"{name}.imfit.log",
-                   residual=results_dir / f"{name}.imfit.residual")
-  if fit is None:
-    return None
-  #imfit only reports a frequency when the component carries a spectrum; the image
-  #header always has one, so fall back to it rather than archiving a null
-  if fit.get('frequency_ghz') is None:
-    fit['frequency_ghz'] = _to_ghz(_header_frequency(header))
-
-  record = {**image.measurements(), 'fit_box': box or '(whole image)', **fit,
-            'flux_scale': flux_scale_record(options)}
+  located = locate_target(options, image)
+  if located is None:
+    record = {**image.measurements(), 'detected': None,
+              'note': 'the target is outside every imaged field; not measured'}
+  else:
+    record = measure_target(options, *located, results_dir, name)
+  record['flux_scale'] = flux_scale_record(options)
   #hand the record to Options so the run log can report it without re-fitting
   options.fit_record = record
   try:
@@ -82,31 +66,95 @@ def fit_best_image(options: Options, image):
   return record
 
 
-def peak_fit_box(image, header):
-  '''An imfit box centred on the image peak: half-side FIT_BOX_BEAMS synthesized
-  beams, floored at FIT_BOX_MIN_PIXELS, capped at FIT_BOX_MAX_IMAGE_FRACTION of the
-  image, and clamped to its bounds.
+def locate_target(options, image):
+  '''(image, field label, pixel) to measure the target on: the main image when it lies on
+  it, else its own field; None when it is on neither.'''
+  position = sky.target_position(options)
+  if position is None:
+    return None
+  candidates = [(image, 'main')]
+  field_base = (getattr(options, 'best_image_base', '') or image.base) + TARGET_FIELD_SUFFIX
+  if restored := restored_image(field_base):
+    candidates.append((Image(None, imstat_dict(imagename=restored), base=field_base), 'targetfield'))
+  for candidate, label in candidates:
+    shape = image_shape(candidate.header())
+    at = world_to_pixel(candidate.path, position[0], position[1])
+    if shape and at and 0 <= at[0] <= shape[0] - 1 and 0 <= at[1] <= shape[1] - 1:
+      return candidate, label, at
+  return None
 
-  Bounding the fit keeps the single component on the target rather than letting
-  it wander onto a brighter field source. The cap matters because the box is
-  sized in beams: on an over-sampled image an uncapped box grows back to the
-  whole frame. Returns '' (fit everything) when the peak or geometry is unknown.
-  '''
-  shape, peak = image_shape(header), image.peak_pixel()
-  if not shape or not peak:
+
+def measure_target(options, image, label, at, results_dir, name):
+  '''Detection test at the target's pixel, a Gaussian fitted there, and the upper limit:
+  detected when the peak within TARGET_SEARCH_BEAMS reaches detection_sigma x the
+  off-source rms. The fit is kept either way, so a new threshold can be applied later.'''
+  header = image.header()
+  #the off-source RMS sets imfit's reported uncertainties, and is only meaningful
+  #if the noise is uniform across the fit region -- which is why the fit runs on
+  #the flat-noise restored image and not the pbcor one, whose noise rises with radius
+  rms = image.off_source_rms()
+  beam, cell = beam_from_header(header), pixel_scale_arcsec(header)
+  beam_px = beam['major_arcsec'] / cell if beam and cell else 3.0
+  peak, peak_at = peak_near(image.path, at, TARGET_SEARCH_BEAMS * beam_px)
+  response = value_at(_pb_image(image.base), at)
+  sigma = float(getattr(options, 'detection_sigma', DETECTION_SIGMA) or DETECTION_SIGMA)
+  snr = peak / rms if peak is not None and rms else None
+  box = target_fit_box(header, at, beam_px)
+  estimates = _write_estimates(results_dir / f"{name}.imfit.estimates", peak, peak_at, beam)
+  fit = fit_source(image.path, rms=rms, box=box, estimates=estimates,
+                   logfile=results_dir / f"{name}.imfit.log",
+                   residual=results_dir / f"{name}.imfit.residual") or {}
+  #imfit only reports a frequency when the component carries a spectrum; the image
+  #header always has one, so fall back to it rather than archiving a null
+  if fit.get('frequency_ghz') is None:
+    fit['frequency_ghz'] = _to_ghz(_header_frequency(header))
+  position = sky.target_position(options)
+  pointing = getattr(options, 'pointing', None)
+  detected = snr >= sigma if snr is not None else None
+  return {**image.measurements(), 'image_field': label, 'fit_box': box, **fit,
+          'target': {'ra_deg': position[0], 'dec_deg': position[1],
+                     'position_from': position[2], 'pixel': [round(at[0], 2), round(at[1], 2)]},
+          'pointing_offset_arcmin': round(sky.offset_arcmin(position, pointing), 3) if pointing else None,
+          'pb_response': response,
+          'detection_sigma': sigma,
+          'peak_near_target_jy_per_beam': peak,
+          'snr': snr,
+          'detected': detected,
+          'upper_limit_jy': (sigma * rms / response
+                             if detected is False and rms and response else None)}
+
+
+def target_fit_box(header, at, beam_px):
+  '''An imfit box centred on the target: half-side TARGET_FIT_BOX_BEAMS beams, floored at
+  FIT_BOX_MIN_PIXELS, capped at FIT_BOX_MAX_IMAGE_FRACTION of the image, clamped to it.'''
+  shape = image_shape(header)
+  if not shape:
     return ''
   nx, ny = shape
-  half = FIT_BOX_MIN_PIXELS
-  beam, cell = beam_from_header(header), pixel_scale_arcsec(header)
-  if beam and cell and cell > 0:
-    half = max(FIT_BOX_MIN_PIXELS, int(FIT_BOX_BEAMS * beam['major_arcsec'] / cell))
+  half = max(FIT_BOX_MIN_PIXELS, int(TARGET_FIT_BOX_BEAMS * beam_px))
   half = min(half, int(min(nx, ny) * FIT_BOX_MAX_IMAGE_FRACTION))
-  peak_x, peak_y = peak
-  return (f"{max(0, peak_x - half)},{max(0, peak_y - half)},"
-          f"{min(nx - 1, peak_x + half)},{min(ny - 1, peak_y + half)}")
+  x, y = round(at[0]), round(at[1])
+  return f"{max(0, x - half)},{max(0, y - half)},{min(nx - 1, x + half)},{min(ny - 1, y + half)}"
 
 
-def fit_source(image, rms=None, box='', logfile=None, residual=None) -> dict[str, Any] | None:
+def _pb_image(base):
+  return next((base + ext for ext in ('.pb.tt0', '.pb') if Path(base + ext).is_dir()), '')
+
+
+def _write_estimates(path, peak, at, beam):
+  '''An imfit estimates file starting the fit on the target; None when it can't be made.'''
+  if peak is None or at is None or not beam or peak <= 0:
+    return None
+  try:
+    Path(path).write_text(f"{peak}, {at[0]}, {at[1]}, {beam['major_arcsec']}arcsec, "
+                          f"{beam['minor_arcsec']}arcsec, {beam['position_angle_deg'] or 0}deg\n")
+  except OSError:
+    return None
+  return path
+
+
+def fit_source(image, rms=None, box='', logfile=None, residual=None,
+               estimates=None) -> dict[str, Any] | None:
   '''Fit one 2D Gaussian; return its parameters as plain Python.
 
   residual : path for imfit's residual image. When given it is written and its
@@ -122,6 +170,8 @@ def fit_source(image, rms=None, box='', logfile=None, residual=None) -> dict[str
     kwargs['box'] = box
   if rms:
     kwargs['rms'] = float(rms)
+  if estimates:
+    kwargs['estimates'] = str(estimates)
   if logfile:
     #append=False so a re-run replaces the log rather than growing it
     kwargs.update(logfile=str(logfile), append=False)
@@ -162,8 +212,9 @@ def fit_source(image, rms=None, box='', logfile=None, residual=None) -> dict[str
 
 def print_summary(record):
   '''One human-readable block at the end of a run, to stdout and the CASA log.'''
-  lines = ["Source fit: converged" if record.get('converged') else
-           "Source fit: DID NOT CONVERGE (values below are unreliable)"]
+  lines = target_lines(record) + [
+    "Source fit: converged" if record.get('converged') else
+    "Source fit: DID NOT CONVERGE (values below are unreliable)"]
   rms = record.get('rms_jy_per_beam')
   if rms:
     lines.append(f"  off-source RMS  : {rms:.3e} Jy/beam ({record.get('rms_method')})")
@@ -195,6 +246,24 @@ def print_summary(record):
     ct.casalog.post(text, priority='INFO')
   except Exception:
     pass
+
+
+def target_lines(record):
+  '''The detection or the upper limit at the target, as summary lines.'''
+  target = record.get('target')
+  if not target:
+    return [f"Target: {record['note']}"] if record.get('note') else []
+  lines = [f"Target at {target['ra_deg']:.5f} {target['dec_deg']:+.5f} "
+           f"({target['position_from']}), measured in the {record.get('image_field')} image"]
+  if (offset := record.get('pointing_offset_arcmin')) is not None:
+    lines.append(f"  from pointing   : {offset:.2f}', primary beam {_number(record.get('pb_response'), '.3f')}")
+  snr = _number(record.get('snr'), '.1f')
+  if record.get('detected'):
+    lines.append(f"  DETECTED        : {snr} sigma within a beam")
+  elif record.get('upper_limit_jy') is not None:
+    lines.append(f"  UPPER LIMIT     : {record['upper_limit_jy'] * 1e3:.3g} mJy "
+                 f"({record['detection_sigma']:g} sigma, primary-beam corrected; peak {snr} sigma)")
+  return lines
 
 
 #---------------------------------------------------------------- imfit unpacking
