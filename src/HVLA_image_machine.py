@@ -1,4 +1,4 @@
-import sys,os,argparse
+import sys,os,argparse,atexit
 from classes import work_dir
 work_dir.resolve()  #must precede the casatasks import: CASA opens its log in the CWD
 import casaviewer
@@ -44,6 +44,7 @@ def argumentManager():
 def main(): #argv
   """ Main function to run the HVLA Image Machine application."""
   print("Welcome to the HVLA Image Machine!")
+  atexit.register(Cleaner.kill_viewers)
   source = Options()
   source.sysArgs = argumentManager()
   print(f"Work directory: {source.work_dir}")

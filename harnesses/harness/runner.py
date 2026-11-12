@@ -9,6 +9,7 @@ from the project root, and importvla only reads them.
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import threading
@@ -129,6 +130,9 @@ def execute(selection, run_dir, cores=None, timeout=DEFAULT_TIMEOUT, attended=Fa
       sink.write(f"\n\n*** harness: could not launch: {exc!r} ***\n")
       return RunResult(selection, run_dir, 'setup-error', None,
                        time.perf_counter() - started, repr(exc))
+    finally:
+      if stopped := stop_leftovers(run_dir):
+        sink.write(f"\n*** harness: stopped {stopped} process(es) the run left behind ***\n")
 
   seconds = time.perf_counter() - started
   collapse_progress(output)
@@ -136,6 +140,55 @@ def execute(selection, run_dir, cores=None, timeout=DEFAULT_TIMEOUT, attended=Fa
   status, detail = _verdict(code, results_dir, output)
   return RunResult(selection, run_dir, status, code, seconds, detail,
                    str(results_dir or ''))
+
+
+#processes a run can leave behind when it fails or is killed; a viewer keeps its
+#AppImage mounted until it exits. comm is cut to 15 characters.
+LEFTOVER_COMMANDS = ('casaviewer', 'casaplotms', 'Xvfb')
+
+
+def stop_leftovers(run_dir, grace=5.0):
+  """Stop this user's viewer, plotms and Xvfb processes still working in run_dir:
+  SIGTERM, then SIGKILL after `grace` seconds. Returns how many there were."""
+  run_dir = Path(run_dir).resolve()
+  pids = []
+  for proc in Path('/proc').iterdir():
+    if not proc.name.isdigit():
+      continue
+    try:
+      if proc.stat().st_uid != os.getuid():
+        continue
+      if not (proc / 'comm').read_text().strip().startswith(LEFTOVER_COMMANDS):
+        continue
+      cwd = Path(os.readlink(proc / 'cwd'))
+    except OSError:
+      continue
+    if cwd == run_dir or run_dir in cwd.parents:
+      pids.append(int(proc.name))
+  for sig in (signal.SIGTERM, signal.SIGKILL):
+    alive = [pid for pid in pids if _signal(pid, sig)]
+    deadline = time.monotonic() + grace
+    while alive and time.monotonic() < deadline:
+      time.sleep(0.2)
+      alive = [pid for pid in alive if _running(pid)]
+    if not alive:
+      break
+  return len(pids)
+
+
+def _signal(pid, sig):
+  try:
+    os.kill(pid, sig)
+    return True
+  except OSError:
+    return False
+
+
+def _running(pid):
+  try:
+    return Path(f"/proc/{pid}/stat").read_text().split(') ', 1)[1][0] != 'Z'
+  except (OSError, IndexError):
+    return False
 
 
 def _run_attended(argv, run_dir, env, sink):

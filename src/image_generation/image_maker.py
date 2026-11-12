@@ -930,6 +930,18 @@ class Cleaner:
         for key in cache:
           cache[key] = None
 
+  @staticmethod
+  def kill_viewers():
+    '''Kill any viewer this process started; registered to run at exit.'''
+    try:
+      from casaviewer.private import viewertool as vt
+    except Exception:
+      return
+    for proc in (vt.__dict__.get('__proc') or {}).values():
+      if proc is not None:
+        try: proc.kill()
+        except Exception: pass
+
   #Map a VLA config letter to its column in the BAND_* resolution tables (A/B/C/D).
   CONFIG_INDEX = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
 
