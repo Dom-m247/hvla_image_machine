@@ -25,7 +25,7 @@ import casatasks as ct
 #purpose: it only measures (it drives the pipeline's decisions, but the replay has no
 #decisions to drive, so recording it would just add noise).
 _RECORDED_TASKS = (
-  'importvla', 'listobs', 'flagdata', 'flagmanager', 'setjy', 'gaincal', 'bandpass',
+  'importvla', 'concat', 'listobs', 'flagdata', 'flagmanager', 'setjy', 'gaincal', 'bandpass',
   'fluxscale', 'applycal', 'blcal', 'split', 'tclean', 'impbcor', 'exportfits',
   'uvsub',
   'rmtables', 'delmod',

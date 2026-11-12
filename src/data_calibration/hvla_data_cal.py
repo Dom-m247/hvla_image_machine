@@ -15,6 +15,7 @@ from classes import *
 from classes import call_recorder, run_log
 from pre_calibration.options_class import Options #self referential problem/
 from pathlib import Path
+from typing import Any
 
 def data_calibration(options:Options):
   """
@@ -105,11 +106,9 @@ def do_vla_import(archive_files,output_ms:str,project=''):
   records: an archive file is a slice of a tape and often holds other projects'
   observations too. A filter that matches nothing falls back to importing it all.
 
-  importvla gives up at the first record it cannot parse (seen as 'Failed
-  Assertion: offset != 0'), but writes everything it read before that. A partial
-  MS that is whole -- data rows and its OBSERVATION record -- is kept with a
-  warning rather than failing the run; if the target is not in it, the target
-  search says so.
+  importvla stops at the first record it cannot parse, sometimes without an error, and
+  drops every file after it; so a multi-file segment is imported file by file and
+  concatenated. A file that stops early keeps what it imported, with a warning.
   """
   if isinstance(archive_files, str):
     archive_files = [archive_files]
@@ -122,16 +121,34 @@ def do_vla_import(archive_files,output_ms:str,project=''):
     return
   print(f"\nImporting {archive_files} to {vis}" + (f" (project {project})" if project else '') + "...")
   run_log.event(f"importvla: {archive_files} -> {vis}" + (f", project={project}" if project else ''))
+  if len(archive_files) > 1:
+    _import_by_file(archive_files, vis, project)
+    return
   try:
     _importvla(archive_files, vis, project)
   except Exception as exc:
-    if not (_ms_rows(vis) and _ms_rows(vis + '/OBSERVATION')):
+    if not _whole(vis):
       raise
-    msg = (f"importvla stopped early ({str(exc).splitlines()[-1][-120:]}); "
-           f"continuing with the {_ms_rows(vis)} rows it imported before that")
-    print(f"\nWARNING: {msg}")
-    ct.casalog.post(msg, priority='WARN')
-    run_log.event(f"WARNING: {msg}")
+    _warn(f"importvla stopped early ({_last_line(exc)}); "
+          f"continuing with the {_ms_rows(vis)} rows it imported before that")
+
+def _warn(msg):
+  print(f"\nWARNING: {msg}")
+  ct.casalog.post(msg, priority='WARN')
+  run_log.event(f"WARNING: {msg}")
+
+def _whole(vis):
+  """True when an MS has data rows and its OBSERVATION record."""
+  return bool(_ms_rows(vis) and _ms_rows(vis + '/OBSERVATION'))
+
+def _last_line(exc):
+  return (str(exc).splitlines() or [''])[-1][-120:]
+
+def _no_match(project, archive_files):
+  #no record carries that code (a code guessed from a folder name, or a spelling
+  #the archive differs on): import everything rather than nothing
+  print(f"No records for project {project} in {archive_files}; importing every project in them.")
+  run_log.event(f"importvla: project {project} matched nothing; importing unfiltered")
 
 def _importvla(archive_files, vis, project):
   if not project:
@@ -142,12 +159,42 @@ def _importvla(archive_files, vis, project):
   except Exception:
     if _ms_rows(vis):
       raise   #the filter matched; the failure is the import's own
-    #no record carries that code (a code guessed from a folder name, or a spelling
-    #the archive differs on): import everything rather than nothing
-    print(f"No records for project {project} in {archive_files}; importing every project in them.")
-    run_log.event(f"importvla: project {project} matched nothing; importing unfiltered")
+    _no_match(project, archive_files)
     shutil.rmtree(vis, ignore_errors=True)
     run_importvla(archivefiles=archive_files,vis=vis)
+
+def _import_by_file(archive_files, vis, project):
+  """Import each file into a part of its own, then concatenate the parts into vis."""
+  parts = _import_parts(archive_files, vis, project)
+  if not parts and project:
+    _no_match(project, archive_files)
+    parts = _import_parts(archive_files, vis, '')
+  if not parts:
+    raise RuntimeError(f"importvla read nothing from {archive_files}")
+  ct.concat(vis=parts, concatvis=vis)
+  for part in parts:
+    shutil.rmtree(part, ignore_errors=True)
+  run_log.event(f"importvla: {len(parts)} of {len(archive_files)} file(s) imported, "
+                f"concatenated into {_ms_rows(vis)} rows")
+
+def _import_parts(archive_files, vis, project):
+  parts = []
+  for number, path in enumerate(archive_files):
+    part = f"{vis[:-len('.ms')]}_part{number}.ms"
+    shutil.rmtree(part, ignore_errors=True)
+    try:
+      run_importvla(archivefiles=[path], vis=part, **({'project': project} if project else {}))
+    except Exception as exc:
+      if _whole(part):
+        _warn(f"importvla stopped early in {Path(path).name} ({_last_line(exc)}); "
+              f"keeping its {_ms_rows(part)} rows")
+      else:
+        run_log.event(f"importvla: nothing imported from {Path(path).name} ({_last_line(exc)})")
+    if _whole(part):
+      parts.append(part)
+    else:
+      shutil.rmtree(part, ignore_errors=True)
+  return parts
 
 IMPORT_CHILD = Path(__file__).with_name('import_child.py')
 
@@ -225,7 +272,7 @@ def calibrated_split(options:Options):
     ct.casalog.post(f"{options.initial_calibration_filename+'.ms'} -> {options.calibrated_filename+'.ms'}")
   else:
     widths = channel_widths(options.initial_calibration_filename+'.ms')
-    average = {'width': widths} if any(w > 1 for w in widths) else {}
+    average: dict[str, Any] = {'width': widths} if any(w > 1 for w in widths) else {}
     if average:
       run_log.note('CALIBRATION', 'Channel averaging',
                    f"width {widths} per spw, to at most {MAX_IMAGING_CHANNELS} channels")
