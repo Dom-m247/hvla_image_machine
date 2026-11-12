@@ -220,6 +220,11 @@ FLUX_CAL_ALIASES = {'1331+305': '3C286',
                       '0518+165': '3C138'} #upgrade with calibrator list, and pull flux data for 'custom' callibrators
 #variable (3C138 flares): auto takes these only when no other flux calibrator is observed
 FLUX_CAL_LAST_RESORT = ('3C138',)
+#where a run's flux scale comes from; 'catalogue' is the NRAO list's flux of a calibrator,
+#used when the observation has no flux standard (good to 10-20%)
+FLUX_SCALE_STANDARD, FLUX_SCALE_CATALOGUE, FLUX_SCALE_MANUAL = 'standard', 'catalogue', 'manual'
+#pipeline band -> the NRAO calibrator list's band code, where they differ
+CALIBRATOR_BAND_CODES = {'Ku': 'U'}
 
 
 #--- archive search results ---

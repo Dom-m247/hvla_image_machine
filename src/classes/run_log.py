@@ -89,6 +89,7 @@ def write(options, path):
 def render(options):
   """Build the whole report as a string."""
   out = [_banner(), '']
+  out += _warnings(options)
   out += _header(options)
   out += _block('SOURCE', _source_rows(options))
   out += _block('OBSERVATION', _observation_rows(options))
@@ -102,6 +103,31 @@ def render(options):
 
 
 #--------------------------------------------------------------------- sections
+
+def _warnings(options):
+  """A banner for anything that qualifies every number below it."""
+  lines = []
+  if _flux_scale(options).startswith('***'):
+    lines.append('*** CATALOGUE *** flux scale: no flux standard was observed, so it comes from '
+                 'a calibrator catalogue flux, good to 10-20%')
+  if not lines:
+    return []
+  return ['!' * WIDTH] + [f"  {line}" for line in lines] + ['!' * WIDTH, '']
+
+
+def _flux_scale(options):
+  try:
+    from classes.source_class import flux_scale_record
+    record = flux_scale_record(options)
+  except Exception:
+    return _MISSING
+  if record['origin'] == 'catalogue':
+    return (f"*** CATALOGUE *** {record['calibrator']} at {record.get('flux_jy')} Jy "
+            f"(NRAO calibrator list, {record.get('reffreq') or '?'}; good to 10-20%)")
+  if record['origin'] == 'manual':
+    return f"manual: {record.get('flux_jy')} Jy at {record.get('reffreq') or '?'} (given by the user)"
+  return 'standard (Perley-Butler model of the flux calibrator)'
+
 
 def _header(options):
   info = call_recorder.provenance()
@@ -160,6 +186,7 @@ def _calibration_rows(options):
   amp, phase = _attr(options, 'flux_cal'), _attr(options, 'phase_cal')
   rows = [
     ('Flux calibrator', _calibrator(amp)),
+    ('Flux scale', _flux_scale(options)),
     ('setjy model', _attr_of(amp, 'model')),
   ]
   if _get(options, 'target_is_phase_cal') is True:

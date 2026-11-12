@@ -25,6 +25,7 @@ from classes.image_data import (beam_from_header, convert_unit, first_value,
                                 pixel_scale_arcsec, to_arcsec)
 from classes.constants import (FIT_BOX_BEAMS, FIT_BOX_MAX_IMAGE_FRACTION,
                                FIT_BOX_MIN_PIXELS)
+from classes.source_class import flux_scale_record
 from pre_calibration.options_class import Options
 
 #see image_data: astropy's unit attributes are built dynamically, so u.Unit() is
@@ -67,7 +68,8 @@ def fit_best_image(options: Options, image):
   if fit.get('frequency_ghz') is None:
     fit['frequency_ghz'] = _to_ghz(_header_frequency(header))
 
-  record = {**image.measurements(), 'fit_box': box or '(whole image)', **fit}
+  record = {**image.measurements(), 'fit_box': box or '(whole image)', **fit,
+            'flux_scale': flux_scale_record(options)}
   #hand the record to Options so the run log can report it without re-fitting
   options.fit_record = record
   try:

@@ -11,6 +11,31 @@ TYPE_PHASE_CAL = 'phase_cal'
 TYPE_TARGET = 'target'
 AUTO = 'auto'
 
+
+def flux_scale(options):
+  '''Where the run's flux scale comes from: a standard, the calibrator catalogue, or the user.'''
+  manual = getattr(options, 'flux_cal_manual', None)
+  if not manual:
+    return FLUX_SCALE_STANDARD
+  return FLUX_SCALE_CATALOGUE if manual.get('origin') == FLUX_SCALE_CATALOGUE else FLUX_SCALE_MANUAL
+
+
+def flux_scale_record(options):
+  '''The flux scale's origin, for fit.json and the run log.'''
+  record = {'origin': flux_scale(options), 'calibrator': getattr(options, 'flux_cal_name', '')}
+  if manual := getattr(options, 'flux_cal_manual', None):
+    record.update(flux_jy=manual.get('flux'), reffreq=manual.get('reffreq'))
+  return record
+
+
+def _band_reffreq(wavelength):
+  ''''20cm' -> '1.499GHz'; '' when the wavelength is unreadable.'''
+  try:
+    return f"{0.299792458 / (float(str(wavelength).removesuffix('cm')) / 100):.4g}GHz"
+  except ValueError:
+    return ''
+
+
 class source_info:
   #TODO: upgrade to utilize other 'better' claibrators
   def __init__(self,options,type='',name: str | None='',listobs_name='',source_id='',field_id=''):
@@ -352,10 +377,21 @@ class source_info:
         return False   #no fields at all -- nothing to calibrate against
       options.flux_cal_manual = self._ask_manual_flux(options, chosen)
     elif not candidates:
-      if off_spw:
-        raise Exception(f"No flux calibrator shares the target's spws ({options.spw_selection}); "
-                        f"skipped {', '.join(f.name for f in off_spw)}")
-      return False
+      rescue = self._catalogue_flux_cals(options)
+      if not rescue:
+        if off_spw:
+          raise Exception(f"No flux calibrator shares the target's spws ({options.spw_selection}); "
+                          f"skipped {', '.join(f.name for f in off_spw)}")
+        return False
+      if mode == VERIFY:
+        picked = decisions.pick('No flux standard -- catalogue calibrators, nearest first:',
+                                rescue, formatter=lambda r: r['label'])
+      else:
+        picked = rescue[0]
+      if picked is None:
+        return False
+      chosen, options.flux_cal_manual = picked['field'], picked['flux']
+      self._warn_catalogue(options, chosen)
     elif mode == VERIFY:
       #auto keeps taking candidates[0]; only the picker is re-ordered
       ordered, describe = self._fields_nearest_target(options, subset=candidates)
@@ -379,9 +415,46 @@ class source_info:
     #a manual calibrator has no Perley-Butler model; setjy uses the user's flux instead
     self.name3c = FLUX_CAL_ALIASES.get(cal_name, cal_name)
     self.model = '' if options.flux_cal_manual else f"{self.name3c}_{self.band}.im"
-    decisions.announce('flux_cal', cal_name,
-                       'user flux' if options.flux_cal_manual else self.model)
+    origin = flux_scale(options)
+    decisions.announce('flux_cal', cal_name, {FLUX_SCALE_CATALOGUE: 'CATALOGUE flux',
+                                              FLUX_SCALE_MANUAL: 'user flux'}.get(origin, self.model))
     return True
+
+  def _catalogue_flux_cals(self, options):
+    '''Fields in the NRAO calibrator list with a flux for this band that the list does not
+    rate X in this configuration, nearest the target first, each as {'field', 'flux', 'label'}.'''
+    from classes.nrao_calibrators import NRAOCalibrators
+    from data_calibration.parse_listobs import vla_config_from_antennas
+    config = (vla_config_from_antennas(options.observation_data.antennas)
+              or options.array_config or '')[:1].upper()
+    code = CALIBRATOR_BAND_CODES.get(options.band, options.band)
+    target_spws = self._target_spws(options)
+    nrao = NRAOCalibrators()
+    ordered, separations = self._fields_by_separation(options, self._target_coord(options))
+    found = []
+    for field in ordered:
+      entry = nrao.find_by_name(str(field.name))
+      band = entry.get_band(code) if entry else None
+      if not band or not band.get('flux_Jy'):
+        continue
+      rating = (band.get('calibrator_quality') or {}).get(config, '?')
+      if rating == 'X' or (target_spws and not self.spws_for_field(options, field.id) & target_spws):
+        continue
+      flux = {'flux': float(band['flux_Jy']), 'reffreq': _band_reffreq(band.get('wavelength')),
+              'origin': FLUX_SCALE_CATALOGUE}
+      sep = separations.get(field.id)
+      found.append({'field': field, 'flux': flux,
+                    'label': f"{field.name:<15} {flux['flux']:6.2f} Jy  rated {rating} in {config or '?'}"
+                             + (f"  {sep:6.2f} deg" if sep is not None else '')})
+    return found
+
+  def _warn_catalogue(self, options, field):
+    from classes import run_log
+    msg = (f"No flux standard in this observation: the flux scale comes from {field.name}'s "
+           f"catalogue flux, {options.flux_cal_manual['flux']} Jy (good to 10-20%)")
+    ct.casalog.post(msg, priority='WARN')
+    print(f"\n{'*' * 72}\n*** CATALOGUE FLUX SCALE: {msg}\n{'*' * 72}")
+    run_log.event(f"WARNING: {msg}")
 
   def _ask_manual_flux(self,options,field):
     '''Flux density + reference frequency for setjy standard="manual".'''
@@ -421,8 +494,12 @@ class source_info:
 
     _to_skycoord = self._to_skycoord
 
-    exclude_ids = {options.flux_cal.field_id, options.source_ids.field_id}
+    #a calibrator that only has a catalogue flux may set the flux scale and the phases both
+    exclude_ids = {options.source_ids.field_id}
+    if flux_scale(options) != FLUX_SCALE_CATALOGUE:
+      exclude_ids.add(options.flux_cal.field_id)
     target_spws = self._target_spws(options)
+    band_code = CALIBRATOR_BAND_CODES.get(options.band, options.band)
 
     # {field_id: (Fields object, SkyCoord)}
     candidates = {}
@@ -464,7 +541,7 @@ class source_info:
     def _describe(item):
       field, coord = item[1]
       entry = nrao.find_by_name(field.name)
-      known = 'NRAO' if entry and entry.get_band(options.band) else 'unlisted'
+      known = 'NRAO' if entry and entry.get_band(band_code) else 'unlisted'
       return f"{field.name:<15} {_sep_deg(source_coord, coord):6.2f} deg  {known}"
 
     def _pick(label):
@@ -487,7 +564,7 @@ class source_info:
 
     for field_id, (field, coord) in sorted_candidates:
       cal_entry = nrao.find_by_name(field.name)
-      if cal_entry is not None and cal_entry.get_band(options.band) is not None:
+      if cal_entry is not None and cal_entry.get_band(band_code) is not None:
         adopt(field, coord)
         return
 

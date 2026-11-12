@@ -66,7 +66,8 @@ def define_split_fields_phase_cal(options:Options):
       f"(calibrator detection likely failed upstream)."
     )
 
-  split_fields = ','.join(str(fid) for _, fid in required)
+  #a catalogue-flux calibrator can be the phase calibrator too; it is listed once
+  split_fields = ','.join(dict.fromkeys(str(fid) for _, fid in required))
   mode = 'target as its own phase cal (src,flux)' if options.target_is_phase_cal else 'src,flux,phase'
   print(f"Splitting on fields [{mode}]: {split_fields}")
   return split_fields
