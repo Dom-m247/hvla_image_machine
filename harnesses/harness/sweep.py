@@ -14,6 +14,7 @@ A failure anywhere is an event and a result, never an exception that ends the
 sweep: the runs beside it carry on.
 """
 import json
+import queue
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -269,22 +270,33 @@ def run_one(selection, sweep, cores, oversight, dry_run=False, fresh=False):
 
 
 def run_batches(selections, sweep, oversight, dry_run=False, fresh=False):
-  """Work through the selections in parallel batches (one at a time when attended)."""
+  """Work through the selections, batch_size at a time (one at a time when attended).
+
+  Each core slot takes the next run as soon as its last one ends, so a slow run
+  holds up only its own slot: with whole batches, one long track left the other
+  slots idle until it finished. Results come back in selection order."""
   options = sweep.options
   size = 1 if options['attended'] else options['batch_size']
   slots = core_slots(options['cores'], size)
-  results = []
-  batches = [selections[i:i + size] for i in range(0, len(selections), size)]
-  for number, batch in enumerate(batches, 1):
-    print(f"\n=== Batch {number}/{len(batches)}: "
-          f"{', '.join(s.slug for s in batch)} ===")
-    started = time.perf_counter()
-    with ThreadPoolExecutor(max_workers=len(batch)) as pool:
-      futures = [pool.submit(run_one, selection, sweep, slots[slot], oversight,
-                             dry_run, fresh)
-                 for slot, selection in enumerate(batch)]
-      results += [future.result() for future in futures]
-    print(f"=== Batch {number} finished in {(time.perf_counter() - started) / 60:.1f} min ===")
+  pending = queue.Queue()
+  for index, selection in enumerate(selections):
+    pending.put((index, selection))
+  results = [None] * len(selections)
+  started = time.perf_counter()
+
+  def work(slot):
+    while True:
+      try:
+        index, selection = pending.get_nowait()
+      except queue.Empty:
+        return
+      print(f"\n=== Run {index + 1}/{len(selections)} (slot {slot + 1}): {selection.slug} ===")
+      results[index] = run_one(selection, sweep, slots[slot], oversight, dry_run, fresh)
+
+  with ThreadPoolExecutor(max_workers=size) as pool:
+    for future in [pool.submit(work, slot) for slot in range(min(size, len(selections)))]:
+      future.result()
+  print(f"=== {len(selections)} run(s) finished in {(time.perf_counter() - started) / 60:.1f} min ===")
   return results
 
 

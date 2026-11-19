@@ -8,6 +8,7 @@ from pre_calibration.options_class import Options
 import os
 import pprint
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -20,6 +21,12 @@ from typing import Optional, cast
 #unbounded call is indistinguishable from a dead prompt. Wall-clock seconds.
 SSH_CONNECT_TIMEOUT = 30
 RADIO_SEARCH_TIMEOUT = 300
+
+#The radio_search command installed on this machine (/usr/local/bin/radio_search),
+#which runs the current NRAO-side tool over one shared ssh connection. When it is
+#installed, every search goes through it; otherwise the stored login below is used.
+#'' turns it off.
+RADIO_SEARCH_HELPER = 'radio_search'
 
 def load_creds(required=('host', 'user')):
     """Credentials, via classes.creds which owns the file's location.
@@ -150,9 +157,44 @@ class RadioSearch2:
     
     def __enter__(self):
         return self
-    
+
     def __exit__(self, *exc):
         self.client.close()
+
+
+class RadioSearchHelper:
+    """radio_search through the command installed on this machine.
+
+    Same use as RadioSearch2: rs('4C35.03', 'BANDS', 'C') returns the tool's output.
+    The command keeps its own ssh connection open (the password is typed once, at
+    the terminal), so there is nothing to open or close here. With no connection
+    open and nobody at a terminal, ssh fails at once rather than waiting.
+    """
+    def __init__(self, command):
+        self.command = command
+
+    def __call__(self, *args, timeout=RADIO_SEARCH_TIMEOUT):
+        #never a graphical password prompt: a sweep has nobody to answer it
+        env = dict(os.environ, SSH_ASKPASS_REQUIRE='never')
+        try:
+            result = subprocess.run([self.command, *args], capture_output=True, text=True,
+                                    stdin=subprocess.DEVNULL, timeout=timeout, env=env)
+        except subprocess.TimeoutExpired:
+            raise TimeoutError(
+                f"radio_search did not respond within {timeout}s: {' '.join(args)}")
+        if result.stderr.strip():
+            print(f"radio_search stderr:\n{result.stderr}")
+        if result.returncode != 0 and not result.stdout.strip():
+            raise RuntimeError(
+                f"radio_search failed (exit {result.returncode}): {result.stderr.strip()}"
+                f" -- is the connection open? (run 'radio_search help' at a terminal)")
+        return result.stdout
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        pass
 
 
 #archfileinfo dates: 'YY-Mon-DD' (old style) or 'YYYY-MM-DD'.
@@ -297,7 +339,13 @@ class RadioSearchIntegration:
     CLI flow below, the GUI -- never handle them. 'password' and 'key_filename'
     are optional: with neither, the login uses your ssh keys, as a passwordless
     `ssh user@host` does.
+
+    The radio_search command, when this machine has it, comes first: it runs the
+    current tool, and needs no credentials here.
     """
+    helper = shutil.which(RADIO_SEARCH_HELPER) if RADIO_SEARCH_HELPER else None
+    if helper:
+      return RadioSearchHelper(helper)
     values = load_creds(required=('host', 'user', 'radio_search_path'))
     key = values.get('key_filename')
     return RadioSearch2(host=values['host'], user=values['user'],
