@@ -230,6 +230,8 @@ def _final_image_rows(options):
     ('Integrated flux', _quantity(fit.get('integrated_flux'))),
     ('Off-source RMS', f"{_number(fit.get('rms_jy_per_beam'), '.3e')} Jy/beam "
                        f"({fit.get('rms_method', '?')})"),
+    ('Stokes V RMS', f"{_number(fit.get('stokes_v_rms_jy_per_beam'), '.3e')} Jy/beam "
+                     f"(I/V {_number(fit.get('i_v_noise_ratio'), '.2f')})"),
     ('Dynamic range', _number(fit.get('dynamic_range'), '.1f')),
     ('Restoring beam', _size(beam)),
     ('Frequency', f"{_number(fit.get('frequency_ghz'), '.6g')} GHz"),

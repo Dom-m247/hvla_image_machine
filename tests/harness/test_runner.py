@@ -14,6 +14,7 @@ class StopLeftovers(unittest.TestCase):
     exe = Path(cwd) / name
     shutil.copy(shutil.which('sleep'), exe)
     proc = subprocess.Popen([str(exe), '300'], cwd=cwd)
+    self.addCleanup(proc.wait)
     self.addCleanup(proc.kill)
     return proc
 

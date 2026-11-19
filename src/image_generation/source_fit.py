@@ -54,6 +54,9 @@ def fit_best_image(options: Options, image):
   else:
     record = measure_target(options, *located, results_dir, name)
   record['flux_scale'] = flux_scale_record(options)
+  record['stokes_v_rms_jy_per_beam'] = v_rms = getattr(options, 'stokes_v_rms', None)
+  i_rms = record.get('rms_jy_per_beam')
+  record['i_v_noise_ratio'] = i_rms / v_rms if i_rms and v_rms else None
   #hand the record to Options so the run log can report it without re-fitting
   options.fit_record = record
   try:

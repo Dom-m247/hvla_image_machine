@@ -203,6 +203,26 @@ class Cleaner:
     return ct.imstat(imagename=options.image_filename+'.image.tt0')
   
   @staticmethod
+  def stokes_v_rms(options:Options):
+    '''Off-source RMS of a Stokes V dirty image at most STOKES_V_CUTOUT_PX across on the
+    pointing: a noise floor no source fills. None when the data cannot form V.'''
+    name = options.image_filename + STOKES_V_SUFFIX
+    Cleaner._clear_image(name)
+    shared = Cleaner._tclean_kwargs(options)
+    try:
+      ct.tclean(vis=shared['vis'], imagename=name, stokes='V', specmode='mfs', niter=0,
+                imsize=min(STOKES_V_CUTOUT_PX, max(options.image_size)), cell=shared['cell'],
+                phasecenter=shared['phasecenter'], weighting=shared['weighting'],
+                robust=shared['robust'], deconvolver='hogbom', pblimit=CLEAN_PBLIMIT,
+                savemodel='none', **Cleaner._gridder_kwargs(shared['gridder']))
+    except Exception as exc:
+      print(f"Stokes V image failed ({exc}); no V noise for this run.")
+      return None
+    rms, _ = image_data.measure_off_source_rms(image_data.restored_image(name))
+    Cleaner._clear_image(name)
+    return rms
+
+  @staticmethod
   def cleaned_flux(options:Options, base):
     '''Flux in Jy that a clean put in the models of `base` and of its outlier fields.'''
     total = 0.0
@@ -778,6 +798,7 @@ class Cleaner:
       Cleaner.core_subtract_cycle(options, best['image'])
     except Exception as e:
       print(f"Core subtraction failed (image still available at {best['base']}): {e}")
+    options.stokes_v_rms = Cleaner.stokes_v_rms(options)
     #best-effort so a packaging hiccup never loses a completed image
     try:
       Cleaner.collect_results(options)

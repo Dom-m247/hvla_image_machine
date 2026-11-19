@@ -162,6 +162,10 @@ MAD_TO_SIGMA = 1.4826               #robust fallback estimator: sigma = 1.4826 *
 DETECTION_SIGMA = 5.0
 TARGET_SEARCH_BEAMS = 1.0
 TARGET_FIT_BOX_BEAMS = 3            #imfit box half-side, in synthesized beams, around the target
+#The V noise comes from a dirty image no wider than this: as good a noise sample as the
+#whole field, at a fraction of the gridding time
+STOKES_V_CUTOUT_PX = 1024
+STOKES_V_SUFFIX = '_stokesV'
 FIT_BOX_MIN_PIXELS = 32             #...but never smaller than this
 FIT_BOX_MAX_IMAGE_FRACTION = 0.25   #...and never more than this fraction of the shorter image
                                     #side, so an over-sampled image (many pixels per beam)
