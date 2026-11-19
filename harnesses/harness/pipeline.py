@@ -28,8 +28,8 @@ from classes.CLI_input import CLI                             # noqa: E402
 from classes.image_data import first_value, imstat_dict       # noqa: E402
 from classes.constants import (                               # noqa: E402
   AUTO, BAND_GHZ_RANGES, DECISIONS, DEFAULT_IMAGE_SIZE, DETECTION_SIGMA,
-  FLAG_METHODS_DEFAULT, FOLDER_NAME, FORCE, IMPORT_JSON, MIN_SNR, MS_SUB_PATH, OFF,
-  CLEAN_ROBUST, FIT_MIN_SNR,
+  EXPERIMENTAL_BANDS, FLAG_METHODS_DEFAULT, FOLDER_NAME, FORCE, IMPORT_JSON, MIN_SNR,
+  MS_SUB_PATH, OFF, CLEAN_ROBUST, FIT_MIN_SNR,
 )
 from pre_calibration.import_settings import revmove_path      # noqa: E402
 from pre_calibration.options_class import Options             # noqa: E402
@@ -49,7 +49,7 @@ PRE_EVLA_YEAR = CLI.RADIO_SEARCH_HIGHLIGHT_YEAR
 
 __all__ = [
   'AUTO', 'BAND_GHZ_RANGES', 'CLEAN_ROBUST', 'CLI', 'DECISIONS', 'DETECTION_SIGMA',
-  'DEFAULT_IMAGE_SIZE', 'DelosDownload', 'FIT_MIN_SNR', 'FLAG_METHODS_DEFAULT',
+  'DEFAULT_IMAGE_SIZE', 'DelosDownload', 'EXPERIMENTAL_BANDS', 'FIT_MIN_SNR', 'FLAG_METHODS_DEFAULT',
   'FOLDER_NAME', 'FORCE',
   'IMPORT_JSON', 'MAIN_SCRIPT', 'MIN_SNR', 'MS_SUB_PATH', 'NED_API', 'OFF', 'resolve_source',
   'first_value', 'imstat_dict',

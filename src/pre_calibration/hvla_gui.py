@@ -9,6 +9,8 @@ from classes import creds
 from API_integrations.resolve import resolve_source
 
 class SourceInputWindow:
+    EXPERIMENTAL_LABEL = " (experimental)"   #how the band menu marks an experimental band
+
     def __init__(self, master, app):
         self.master = master
         self.app = app
@@ -52,7 +54,9 @@ class SourceInputWindow:
         # Radio Band selection
         ttk.Label(source_frame, text="Select Radio Band:", font=("Arial", 20)).pack(anchor="w", pady=(0, 5))
         self.band_var = tk.StringVar(value="auto")
-        bands = ["auto","L", "S", "C", "X", "Ku", "K", "Ka", "Q", "W"]
+        #an experimental band is offered, marked: it runs only attended (decisions.require_attended)
+        bands = (["auto"] + [band + self.EXPERIMENTAL_LABEL for band in EXPERIMENTAL_BANDS]
+                 + ["L", "S", "C", "X", "Ku", "K", "Ka", "Q", "W"])
         self.band_menu = ttk.Combobox(
             source_frame, 
             textvariable=self.band_var, 
@@ -200,6 +204,10 @@ class SourceInputWindow:
             self.master.after(0, lambda: done(result, error))
         threading.Thread(target=runner, daemon=True).start()
 
+    def _band(self):
+        """The chosen band as the pipeline spells it, without the menu's marking."""
+        return self.band_var.get().replace(self.EXPERIMENTAL_LABEL, "")
+
     def on_source_change(self, *args):
         """Re-gate Get Observations when the source text changes"""
         self.source_validated = False
@@ -238,7 +246,7 @@ class SourceInputWindow:
 
     def get_observations(self):
         """Search the archive for the validated source and offer the results."""
-        band = self.band_var.get()
+        band = self._band()
         options = SimpleNamespace(search_alias=self.search_alias or self.source_var.get(),
                                   band=band)
         self._set_busy(True, "Searching the archive...")
@@ -259,7 +267,7 @@ class SourceInputWindow:
             messagebox.showerror("Archive Search Failed", str(error))
             return
         if not observations:
-            band = self.band_var.get()
+            band = self._band()
             in_band = "" if band in ("", "auto") else f" in band {band}"
             messagebox.showinfo(
                 "No Observations",
@@ -378,7 +386,7 @@ class SourceInputWindow:
     def proceed_to_breakpoints(self):
         """Move to the breakpoints window"""
         source = self.source_var.get()
-        band = self.band_var.get()
+        band = self._band()
         
         if not source.strip() and not self.selected_file:
             messagebox.showwarning("Input Required", "Please enter a source or select a file")

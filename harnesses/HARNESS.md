@@ -64,9 +64,9 @@ can sit under the sidelobes of a field source a thousand times brighter, whateve
 exposure. So by default (`field_of_view: primary_beam`) every epoch is imaged properly,
 whichever source you are after:
 
-- The main image is centred on the **pointing**, in J2000, and is 1024 pixels across at
-  a fifth of a beam per pixel (never wider than twice the primary-beam FWHM, which only
-  matters in D configuration). Old data record positions as B1950_VLA, which CASA
+- The main image is centred on the **pointing**, in J2000, and is 1024 pixels across
+  (4096 at P band) at a fifth of a beam per pixel (never wider than twice the
+  primary-beam FWHM, which only matters in D configuration, and at P band in C as well). Old data record positions as B1950_VLA, which CASA
   handles correctly but `exportfits` writes as `EQUINOX 1979.9`; imaging in J2000 avoids
   every other reader (DS9, astropy) putting the image ~20' from where it is.
 - NVSS sources beyond the main image, out to twice the primary-beam FWHM, whose flux
@@ -125,9 +125,11 @@ the measurement the pipeline makes of each passed run's final image
   detection (S/N, threshold), the integrated and peak flux density with their errors
   or the upper limit, frequency, observing time (ISO and MJD), primary-beam response,
   the pointing separation from the data and from the archive, the image noise in
-  Stokes I and V, array config and beam.
+  Stokes I and V, array config and beam, and `experimental` (`P band`, else empty).
 - `lightcurve_<source>.png`: integrated and peak flux density against time, one row
-  of panels per band; detections as points, upper limits as open triangles.
+  of panels per band; detections as points, upper limits as open triangles. P-band
+  epochs (experimental) are diamonds and half-filled triangles, in a row titled
+  EXPERIMENTAL.
 
 Each time is the middle of the target's observing span, from the results folder's
 listobs. When that listobs is missing, the archive date is used instead.
@@ -237,6 +239,24 @@ The sweep won't start without `DISPLAY`. Every observation is searched and
 downloaded before the first run, so there is no waiting between runs. With no
 saved mask, the pipeline asks for one at the start of each run; press enter to
 clean interactively.
+
+## P band (experimental)
+
+P band runs attended only. An unattended sweep still searches it, but lists each
+P-band epoch as `skipped` (on the terminal and in the oversight log) with the reason
+`P band is experimental: attended runs only (--preset lightcurve_deep)`, and runs the
+other bands as usual. To run them, sit at the display:
+
+```bash
+bash tools/run_harness.sh lightcurve "IC 3599" --bands P --max-sep 3000 --preset lightcurve_deep
+```
+
+The pipeline holds to the same rule: a P-band run without a display and a terminal
+on stdin stops before calibrating. An attended one asks what an interactive run asks
+-- the flags are reviewed in plotms and kept or reverted, cleaning is interactive,
+and the off-source rms region is asked for once. Its `fit.json`, the CSV's
+`experimental` column and the plot mark it as unvetted. The README's P band section
+lists what else differs (flux scale, primary beam, image size).
 
 ## A sweep's folder
 

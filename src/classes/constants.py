@@ -129,7 +129,12 @@ FIT_TARGET_BOX_BEAMS = 3            #imfit box half-side, in beams, around the t
 FIT_MIN_SNR = 3.0                   #below this S/N no Gaussian is fitted at all (it would fit
                                     #noise); kept below DETECTION_SIGMA so a sweep can be
                                     #re-thresholded down to it without re-imaging
-PB_FWHM_ARCMIN_GHZ = 45.0           #classic VLA 25 m primary beam FWHM ~ 45'/freq(GHz)
+PB_FWHM_ARCMIN_GHZ = 45.0           #classic VLA 25 m primary beam FWHM ~ 45'/freq(GHz)...
+PB_FWHM_ARCMIN_GHZ_BAND = {'P': 49.0}  #...but P band's prime-focus dipoles see wider: 150' at
+                                    #327 MHz (VLA status summary)
+CASA_PB_FWHM_ARCMIN_GHZ = 43.0      #CASA's own VLA model (tclean's pb, hence pbcor) is one shape
+                                    #scaled by frequency, zero past 1.19 FWHM: at P band 131' FWHM,
+                                    #zero past 156' (measured on AD0308, 327.5 MHz), narrower than 150'
 #--- field of view (Cleaner.plan_field) ---
 #Every source in the primary beam that is bright enough to matter has to be in the
 #self-cal model, at the right place: a faint target can sit under the sidelobes of a
@@ -141,6 +146,8 @@ PB_FWHM_ARCMIN_GHZ = 45.0           #classic VLA 25 m primary beam FWHM ~ 45'/fr
 FIELD_OF_VIEW_PRIMARY_BEAM = 'primary_beam' #main image + outlier fields over the beam
 FIELD_OF_VIEW_FIXED = 'fixed'       #image_size and cell as given (fast mode)
 MAIN_IMAGE_PIXELS = 1024            #main image side, pixels...
+MAIN_IMAGE_PIXELS_BAND = {'P': 4096}  #...wider where 1024 cannot hold the beam: at P band it is
+                                    #19' (A), 63' (B), 205' (C) against a 150' beam
 MAIN_CELLS_PER_BEAM = 5             #...at this many pixels per synthesized beam
 FOV_PB_FWHMS = 2.0                  #never wider than this many primary-beam FWHMs (D config)
 CELLS_PER_BEAM = 10                 #fixed (fast) mode's default sampling of the beam
@@ -154,6 +161,8 @@ PB_SIDELOBE_FLOOR = 0.02            #response floor out to OUTLIER_SEARCH_FWHMS:
 OUTLIER_MAX_FWHMS = 1.0            #no outlier field further out: CASA's VLA beam model is zero
                                     #beyond ~1.1 FWHM and tclean then cannot clean the field
                                     #("No valid values to deconvolve"); such sources are warned of
+OUTLIER_MAX_FWHMS_BAND = {'P': 0.85}  #P band: CASA's narrower model (131') is below the 1% pblimit
+                                    #past 137', so 1.0 x 150' would already be outside it
 OUTLIER_FIELD_BEAMS = 40            #outlier field side, in synthesized beams (at least 64 pixels)
 MAX_OUTLIER_FIELDS = 20
 MAX_IMAGING_CHANNELS = 16           #spectral-line data is averaged to at most this many channels
@@ -192,6 +201,8 @@ LOW_PB_WARN = 0.5                   #target this far down the beam at a low freq
 PB_RELIABLE_FWHMS = 0.75            #beyond this CASA's VLA beam model drops well below what is
                                     #measured (0.8 FWHM: 0.10 vs Gaussian 0.17; zero past 1.1,
                                     #where a source was seen at 1.6%): the correction is uncertain
+PB_RELIABLE_FWHMS_BAND = {'P': 0.4}  #P band: CASA's 131' model and the 150' beam differ by more
+                                    #than 10% beyond 0.4 FWHM (60'), by 2x at 0.7 FWHM
 DR_WARN_RATIO = 1000                #a catalogued field source this many times the image rms
 #--- image quality ---
 #Stokes V is effectively source-free here, so Stokes I noise well above V's is structure
@@ -210,22 +221,29 @@ AUTO = 'auto'
 SELF_PHASE_CAL = False
 
 #Constants that may be integrated, but are being placed here for reference!
-BAND_GHZ_RANGES = {'L': [0.985, 2.025], 
-                   'S': [2.026, 4.013], 
+BAND_GHZ_RANGES = {'P': [0.200, 0.500],
+                   'L': [0.985, 2.025],
+                   'S': [2.026, 4.013],
                    'C': [4.309, 7.461], 
                    'X': [8.000, 11.512], 
                    'Ku': [13.133, 18.000], 
                    'K': [20.000, 26.412], 
                    'Ka': [28.258, 37.011], 
                    'Q': [43.148, 48.873]}
-BAND_MHZ_RANGES = {'L': [985.0, 2025.0], 
-                   'S': [2026.0, 4013.0], 
+BAND_MHZ_RANGES = {'P': [200.0, 500.0],
+                   'L': [985.0, 2025.0],
+                   'S': [2026.0, 4013.0],
                    'C': [4309.0, 7461.0], 
                    'X': [8000.0, 11512.0], 
                    'Ku': [13133.0, 18000.0], 
                    'K': [20000.0, 26412.0], 
                    'Ka': [28258.0, 37011.0], 
                    'Q': [43148.0, 48873.0],}
+#Bands run only with a person at them. Classic-VLA P band (90 cm) is new here and unvetted:
+#ionosphere, RFI, and a primary beam CASA models poorly. A run in one stops unless someone
+#is at the display and the terminal, and then cleans interactively and reviews the flags
+#(decisions.require_attended). The 4 band (74 MHz) is not supported at all.
+EXPERIMENTAL_BANDS = ('P',)
 #note: configurations A=0,B=1,C=2,D=3
 BAND_ANGULAR_RESOLUTION = {'4': [24,80,260,850],
                            'P': [5.6,18.5,60,200],
@@ -274,6 +292,10 @@ FLUX_CAL_ALIASES = {'1331+305': '3C286',
                       '0518+165': '3C138'} #upgrade with calibrator list, and pull flux data for 'custom' callibrators
 #variable (3C138 flares): auto takes these only when no other flux calibrator is observed
 FLUX_CAL_LAST_RESORT = ('3C138',)
+#setjy's flux-density standard. Perley-Butler 2013 is fitted over 1-50 GHz; 2017 extends to
+#50 MHz, so it is the one for P band. The other bands keep 2013, so earlier results don't shift.
+FLUX_STANDARD = 'Perley-Butler 2013'
+FLUX_STANDARD_BAND = {'P': 'Perley-Butler 2017'}
 
 
 #--- archive search results ---

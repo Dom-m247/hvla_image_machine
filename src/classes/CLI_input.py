@@ -212,9 +212,11 @@ class CLI:
   @staticmethod
   def getBand():
     '''get band'''
+    #an experimental band is offered, marked: it runs only attended (decisions.require_attended)
+    shown = ', '.join(CLI._band_label(b) for b in BAND_GHZ_RANGES)
     while True:
       try:
-        band = input(f"Enter Band or press enter for none: ")
+        band = input(f"Enter Band ({shown}) or press enter for none: ")
         if band == "":
           return 'auto'
         if (band not in BAND_GHZ_RANGES.keys()): #breaks for auto with Radio_search
@@ -222,7 +224,15 @@ class CLI:
         break
       except ValueError:
         print("Invalid input. Please enter a valid band.")
+    if band in EXPERIMENTAL_BANDS:
+      print(f"{band} band is experimental: stay at the display and terminal for the whole run "
+            f"(cleaning is interactive and you review the flags).")
     return band
+
+  @staticmethod
+  def _band_label(band):
+    '''A band as offered for picking: an experimental one says so.'''
+    return f"{band} (experimental)" if band in EXPERIMENTAL_BANDS else band
 
   @staticmethod
   def getObservationArchive():
@@ -341,7 +351,7 @@ class CLI:
               f"this run reduces one of them.")
       print("Bands observed for the target:")
       for i, b in enumerate(bands, 1):
-        print(f"  {i}: {b}")
+        print(f"  {i}: {CLI._band_label(b)}")
       val = input(f"Select a band (1-{len(bands)}): ").strip()
       try:
         idx = int(val) - 1

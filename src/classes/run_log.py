@@ -16,10 +16,15 @@ import time
 from pathlib import Path
 
 from classes import call_recorder
+from classes.constants import EXPERIMENTAL_BANDS, FLUX_STANDARD, FLUX_STANDARD_BAND
 
 WIDTH = 80
 LABEL = 21          #label column width, so values line up down the page
 _MISSING = '(not recorded)'
+#36 km of array looks through many ionospheric patches at 90 cm, so one gain per antenna
+#(calibration, self-cal) does not hold across the field
+A_CONFIG_NOTE = ("{band} band in A configuration is not isoplanatic: the least trustworthy "
+                 "{band}-band setup; expect position and flux errors away from the centre")
 
 _events: list[tuple[float, str]] = []     #(monotonic offset, text)
 _cycles: list[dict] = []                  #self-cal cycle rows
@@ -89,6 +94,7 @@ def write(options, path):
 def render(options):
   """Build the whole report as a string."""
   out = [_banner(), '']
+  out += _experimental(options)
   out += _header(options)
   out += _block('SOURCE', _source_rows(options))
   out += _block('OBSERVATION', _observation_rows(options))
@@ -102,6 +108,26 @@ def render(options):
 
 
 #--------------------------------------------------------------------- sections
+
+def _experimental(options):
+  '''The banner an experimental-band run carries above everything else, so nothing in
+  it is read as a vetted result: what the run was made to do, and what to distrust.'''
+  band = getattr(options, 'band', '')
+  if band not in EXPERIMENTAL_BANDS:
+    return []
+  rows = list(_extra.get('EXPERIMENTAL', []))
+  try:
+    from data_calibration.parse_listobs import vla_config_from_antennas
+    config = vla_config_from_antennas(getattr(_attr(options, 'observation_data'), 'antennas', None))
+  except Exception:
+    config = ''
+  if config == 'A':
+    rows.append(('Array configuration', A_CONFIG_NOTE.format(band=band)))
+  return ([f"*** EXPERIMENTAL: {band} BAND ***",
+           f"  {band}-band support is new and unvetted. Check every result of this run by hand",
+           f"  before using it (TODO: the first live {band}-band sessions).", '']
+          + _rows(rows) + [''])
+
 
 def _header(options):
   info = call_recorder.provenance()
@@ -131,7 +157,8 @@ def _source_rows(options):
     ('RA / Dec (listobs)', f"{_attr_of(source, 'ra')} / {_attr_of(source, 'decl')}"),
     (f"RA / Dec ({getattr(options, 'position_from', '') or 'catalogue'})",
      f"{_get(options, 'source_ra')} / {_get(options, 'source_decl')}"),
-    ('Band', f"{band}   ({_band_origin(options)})"),
+    ('Band', f"{band}   ({_band_origin(options)})"
+             + ('   *** EXPERIMENTAL ***' if band in EXPERIMENTAL_BANDS else '')),
     ('Spectral windows', _get(options, 'spw_selection')),
   ]
   return rows + _extra.get('SOURCE', [])
@@ -255,7 +282,7 @@ def _target_rows(fit):
 def _flux_scale(options):
   manual = getattr(options, 'flux_cal_manual', None) or {}
   if not manual:
-    return 'standard (Perley-Butler 2013 model)'
+    return f"standard ({FLUX_STANDARD_BAND.get(getattr(options, 'band', ''), FLUX_STANDARD)} model)"
   if manual.get('origin') == 'catalogue':
     return (f"*** CATALOGUE *** {manual.get('flux')} Jy from the VLA calibrator list "
             f"(quality {manual.get('quality') or '?'}); no standard flux calibrator was "

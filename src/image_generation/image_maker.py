@@ -156,7 +156,11 @@ class Cleaner:
     'fixed' (fast mode): image_size and cell as given, no outliers.'''
     if getattr(options, 'image_plan', None):
       return options.image_plan
-    beam = BAND_ANGULAR_RESOLUTION[options.band][Cleaner._config_index(options)]
+    config = Cleaner._config_index(options)
+    beam = BAND_ANGULAR_RESOLUTION[options.band][config]
+    if options.band in EXPERIMENTAL_BANDS and config == Cleaner.CONFIG_INDEX['A']:
+      #the run log's banner carries the same note (run_log._experimental)
+      print(f"WARNING: {run_log.A_CONFIG_NOTE.format(band=options.band)}.")
     if getattr(options, 'field_of_view', FIELD_OF_VIEW_FIXED) != FIELD_OF_VIEW_PRIMARY_BEAM:
       cell = (Cleaner._arcsec_value(options.cell_size) if options.use_custom_cell_size
               else beam / CELLS_PER_BEAM)
@@ -166,13 +170,14 @@ class Cleaner:
 
     vis = options.calibrated_filename + '.ms'
     ghz = image_data.mean_frequency_ghz(vis) or (sum(BAND_GHZ_RANGES[options.band]) / 2)
-    fwhm = PB_FWHM_ARCMIN_GHZ / ghz * 60   #arcsec
+    fwhm = PB_FWHM_ARCMIN_GHZ_BAND.get(options.band, PB_FWHM_ARCMIN_GHZ) / ghz * 60   #arcsec
     side = FOV_PB_FWHMS * fwhm
     cell = (Cleaner._arcsec_value(options.cell_size) if options.use_custom_cell_size
             else beam / MAIN_CELLS_PER_BEAM)
     import casatools
+    pixels = MAIN_IMAGE_PIXELS_BAND.get(options.band, MAIN_IMAGE_PIXELS)
     imsize = int(casatools.synthesisutils().getOptimumSize(
-      int(min(MAIN_IMAGE_PIXELS, math.ceil(side / cell)))))
+      int(min(pixels, math.ceil(side / cell)))))
     half_rad = math.radians(imsize * cell / 2 / 3600)
     wavelength = 0.299792458 / ghz
     curvature = half_rad ** 2 * Cleaner._max_baseline_m(options) / wavelength
@@ -180,7 +185,14 @@ class Cleaner:
             'gridder': 'wproject' if curvature > WPROJECT_THRESHOLD else 'standard',
             'pb_fwhm_arcsec': fwhm, 'frequency_ghz': ghz, 'outliers': [],
             'brightest_field_source_jy': None, 'beam_arcsec': beam, 'unmodelled': [],
-            'beyond_model': []}
+            'beyond_model': [],
+            'outlier_max_fwhms': OUTLIER_MAX_FWHMS_BAND.get(options.band, OUTLIER_MAX_FWHMS)}
+    if options.band in PB_FWHM_ARCMIN_GHZ_BAND:
+      #tclean corrects with CASA's model, not this one: where the two differ, say so
+      run_log.note('IMAGING', 'Primary beam',
+                   f"planned at {fwhm / 60:.0f}' FWHM; pbcor and the target's beam response use "
+                   f"CASA's VLA model, {CASA_PB_FWHM_ARCMIN_GHZ / ghz:.0f}' here, so off-axis "
+                   f"fluxes lean high")
     pointing = image_data.field_centre_j2000(vis)
     plan['pointing'] = pointing
     Cleaner._check_target_separation(options, pointing)
@@ -234,6 +246,7 @@ class Cleaner:
     OUTLIER_MIN_APPARENT_JY. Returns (fields, brightest apparent field source in Jy).'''
     from API_integrations import nvss
     fwhm, ghz = plan['pb_fwhm_arcsec'], plan['frequency_ghz']
+    beyond = plan['outlier_max_fwhms'] * fwhm   #no beam model past this: no outlier field
     half = plan['imsize'] * plan['cell_arcsec'] / 2
     field_px = max(64, int(OUTLIER_FIELD_BEAMS * beam / plan['cell_arcsec']))
     import casatools
@@ -257,7 +270,7 @@ class Cleaner:
     target = source_fit.target_position(options)
     if target and outside(*target):
       sep = image_data.separation_arcsec(*target, *pointing)
-    if target and outside(*target) and sep > OUTLIER_MAX_FWHMS * fwhm:
+    if target and outside(*target) and sep > beyond:
       #no beam model there: tclean cannot image the field, and nothing could correct
       #the flux for the beam if it did
       print(f"Target {sep / 60:.1f}' ({sep / fwhm:.2f} FWHM) from the pointing, beyond CASA's "
@@ -278,7 +291,7 @@ class Cleaner:
       apparent = flux14 * (ghz / 1.4) ** OUTLIER_SPECTRAL_INDEX * response(sep)
       brightest = max(brightest or 0.0, apparent)
       if apparent >= OUTLIER_MIN_APPARENT_JY and outside(ra, dec):
-        if sep > OUTLIER_MAX_FWHMS * fwhm:
+        if sep > beyond:
           plan['beyond_model'].append({'ra_deg': ra, 'dec_deg': dec, 'sep_arcsec': sep,
                                        'apparent_jy': apparent, 'nvss_jy': flux14})
           continue
@@ -339,7 +352,7 @@ class Cleaner:
               f"{src['ra_deg']:.5f} {src['dec_deg']:+.5f}, {src['sep_arcsec'] / 60:.1f}' "
               f"from the pointing")
       print(f"Residual sweep: unmodelled source {text}")
-      if add_fields and src['sep_arcsec'] > OUTLIER_MAX_FWHMS * plan['pb_fwhm_arcsec']:
+      if add_fields and src['sep_arcsec'] > plan['outlier_max_fwhms'] * plan['pb_fwhm_arcsec']:
         print("  beyond CASA's beam model: no outlier field can be made there")
         run_log.note('IMAGING', 'Residual sweep', f"beyond CASA's beam model, not modelled: {text}")
       elif add_fields:

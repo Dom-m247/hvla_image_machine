@@ -30,6 +30,10 @@ Each epoch is also checked against the archive (the CSV's note column):
 
 Run folders from before target-based measurement (a fit.json with no 'detection') are
 still read the old way: the Gaussian at the image peak, which may not be the target.
+
+An epoch in an experimental band (P band: unvetted, attended runs only) says so in the
+CSV's experimental and note columns, and is drawn with marks no vetted epoch uses, in a
+panel row titled EXPERIMENTAL.
 """
 import csv
 import json
@@ -43,7 +47,7 @@ from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.ticker import StrMethodFormatter
 
-from .pipeline import DETECTION_SIGMA, first_value, imstat_dict
+from .pipeline import DETECTION_SIGMA, EXPERIMENTAL_BANDS, first_value, imstat_dict
 from .runner import find_results_dir
 from .selection import observation_date, parse_separation_arcsec, read_manifest
 
@@ -75,7 +79,8 @@ COLUMNS = ('source', 'band', 'frequency_ghz', 'time', 'mjd', 'time_from',
            'peak_flux_jy_per_beam', 'peak_flux_err_jy_per_beam', 'upper_limit_jy',
            'rms_jy_per_beam', 'stokes_v_rms_jy_per_beam', 'noise_ratio',
            'pb_response', 'target_separation_arcsec', 'archive_separation',
-           'search_epoch', 'fit_offset_arcsec', 'flux_scale', 'config', 'beam_major_arcsec',
+           'search_epoch', 'fit_offset_arcsec', 'flux_scale', 'experimental', 'config',
+           'beam_major_arcsec',
            'beam_minor_arcsec', 'converged', 'plotted', 'note',
            'proj_code', 'segment', 'slug', 'fit_json')
 
@@ -156,6 +161,9 @@ def epoch(selection, fit_path, sigma=None, max_sep=None):
     'beam_minor_arcsec': beam.get('minor_arcsec'),
     'converged': fit.get('converged'),
     'flux_scale': (fit.get('flux_scale') or {}).get('origin', ''),
+    #the band decides, so a run without the fit record's marker is caught as well
+    'experimental': fit.get('experimental') or (f"{selection.band} band"
+                                                if selection.band in EXPERIMENTAL_BANDS else ''),
     'rms_jy_per_beam': fit.get('rms_jy_per_beam'),
     'stokes_v_rms_jy_per_beam': fit.get('stokes_v_rms_jy_per_beam'),
     'noise_ratio': fit.get('noise_ratio'),
@@ -170,10 +178,15 @@ def epoch(selection, fit_path, sigma=None, max_sep=None):
   }
   if not known_time:
     row['note'] = 'no observing time (listobs missing, archive date unreadable)'
-    return row
-  if 'detection' not in fit:
-    return _peak_fit_epoch(row, fit, results, name)
-  return _target_epoch(row, fit, selection, sigma, max_sep)
+  elif 'detection' not in fit:
+    row = _peak_fit_epoch(row, fit, results, name)
+  else:
+    row = _target_epoch(row, fit, selection, sigma, max_sep)
+  if row['experimental']:
+    #first, so it is the first thing read about the epoch wherever its note is shown
+    row['note'] = '; '.join([f"EXPERIMENTAL {row['experimental']} (unvetted)"]
+                            + ([row['note']] if row['note'] else []))
+  return row
 
 
 def _target_epoch(row, fit, selection, sigma, max_sep):
@@ -343,6 +356,14 @@ LIMIT_STYLE = dict(marker='v', markersize=8, markerfacecolor=SURFACE,
 CATALOGUE_DETECTION_STYLE = dict(marker='o', markersize=7, markerfacecolor=SURFACE,
                                  markeredgecolor=SERIES, markeredgewidth=1.5)
 CATALOGUE_LIMIT_STYLE = dict(marker='1', markersize=11, color=SERIES, markeredgewidth=1.8)
+#an epoch in an experimental band (P band) never takes a vetted mark, whatever its flux
+#scale: a diamond for a detection, a half-filled triangle for a limit. Same color -- it is
+#the same source -- with the shape and the labels saying it is unvetted
+EXPERIMENTAL_DETECTION_STYLE = dict(marker='D', markersize=7, color=SERIES, markeredgecolor=SURFACE,
+                                    markeredgewidth=1.5)
+EXPERIMENTAL_LIMIT_STYLE = dict(marker='v', markersize=8, fillstyle='top', markerfacecolor=SERIES,
+                                markerfacecoloralt=SURFACE, markeredgecolor=SERIES,
+                                markeredgewidth=1.5)
 
 
 def plot(source, rows, path, subtitle=''):
@@ -365,7 +386,8 @@ def plot(source, rows, path, subtitle=''):
   for row_axes, band in zip(axes, bands):
     band_rows = [r for r in shown if r['band'] == band]
     ghz = _median([r['frequency_ghz'] for r in band_rows if r['frequency_ghz']])
-    label = f"{band} band" + (f" ({ghz:.2f} GHz)" if ghz else '')
+    label = (f"{band} band" + (f" ({ghz:.2f} GHz)" if ghz else '')
+             + (" · EXPERIMENTAL, unvetted" if any(_experimental(r) for r in band_rows) else ''))
     limits = [r for r in band_rows if r['detected'] is False and r.get('upper_limit_jy')]
     for ax, (value_key, error_key, measure, unit) in zip(row_axes, PANELS):
       _style(ax)
@@ -375,12 +397,14 @@ def plot(source, rows, path, subtitle=''):
                     [r[value_key] * 1e3 for r in points],
                     yerr=[(r.get(error_key) or 0) * 1e3 for r in points],
                     fmt='none', ecolor=SERIES, elinewidth=1.5, capsize=0, zorder=2)
-      for marks, value, standard, catalogue in ((points, value_key, DETECTION_STYLE,
-                                                 CATALOGUE_DETECTION_STYLE),
-                                                (limits, 'upper_limit_jy', LIMIT_STYLE,
-                                                 CATALOGUE_LIMIT_STYLE)):
-        for style, chosen in ((standard, [r for r in marks if not _catalogue(r)]),
-                              (catalogue, [r for r in marks if _catalogue(r)])):
+      for marks, value, standard, catalogue, experimental in (
+          (points, value_key, DETECTION_STYLE, CATALOGUE_DETECTION_STYLE,
+           EXPERIMENTAL_DETECTION_STYLE),
+          (limits, 'upper_limit_jy', LIMIT_STYLE, CATALOGUE_LIMIT_STYLE,
+           EXPERIMENTAL_LIMIT_STYLE)):
+        for style, chosen in ((standard, [r for r in marks if _mark(r) == 'standard']),
+                              (catalogue, [r for r in marks if _mark(r) == 'catalogue']),
+                              (experimental, [r for r in marks if _mark(r) == 'experimental'])):
           if chosen:
             ax.plot([r['time'] for r in chosen], [r[value] * 1e3 for r in chosen],
                     linestyle='none', zorder=3, **style)
@@ -399,14 +423,18 @@ def plot(source, rows, path, subtitle=''):
   limit_name = (f"{thresholds[0]:g}σ upper limit" if len(thresholds) == 1 else "upper limit")
   handles = []
   kinds = ((lambda r: r['detected'] is not False, 'detection', DETECTION_STYLE,
-            CATALOGUE_DETECTION_STYLE),
-           (lambda r: r['detected'] is False, limit_name, LIMIT_STYLE, CATALOGUE_LIMIT_STYLE))
-  for wanted, name, standard, catalogue in kinds:
-    if any(wanted(r) and not _catalogue(r) for r in shown):
+            CATALOGUE_DETECTION_STYLE, EXPERIMENTAL_DETECTION_STYLE),
+           (lambda r: r['detected'] is False, limit_name, LIMIT_STYLE, CATALOGUE_LIMIT_STYLE,
+            EXPERIMENTAL_LIMIT_STYLE))
+  for wanted, name, standard, catalogue, experimental in kinds:
+    if any(wanted(r) and _mark(r) == 'standard' for r in shown):
       handles.append(Line2D([], [], linestyle='none', label=name, **standard))
-    if any(wanted(r) and _catalogue(r) for r in shown):
+    if any(wanted(r) and _mark(r) == 'catalogue' for r in shown):
       handles.append(Line2D([], [], linestyle='none', label=f"{name}, catalogue flux scale",
                             **catalogue))
+    if any(wanted(r) and _mark(r) == 'experimental' for r in shown):
+      handles.append(Line2D([], [], linestyle='none', label=f"{name}, EXPERIMENTAL (unvetted)",
+                            **experimental))
   fig.legend(handles=handles, loc='outside upper right', ncols=len(handles), frameon=False,
              fontsize=9, labelcolor=INK_SECONDARY)
   fig.suptitle(f"{source} lightcurve", x=0.01, ha='left', fontsize=13, color=INK)
@@ -418,7 +446,10 @@ def plot(source, rows, path, subtitle=''):
                 + ("   ·   limits are the threshold times the off-source rms" if any_limit else '')
                 + ("\noutlined marks: no standard flux calibrator observed; scale from the "
                    "calibrator's catalogue flux, uncertain by 10-20% or more"
-                   if any(_catalogue(r) for r in shown) else ''),
+                   if any(_mark(r) == 'catalogue' for r in shown) else '')
+                + ("\ndiamonds and half-filled triangles: EXPERIMENTAL band (P), unvetted; "
+                   "attended runs only, not to be compared with the other epochs until checked"
+                   if any(_experimental(r) for r in shown) else ''),
                 x=0.01, ha='left', fontsize=8, color=INK_MUTED, linespacing=1.6)
   fig.savefig(path, dpi=110, facecolor=SURFACE)
   return True
@@ -426,6 +457,18 @@ def plot(source, rows, path, subtitle=''):
 
 def _catalogue(row):
   return row.get('flux_scale') == 'catalogue'
+
+
+def _experimental(row):
+  return bool(row.get('experimental'))
+
+
+def _mark(row):
+  '''Which set of marks an epoch takes: an experimental band's own, whatever its flux
+  scale, else the catalogue-scale outlines or the standard marks.'''
+  if _experimental(row):
+    return 'experimental'
+  return 'catalogue' if _catalogue(row) else 'standard'
 
 
 def _style(ax):

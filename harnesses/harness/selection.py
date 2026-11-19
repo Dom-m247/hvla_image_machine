@@ -16,14 +16,17 @@ from types import SimpleNamespace
 from pathlib import Path
 
 from .pipeline import (
-  BAND_GHZ_RANGES, CLI, DelosDownload, Options, PRE_EVLA_YEAR,
+  BAND_GHZ_RANGES, CLI, DelosDownload, EXPERIMENTAL_BANDS, Options, PRE_EVLA_YEAR,
   RadioSearchIntegration, parseArchFileInfo, resolve_source, sensitivity_jy, size_mb,
 )
 
 #radio_search2 writes Ku band as 'U' in some rows; every other band code it emits
-#already matches the pipeline's band tables. Bands outside those tables (4, P)
-#have no spw range or angular-resolution entry, so a run on one cannot be sized.
+#already matches the pipeline's band tables. A band outside those tables (4) has no
+#spw range or angular-resolution entry, so a run on one cannot be sized.
 BAND_ALIASES = {'U': 'Ku'}
+
+#why an unattended sweep sets an experimental band's observations aside
+EXPERIMENTAL_SKIP = "{band} band is experimental: attended runs only (--preset lightcurve_deep)"
 
 #resolve_source returns False for a name neither SIMBAD nor NED knows AND for a
 #query it could not make -- a read timeout looks identical to a bad name, so retry
@@ -233,6 +236,23 @@ def files_on_date(segments, date_text):
                             start='', size='')
             for d in (day, day + timedelta(days=1))]
   return []
+
+
+def attended_only(selections, attended):
+  """(kept, rejected): an experimental band (EXPERIMENTAL_BANDS) runs only with a person
+  at it -- the pipeline stops such a run anyway -- so an unattended sweep lists those
+  observations as skipped, with the reason, and carries on with the rest."""
+  if attended:
+    return list(selections), []
+  kept, rejected = [], []
+  for selection in selections:
+    if selection.band in EXPERIMENTAL_BANDS:
+      rejected.append((f"{selection.label} {selection.date}, {selection.config}-config, "
+                       f"{selection.separation or '?'} from the target",
+                       EXPERIMENTAL_SKIP.format(band=selection.band)))
+    else:
+      kept.append(selection)
+  return kept, rejected
 
 
 def within_size(selections, max_gb):

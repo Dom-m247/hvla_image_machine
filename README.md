@@ -50,8 +50,9 @@ Given a source name and a local observation file, the tool:
 5. **Exports** every choice it made to `import.json` so the exact run can be
    reproduced later.
 
-Supported observing bands span the full VLA range: **4, P, L, S, C, X, Ku, K,
-Ka, and Q**.
+Supported observing bands are **L, S, C, X, Ku, K, Ka and Q**. **P band (90 cm) is
+experimental and runs attended only** (see [P band](#p-band-experimental)). The 4 band
+(74 MHz) is not supported.
 
 ## Features
 
@@ -79,7 +80,7 @@ Ka, and Q**.
 - **Per-run results folder** — collects the science products (FITS, primary-beam-
   corrected image, PNG preview, clean mask, listobs, and the CASA log) in one place.
 - **The whole field, imaged properly** — by default the image is centred on the pointing,
-  in J2000, 1024 pixels across, with outlier fields for bright NVSS sources beyond it
+  in J2000, 1024 pixels across (4096 at P band), with outlier fields for bright NVSS sources beyond it
   out to twice the primary-beam FWHM (and for the target, if it falls outside), a
   tapered image of the residuals to catch bright sources the catalogue missed,
   w-projection where the field is wide, and self-cal judged on the whole field's flux. `field_of_view: fixed`
@@ -301,6 +302,31 @@ pipeline normally, submitting at the end.
 Archiving an older folder recovers the measurements from its `<name>.fit.json` and the
 observation from its saved listobs, so a run archived weeks later needs nothing but
 the folder itself. Needs [`Creds.json`](#credentials), which holds the form URL.
+
+### P band (experimental)
+
+Classic-VLA P band (90 cm, ~327 MHz) is new here and unvetted, so it runs only with a
+person at it:
+
+- A P-band run needs a display and a terminal on stdin: the GUI, `--cli`, or
+  `--importRun` started from a terminal (the harness's attended `lightcurve_deep`
+  preset). Without them it stops before calibrating, saying why in one sentence. An
+  unattended harness sweep lists its P-band epochs as skipped and runs the rest.
+- Cleaning is interactive (you draw the masks), and automatic flagging becomes `verify`:
+  after the plotms check you keep or revert the flags.
+- The flux scale is Perley-Butler 2017; 2013 is fitted only above 1 GHz, and the other
+  bands keep it.
+- The image plan assumes the ~150' primary beam the feeds give (49'/GHz), with a main
+  image of up to 4096 pixels, which covers it in B, C and D configuration. CASA's own
+  VLA beam model, which pbcor and the target's beam response use, is narrower at P band
+  (131' at 327 MHz, zero past 156'), so off-axis fluxes lean high, and a target beyond
+  0.4 FWHM (60') is warned about. A configuration is not isoplanatic at 90 cm and is the
+  least trustworthy.
+- Everything a P-band run writes says EXPERIMENTAL: the run log's banner,
+  `"experimental": "P band"` in `fit.json`, the lightcurve CSV's `experimental` column,
+  and marks of their own on the lightcurve plot.
+
+What the first live sessions should check is listed in [`TODO`](TODO).
 
 ## Reproducible Runs
 

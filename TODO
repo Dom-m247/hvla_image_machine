@@ -32,6 +32,42 @@
 - casaviewer: the PNG viewer can hang in imview(); reap_viewers() in the harness cleans
   up after a run, but a single interactive run still relies on _shutdown_casaviewer().
 
+## P band (experimental, branch p-band-experimental): the first live sessions
+P band runs attended only (decisions.require_attended; README "P band"). Nobody here has
+reduced classic-VLA 90 cm data with this pipeline yet, so the first sessions are for
+finding what breaks. Test data in data_archive/AD0308 (seg A, 1993-06-16, C config,
+NGC 4565 field, IC 3599 46.7' out; 3C286 = 1328+307 as flux calibrator).
+- AD0308 cannot be parsed as imported: its field/source names hold spaces ('NGC 4565_1'),
+  which parse_listobs's fields/sources/scans regexes do not allow (parse_sources raises
+  "could not convert string to float: 'any'"). Fix the parser first, or run on a copy of
+  the MS with the spaces in FIELD/SOURCE NAME replaced. importvla also split the pointing
+  into several fields ('NGC 4565_1', 'NGC 4565', and slew records labelled with the next
+  source's name), and the pipeline images one field.
+- RFI: what tfcrop flags at 327 MHz, per spw and baseline; whether the plotms review is
+  enough to judge it, or rflag/extend and a per-channel look are needed.
+- Bandpass: 1-channel continuum data have none to speak of; line-mode data (32 x 97.7
+  kHz) do: check the edges and the 16-channel averaging (fine in B/C/D; in A a 195 kHz
+  channel costs ~3% of the peak at 47' and ~18% at 150').
+- Calibrator phases against time: ionospheric wraps on the long baselines, how far the
+  phase calibrator is (1140+223 is 12.7 deg from NGC 4565 in AD0308), whether it is
+  observed while the target is (the pipeline does not check), and whether the target,
+  bright at 90 cm, should be its own phase calibrator (NED's check decides that today).
+- 3C286 against Perley-Butler 2017 (~26.3 Jy at 327.5 MHz): fluxscale's transfer to the
+  phase calibrator, against its catalogue P-band flux.
+- Field-source fluxes against TGSS (150 MHz) and NVSS (1.4 GHz) interpolated, or the
+  Texas survey at 365 MHz: the absolute scale and the primary-beam correction together.
+- The primary-beam correction at the target's offset: CASA's model (131' FWHM at 327 MHz,
+  zero past 156') gives 0.72 at 46.7' where a 150' beam gives 0.76, so fluxes there
+  lean ~6% high (0.29 vs 0.41 at 85'); decide on a custom vptable (below) before
+  trusting P-band fluxes beyond ~0.4 FWHM.
+- Sidelobes of bright sources outside the imaged fields: the NVSS sources the plan lists
+  as beyond the model (105 of them for AD0308, up to ~160 mJy apparent, each one a line
+  in fit.json's field_warnings: cap or summarize them if P band stays), and the A-team
+  far out (Vir A is 14 deg from IC 3599).
+- Smearing: bandwidth (a 3.125 MHz channel costs ~4% of the peak at 47' in C config) and
+  time (30 s records here), and w-projection's cost on a 4096-pixel field.
+- A configuration (not isoplanatic): whether self-cal converges at all.
+
 ## Wide-field imaging: outlier fields beyond CASA's primary-beam model
 Found 2026-10-07 on AB0596 (L band, D config, A2218). Kept here for a case that needs it.
 - CASA's VLA primary-beam model (the Perley polynomial, EVLA Memo 195) is exactly zero

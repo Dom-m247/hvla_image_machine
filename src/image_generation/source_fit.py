@@ -38,9 +38,10 @@ from classes.image_data import (beam_from_header, convert_unit, field_centre_j20
                                 pb_image, pixel_scale_arcsec, pixel_value, region_peak,
                                 separation_arcsec, sky_to_pixel, to_arcsec)
 from classes.constants import (DETECTION_SEARCH_BEAMS, DETECTION_SIGMA, DR_WARN_RATIO,
-                               FIT_BOX_BEAMS, FIT_BOX_MAX_IMAGE_FRACTION, FIT_BOX_MIN_PIXELS,
-                               FIT_MIN_SNR, FIT_TARGET_BOX_BEAMS, LOW_FREQUENCY_BANDS,
-                               LOW_PB_WARN, NOISE_RATIO_WARN, PB_RELIABLE_FWHMS)
+                               EXPERIMENTAL_BANDS, FIT_BOX_BEAMS, FIT_BOX_MAX_IMAGE_FRACTION,
+                               FIT_BOX_MIN_PIXELS, FIT_MIN_SNR, FIT_TARGET_BOX_BEAMS,
+                               LOW_FREQUENCY_BANDS, LOW_PB_WARN, NOISE_RATIO_WARN,
+                               PB_RELIABLE_FWHMS, PB_RELIABLE_FWHMS_BAND)
 from pre_calibration.options_class import Options
 
 #see image_data: astropy's unit attributes are built dynamically, so u.Unit() is
@@ -85,7 +86,7 @@ def fit_best_image(options: Options, image):
       image, header, measured_on = field, field.header(), 'target outlier field'
       rms = image.off_source_rms()
       target = locate_target(options, image, header)
-  record = {**image.measurements(), **_noise_check(options, rms),
+  record = {**experimental(options), **image.measurements(), **_noise_check(options, rms),
             'flux_scale': flux_scale(options), 'measured_on': measured_on}
   if target and target['in_image']:
     detection = detect(image, target, rms, header, _sigma(options))
@@ -220,9 +221,13 @@ def _field_warnings(options, record):
   plan = getattr(options, 'image_plan', None) or {}
   sep = (record.get('target') or {}).get('separation_from_pointing_arcsec')
   fwhm = plan.get('pb_fwhm_arcsec')
-  if sep and fwhm and sep > PB_RELIABLE_FWHMS * fwhm:
+  limit = PB_RELIABLE_FWHMS_BAND.get(band, PB_RELIABLE_FWHMS)
+  if sep and fwhm and sep > limit * fwhm:
+    #2x is the L-band measurement behind the default; a band's own limit is where CASA's
+    #model and that band's beam part by more than 10% (P: 131' against 150')
+    how = 'by more than 10%' if band in PB_RELIABLE_FWHMS_BAND else 'by 2x or more'
     warnings.append(f"target {sep / fwhm:.2f} primary-beam FWHMs from the pointing: beyond "
-                    f"~{PB_RELIABLE_FWHMS} FWHM CASA's beam model is uncertain (by 2x or more), "
+                    f"~{limit} FWHM CASA's beam model is uncertain ({how}), "
                     f"so the beam-corrected flux is too")
   brightest, rms = plan.get('brightest_field_source_jy'), record.get('rms_jy_per_beam')
   if brightest and rms and brightest >= DR_WARN_RATIO * rms:
@@ -249,6 +254,13 @@ def _target_field(options, image):
   if not path:
     return None
   return Image(options, imstat_dict(imagename=path), base=base)
+
+
+def experimental(options):
+  '''{'experimental': 'P band'} for a run in an experimental band (EXPERIMENTAL_BANDS), so
+  its record can never be read as a vetted one; {} for every other band.'''
+  band = getattr(options, 'band', '')
+  return {'experimental': f"{band} band"} if band in EXPERIMENTAL_BANDS else {}
 
 
 def flux_scale(options):
@@ -379,6 +391,9 @@ def fit_source(image, rms=None, box='', logfile=None, residual=None) -> dict[str
 def print_summary(record):
   '''One human-readable block at the end of a run, to stdout and the CASA log.'''
   lines = _target_lines(record)
+  if record.get('experimental'):
+    lines.insert(0, f"*** EXPERIMENTAL: {record['experimental'].upper()} *** unvetted: "
+                    f"check this measurement by hand before using it")
   if record.get('measured_on') == 'target outlier field':
     lines.append("  (the target is outside the main image: measured in its own outlier field)")
   for warning in record.get('field_warnings') or []:

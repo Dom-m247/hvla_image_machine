@@ -9,7 +9,7 @@ from classes.source_class import source_info
 from classes.Loading_Animation import LoadingAnimation
 from classes.constants import *
 from classes import *
-from classes import run_log
+from classes import decisions, run_log
 from pre_calibration.options_class import Options #self referential problem/
 from pathlib import Path
 
@@ -243,6 +243,9 @@ def _ms_rows(table):
 
 def pre_data_calibration(options:Options):
   """extract and clean necessary info for data calibration"""
+  #a band set up front (GUI, CLI, import.json) is known already: an experimental one with
+  #nobody at it stops here, before the import (set_calibrators checks a derived band)
+  decisions.require_attended(options)
   #radio_search downloads a list of raw archive files; otherwise use the single archive/MS path
   archive = options.archive_files if options.archive_files else options.archive_file
   list_obs = convert_to_ms(archive,options)
@@ -336,7 +339,9 @@ def build_setjy(options):
              reffreq=manual['reffreq'],usescratch=True,scalebychan=True,spw='')
     return
   use_model = options.flux_cal.model
-  ct.setjy(vis=visfile,field=amp_field,standard='Perley-Butler 2013',model=use_model,usescratch= True,scalebychan=True,spw='')
+  #2013 for the bands it is fitted over, 2017 (down to 50 MHz) for P band
+  standard = FLUX_STANDARD_BAND.get(options.band, FLUX_STANDARD)
+  ct.setjy(vis=visfile,field=amp_field,standard=standard,model=use_model,usescratch= True,scalebychan=True,spw='')
 
 def generate_file_names(options:Options):
   ''' set a variable that can be used to better generate filenames'''
@@ -391,6 +396,9 @@ def set_calibrators(options:Options):
   #or honors a user-set band), which the flux-cal assessment then relies on.
   #Each source_info applies its own decision mode (see classes/decisions.py).
   options.source_ids = source_info(options,type="target",name=options.source)
+  #the band is settled from here on: an experimental one needs a person at the run
+  #before anything is calibrated (or asked of them)
+  decisions.require_attended(options)
   options.flux_cal = source_info(options,type="flux_calibrator")
   options.source_ids.check_target_as_phase_cal(options)
   if not options.target_is_phase_cal:

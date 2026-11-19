@@ -5,6 +5,10 @@ is False for the whole run, so every mid-run prompt (calibrator pickers, flaggin
 review, self-cal steps, RMS region, test-image loop) resolves itself instead of
 blocking. The harness therefore drives the pipeline the same way a user replaying
 a saved run does -- it just writes the recipe first.
+
+An experimental band (P) is the exception: the pipeline runs one only with a person
+at the display and terminal (decisions.require_attended), and then asks as an
+interactive run would. An unattended sweep never starts one (selection.attended_only).
 """
 import json
 from pathlib import Path

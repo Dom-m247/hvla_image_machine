@@ -7,9 +7,11 @@ every prompt is a terminal prompt.
 A recorded answer (from import.json) pre-empts the prompt entirely -- see resolved():
 an imported run must replay hands-free, never re-asking what it already knows.
 """
+import os
+import sys
 from typing import Any, Callable, Sequence, TypeVar
 
-from classes.constants import DECISIONS, AUTO
+from classes.constants import DECISIONS, AUTO, OFF, VERIFY, EXPERIMENTAL_BANDS
 from classes import run_log
 
 T = TypeVar('T')
@@ -30,8 +32,62 @@ def resolved(options, name):
 
 
 def is_interactive(options) -> bool:
-    """False when the run must not block on a person (an imported replay)."""
+    """False when the run must not block on a person (an imported replay). A run that
+    require_attended let through is the exception: it has a person at it even under
+    --importRun (the attended harness), so it asks."""
+    if getattr(options, 'attended', False):
+        return True
     return not getattr(getattr(options, 'sysArgs', None), 'importRun', False)
+
+
+def why_unattended() -> str:
+    """What keeps a person from taking part in this run, or '' when one can: the
+    clean-mask viewer and plotms need a display, the prompts a terminal on stdin."""
+    missing = []
+    if not os.environ.get('DISPLAY'):
+        missing.append('no DISPLAY')
+    if not (sys.stdin and sys.stdin.isatty()):
+        missing.append('no terminal on stdin')
+    return ' and '.join(missing)
+
+
+def require_attended(options):
+    """An experimental band (EXPERIMENTAL_BANDS) runs only with a person at it.
+
+    Without one -- an unattended harness run, a piped or remote replay -- the run stops
+    here, before anything is calibrated. With one, the run shows them what matters:
+    cleaning is interactive (they draw the masks), and automatic flagging becomes
+    'verify', so they keep or revert the flags after the plotms check instead of the
+    run accepting them unseen. Called again once the band is derived; acts once."""
+    band = getattr(options, 'band', '')
+    if band not in EXPERIMENTAL_BANDS or getattr(options, 'attended', False):
+        return
+    if missing := why_unattended():
+        sys.exit(f"Stopping: {band} band is experimental and runs only attended, at a display "
+                 f"and a terminal (the GUI, --cli, or the harness's lightcurve_deep preset), "
+                 f"and this run has {missing}.")
+    options.attended = True
+    forced = []
+    if not getattr(options, 'interactive_image', False):
+        options.interactive_image = True
+        forced.append('interactive cleaning (you draw the masks)')
+    flagging = mode(options, 'flagging')
+    if flagging == AUTO:
+        options.decisions['flagging'] = VERIFY
+        forced.append("flagging 'verify' (keep or revert the flags after the plotms check)")
+    elif flagging == OFF:
+        print(f"WARNING: flagging is off; {band}-band data are rarely free of RFI.")
+        run_log.note('EXPERIMENTAL', 'Flagging', "OFF as requested -- nothing was reviewed")
+    print('\n' + '*' * 78)
+    print(f"*** EXPERIMENTAL: {band} BAND ***  unvetted: this run must stay attended.")
+    if forced:
+        print(f"Set for it: {'; '.join(forced)}.")
+    print('*' * 78 + '\n')
+    run_log.note('EXPERIMENTAL', 'Attended', 'display and terminal present; '
+                 + ('; '.join(forced) if forced else 'interactive cleaning and flag review '
+                                                    'were already chosen'))
+    run_log.event(f"{band} band is experimental: attended run"
+                  + (f"; set {'; '.join(forced)}" if forced else ''))
 
 
 def announce(name, chosen, detail=''):

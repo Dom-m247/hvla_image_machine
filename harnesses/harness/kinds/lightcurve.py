@@ -6,7 +6,7 @@ runs attended. After every pass the epochs' source fits are plotted over time
 (lightcurve_plot).
 """
 from .. import lightcurve_plot
-from ..selection import observation_date, within_size
+from ..selection import attended_only, observation_date, within_size
 
 NAME = 'lightcurve'
 DEFAULT_PRESET = 'lightcurve'
@@ -20,8 +20,11 @@ def choose(selector, target, options):
   selections, rejected = selector.select_all(
     target.name, target.projects or options['projects'], options['bands'],
     max_sep_arcsec=options['max_sep_arcsec'])
+  selections = sorted(selections, key=observation_date)
+  #an experimental band's epochs only run attended: an unattended sweep lists them as skipped
+  selections, held = attended_only(selections, options['attended'])
   selections, too_big = within_size(selections, options['max_gb'])
-  return sorted(selections, key=observation_date), rejected + too_big
+  return selections, rejected + held + too_big
 
 
 def summarize(sweep):
